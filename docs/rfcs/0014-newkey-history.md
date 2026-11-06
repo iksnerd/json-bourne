@@ -163,11 +163,18 @@ type HistoryDetector interface {
 
 ## Open questions
 
-1. **Severity.** The downstream rule gave this reason `critical`. `newkey` has no severity setting. Should `history` carry its own severity, or should a general floor like RFC 0011's `min_severity` come to `newkey`? Decides: the maintainer.
-2. **The second entry point.** Is `HistoryDetector` plus a type assertion acceptable, or should `Detect` take a history argument for every detector? Decides: the maintainer.
-3. **`phrase` at all.** Given it errs toward quiet, should only `term` be allowed, with the downstream index gaining a keyword field for the client address? Decides: the maintainer, after checking what the real index offers.
-4. **Cost.** What does an unfiltered 7 day `filters` aggregation cost on the real index? `track_total_hits` does not bound an aggregation. Decides: the author, with one measurement on real data.
-5. **The caps.** `max_candidates` 50 is chosen from one deployment (median 0, 95th percentile 2, maximum 3 candidates per hourly window). Decides: the maintainer, after a week on real data.
+Decided on 2026-11-06 by the maintainer, in a grilling session:
+
+1. **Worth owning in jb.** Yes. A filtered source cannot count what its filter dropped, so "new against long history" is not expressible today for any deployment of this kind. The cost is one optional port, one Kibana implementation and an opt-in block.
+2. **Severity.** `newkey` gains `min_severity` and `note` with the design of RFC 0011, as a separate small change shipped with this one. This RFC adds no severity setting.
+3. **The second entry point.** Keep `HistoryDetector` with a type assertion in `internal/app`. A test forces that a `newkey` with `history` never runs through plain `Detect`.
+4. **`phrase` matching.** Allowed. `mode` has no default, the finding records it, and the docs state that `phrase` errs toward quiet. An index with a keyword field should use `term`.
+5. **Baseline.** History replaces the preceding-window baseline. A user who wants both runs two detectors.
+
+Still open:
+
+6. **Cost.** What does an unfiltered 7 day `filters` aggregation cost on the real index? `track_total_hits` does not bound an aggregation. Decides: the author, with one measurement on real data from the downstream operator.
+7. **The caps.** `max_candidates` 50 is chosen from one deployment (median 0, 95th percentile 2, maximum 3 candidates per hourly window). Decides: the maintainer, after the measurement in 6 and a week on real data.
 
 ## Conformance
 
