@@ -332,6 +332,16 @@ func (h *Host) await(ctx context.Context, p *proc, what string, timer *time.Time
 			return m.line, nil
 		case err := <-werr:
 			if err != nil {
+				// A child that exited makes the write fail and closes its stdout. Which
+				// the select sees first is a race, so give the exit a moment to arrive:
+				// the exit status says more than "broken pipe".
+				select {
+				case _, ok := <-p.lines:
+					if !ok {
+						return nil, h.wrap(p, "%s: stdout closed (%s)", what, p.exitText())
+					}
+				case <-time.After(250 * time.Millisecond):
+				}
 				return nil, h.wrap(p, "%s: writing the request: %v", what, err)
 			}
 			werr = nil
