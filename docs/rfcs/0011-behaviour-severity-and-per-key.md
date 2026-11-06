@@ -89,6 +89,21 @@ Nothing breaks. Three new optional keys are added. A config that sets none behav
 
 All in `internal/adapters/detectors/behaviour/floor_test.go`: `TestMinSeverityRaisesRareFinding`, `TestMinSeverityIsAFloorAppliedAfterBaselineDrop`, `TestMinSeverityAndNoteRefusals`, `TestMinEventsPerKeyRefusals`, `TestMinEventsPerKeyBoundary` (N-1 from one key quiet, N fires, N over N keys quiet), `TestMinEventsPerKeyCombinesWithMinEvents`, `TestHotKeyIsHashedWithHashKeys`, `TestTruncatedWithoutHotKeyIsIncompleteNotQuiet`, `TestTruncatedWithHotKeyStillFires`. The dedupe test is in `internal/app/watch_test.go`. The format test is `TestRFCsAreWellFormed` in `internal/archtest`.
 
+## Amendment: the floor on newkey
+
+Proposed 2026-11-06, not yet accepted. The rest of this RFC is accepted and merged; this section needs the maintainer's acceptance on its own.
+
+A downstream rule ported to `newkey` (RFC 0014) needs `critical`. `newkey` reports `high`, or `check` when the preceding window is empty (every key is new then, so the severity drops one step). It has no setting that raises that.
+
+`newkey` gains `min_severity` and `note` with the rules above:
+
+- `min_severity` is one of `high` or `critical`. `info`, `check` and `activity` are refused at load: a floor at or below `high` can raise only the empty-baseline case, and `activity` would lower nothing and mislead. Any unknown name is an error.
+- It is a floor: the finding severity becomes the greater of the computed one and the floor, applied after the empty-baseline drop. It can only raise.
+- `critical` requires a non-empty `note`, carried as `Detail["note"]`. `Detail["min_severity"]` is present only when the floor raised the result.
+- The tag does not change. `watchCycle` already alerts again on a raised severity under an unchanged tag (decision 5 above).
+
+The check and the field live in one helper shared by `behaviour` and `newkey`, so the two detectors cannot drift. Tests, in `internal/adapters/detectors/newkey`: the floor raises; the floor is applied after the empty-baseline drop; refusals (below `high`, unknown name, `critical` without a note); the floor never lowers a finding. Non-goals are unchanged: no per-key severity and no plain `severity` key.
+
 ## Reference implementations
 
 Proposed: the code, tests and `docs/CONFIG.md` text in the commit that adds this file.
