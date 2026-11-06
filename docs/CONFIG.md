@@ -639,6 +639,8 @@ Any failure makes the run print `INCOMPLETE`, list the addresses that got no ans
 
 Rows are appended with the time of the lookup and the feed's name (`greynoise:community`) in the `source` column; nothing is updated or deleted, so repeated runs form a time series (`jb db status` counts them). Verdict values from the feed are reduced to letters, digits and `. _ : -` and capped in length before they are stored.
 
+**Reading reputation rows.** `jb db reputation (--config FILE | --case DIR)` lists the stored rows read-only (Go: `jb.Reputation`). A row has four fields and no run id: `indicator`, `verdict`, `observed` (UTC, RFC 3339) and `source` (the feed). Rows come back by indicator, then newest first, so a verdict change reads top to bottom. Filters: `--indicator IP` (repeat, at most 100, IP addresses only), `--source NAME`, `--since TIME` (inclusive), `--until TIME` (exclusive; each an RFC 3339 time or a `YYYY-MM-DD` date, and `--since` may not be after `--until`), and `--latest`, which keeps the newest row of each indicator from each source (with `--until`, the verdict as of that time). `--limit N` caps the rows (default 1000, at most 10000); a result cut at the cap has `"truncated": true`, `"complete": false` and exits 1. With `--case`, the config is the one that declares `commands: [intel]`. The store is opened as `jb serve` opens it: never created, and a store a writer holds is waited for (`JB_DB_LOCK_WAIT`), then refused.
+
 ### `type: greynoise`
 
 Calls `GET <base_url>/v3/community/<ip>`, the GreyNoise community API, and nothing else. It is passive: it asks the feed about the address and never contacts the address. Only a syntactically valid IP is placed in a request. Redirects are not followed.

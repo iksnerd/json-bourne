@@ -8,6 +8,8 @@ import (
 	"io/fs"
 	"os"
 	"regexp"
+	"strings"
+	"time"
 
 	"github.com/iksnerd/json-bourne/internal/core"
 )
@@ -262,6 +264,65 @@ func (d *Dashboard) LatestFindings(ctx context.Context, limit int) ([]core.Store
 		return nil, err
 	}
 	return scanFindings(rows)
+}
+
+var _ core.ReputationReader = (*Dashboard)(nil)
+
+// Reputation returns the rows f selects, by indicator, then newest first, then source.
+// Every value is a bound parameter; only the number of placeholders is built.
+func (d *Dashboard) Reputation(ctx context.Context, f core.ReputationFilter) ([]core.Reputation, error) {
+	if f.Limit <= 0 {
+		return nil, errors.New("reputation: limit must be positive")
+	}
+	var (
+		where []string
+		args  []any
+	)
+	if len(f.Indicators) > 0 {
+		where = append(where, "indicator IN ("+strings.TrimSuffix(strings.Repeat("?,", len(f.Indicators)), ",")+")")
+		for _, i := range f.Indicators {
+			args = append(args, i)
+		}
+	}
+	if f.Source != "" {
+		where = append(where, "source = ?")
+		args = append(args, f.Source)
+	}
+	if !f.Since.IsZero() {
+		where = append(where, "observed_at >= CAST(? AS TIMESTAMPTZ)")
+		args = append(args, f.Since.UTC().Format(time.RFC3339Nano))
+	}
+	if !f.Until.IsZero() {
+		where = append(where, "observed_at < CAST(? AS TIMESTAMPTZ)")
+		args = append(args, f.Until.UTC().Format(time.RFC3339Nano))
+	}
+	cond := ""
+	if len(where) > 0 {
+		cond = " WHERE " + strings.Join(where, " AND ")
+	}
+	q := `SELECT indicator, verdict, observed_at, source FROM reputation` + cond
+	if f.Latest {
+		q = `SELECT indicator, verdict, observed_at, source FROM (
+			SELECT *, row_number() OVER (PARTITION BY indicator, source ORDER BY observed_at DESC) AS rn
+			FROM reputation` + cond + `) WHERE rn = 1`
+	}
+	q += ` ORDER BY indicator, observed_at DESC, source LIMIT ?`
+	args = append(args, f.Limit)
+	rows, err := d.s.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []core.Reputation
+	for rows.Next() {
+		var r core.Reputation
+		if err := rows.Scan(&r.Indicator, &r.Verdict, &r.Observed, &r.Source); err != nil {
+			return nil, err
+		}
+		r.Observed = r.Observed.UTC()
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // LatestReputation returns the newest reputation snapshots, at most limit.
