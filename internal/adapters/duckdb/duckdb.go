@@ -121,6 +121,8 @@ type Store struct {
 	path     string
 	readOnly bool
 	mu       sync.Mutex
+	// tempDir is set only for a store made by OpenTemp; Close removes it.
+	tempDir string
 }
 
 // Open opens (creating if needed, when writable) the database at path, waiting for a
@@ -167,8 +169,38 @@ func OpenContext(ctx context.Context, path string, readOnly bool, opt OpenOption
 	return s, nil
 }
 
-// Close releases the database.
-func (s *Store) Close() error { return s.db.Close() }
+// Close releases the database. For a store made by OpenTemp it also removes the
+// private directory, whether or not closing the database succeeded.
+func (s *Store) Close() error {
+	err := s.db.Close()
+	if s.tempDir != "" {
+		if rerr := os.RemoveAll(s.tempDir); err == nil {
+			err = rerr
+		}
+	}
+	return err
+}
+
+// TempDir is the private directory of a store made by OpenTemp, or "" for a file store.
+func (s *Store) TempDir() string { return s.tempDir }
+
+// OpenTemp opens a store in a new directory made with os.MkdirTemp (mode 0700) in the
+// system temporary directory. It is the same store as any other: the caller migrates
+// it and runs the same code over it. Close removes the directory; if opening fails the
+// directory is removed here. The caller owns the store and must Close it on every path.
+func OpenTemp(ctx context.Context) (*Store, error) {
+	dir, err := os.MkdirTemp("", "jb-nostore-")
+	if err != nil {
+		return nil, fmt.Errorf("create temporary store dir: %w", err)
+	}
+	s, err := OpenContext(ctx, filepath.Join(dir, "jb.duckdb"), false, OpenOptions{})
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, err
+	}
+	s.tempDir = dir
+	return s, nil
+}
 
 // Path is the file backing this store.
 func (s *Store) Path() string { return s.path }

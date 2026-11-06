@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
@@ -99,6 +98,11 @@ type HuntOptions struct {
 	Env Env
 	// Now is the clock. Nil means time.Now.
 	Now func() time.Time
+	// NoStore runs the same hunt over a private temporary store that is deleted before
+	// the function returns, so nothing is written to the evidence database and
+	// [Result.Stored] is false. Detectors then see only the events this run fetched,
+	// not those saved by earlier runs, so a result can differ from a stored run.
+	NoStore bool
 }
 
 // Hunt fetches the window and its baseline, stores both as evidence, runs every enabled
@@ -145,10 +149,10 @@ func HuntCase(ctx context.Context, caseDir string, opts CaseHuntOptions) (*Resul
 	if opts.Window == 0 {
 		opts.Window = plan.Window
 	}
-	return hunt(ctx, cfg, opts.HuntOptions)
+	return hunt(ctx, cfg, opts.HuntOptions, plan.Case.Dir, plan.Case.EvidenceDir())
 }
 
-func hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
+func hunt(ctx context.Context, cfg *Config, opts HuntOptions, keepOut ...string) (*Result, error) {
 	if opts.Window < 0 {
 		return nil, usagef("window must be positive, got %s", opts.Window)
 	}
@@ -174,14 +178,11 @@ func hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 	}
 	defer rt.Close() // ends any plugin child process
 
-	st, err := duckdb.OpenContext(ctx, cfg.StorePath(), false, duckdb.OpenOptions{})
+	st, err := config.OpenRunStore(ctx, cfg, opts.NoStore, keepOut...)
 	if err != nil {
-		return nil, fmt.Errorf("jb: open database: %w", err)
+		return nil, fmt.Errorf("jb: %w", err)
 	}
-	defer st.Close()
-	if _, err := st.Migrate(); err != nil {
-		return nil, fmt.Errorf("jb: migrate database: %w", err)
-	}
+	defer st.Close() // removes the scratch store of NoStore
 
 	scopes := map[string][]string{}
 	for _, d := range rt.Detectors {
@@ -199,7 +200,7 @@ func hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 
 	res, herr := app.Hunt(ctx, app.Deps{
 		Sources: rt.Sources, Detectors: rt.Detectors, Scopes: scopes,
-		Sink: st, Reader: st, Disabled: disabled,
+		Sink: st, Reader: st, Disabled: disabled, Scratch: opts.NoStore,
 	}, run, w)
 	res.Until = opts.Until
 	return &res, herr

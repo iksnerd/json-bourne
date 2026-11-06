@@ -7,10 +7,12 @@ import (
 	"reflect"
 	"slices"
 	"sort"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/iksnerd/json-bourne/internal/casefile"
+	"github.com/iksnerd/json-bourne/internal/core"
 )
 
 // Description is a config as plain data: what a run would read, judge and send,
@@ -236,7 +238,7 @@ type CaseShow struct {
 	Description
 }
 
-// ShowCase loads the case, chooses the config as ChooseCaseConfig does, places the
+// ShowCase loads the case, chooses the config (see chooseShown), places the
 // store as a hunt would, and describes the result. It runs no git command, reads no
 // environment variable, opens no store and reads nothing under evidence/.
 func ShowCase(dir, cfgFlag string) (*CaseShow, error) {
@@ -244,7 +246,7 @@ func ShowCase(dir, cfgFlag string) (*CaseShow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("case %s: %w", dir, err)
 	}
-	p, err := ChooseCaseConfig(c, cfgFlag)
+	p, err := chooseShown(c, cfgFlag)
 	if err != nil {
 		return nil, err
 	}
@@ -262,4 +264,29 @@ func ShowCase(dir, cfgFlag string) (*CaseShow, error) {
 	}
 	out.Description = f.Describe()
 	return out, nil
+}
+
+// chooseShown picks the config `case show` describes. No command stands for it, so the
+// `commands:` rule does not apply: --config names one, else the case's only config.
+// More than one listed config is a usage error that shows each with its commands.
+func chooseShown(c *casefile.Case, flag string) (string, error) {
+	if flag != "" {
+		return ChooseCaseConfig(c, flag, "")
+	}
+	switch len(c.Config) {
+	case 0:
+		return "", core.Usagef("case %s lists no config: pass --config FILE (a file inside the case)", c.ID)
+	case 1:
+		return filepath.Join(c.Dir, filepath.FromSlash(c.Config[0])), nil
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "case %s lists %d configs, pass --config with one of these:", c.ID, len(c.Config))
+	for _, rel := range c.Config {
+		list := "no commands declared"
+		if cmds, err := LoadCommands(filepath.Join(c.Dir, filepath.FromSlash(rel))); err == nil && len(cmds) > 0 {
+			list = "commands: " + strings.Join(cmds, ", ")
+		}
+		fmt.Fprintf(&b, "\n  %s  (%s)", rel, list)
+	}
+	return "", core.Usagef("%s", b.String())
 }

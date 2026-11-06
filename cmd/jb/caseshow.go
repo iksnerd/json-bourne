@@ -36,7 +36,7 @@ func newCaseShowCmd() *cobra.Command {
 			}
 			r, err := config.ShowCase(caseDir, cfgName)
 			if err != nil {
-				return asUsage(err)
+				return err
 			}
 			if output == "json" {
 				enc := json.NewEncoder(cmd.OutOrStdout())

@@ -928,6 +928,8 @@ In `jb hunt --case DIR` the order is different: an empty `store.path` means `<ca
 | `alerts` | list of alert | Everything delivered this cycle, health alerts first. Each has `kind`, `tag`, `severity`, `text`, `at`, and `detector`, `run`, `watcher` when set. |
 | `pruned` | object or null | `runs`, `events`, `findings` removed by retention; null when it did not run or failed. |
 
+`jb hunt --no-store` and `jb activity --no-store` do not use this path at all. They run the same code over a private temporary store (a `jb-nostore-*` directory, mode 0700, in `TMPDIR`) that is deleted when the command returns. The evidence database is not opened, created or changed, and a `TMPDIR` inside the case is refused. The output says `not stored: this run left no evidence` (`"stored": false` in JSON; `true` for a stored run). Detectors then see only the events this run fetched, not those saved by earlier runs, so a result can differ from a stored run. Not offered on `watch`, `db`, `actor`, `estate`, `intel` or `serve`. See [RFC 0009](rfcs/0009-no-store.md).
+
 ### Several watchers on one case
 
 `jb watch --name NAME` (`^[a-z][a-z0-9_-]{0,31}$`) lets one case hold several watch profiles, each with its own `--config`. Without `--name` nothing changes. With it, everything the watcher owns is named after it:

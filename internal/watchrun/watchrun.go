@@ -58,7 +58,7 @@ func RunDeps(rt *config.Runtime, dets []core.Detector, st *duckdb.Store) app.Dep
 			scopes[d.Name()] = sc
 		}
 	}
-	return app.Deps{Sources: rt.Sources, Detectors: dets, Scopes: scopes, Sink: st, Reader: st, Disabled: Disabled(rt)}
+	return app.Deps{Sources: rt.Sources, Detectors: dets, Scopes: scopes, Sink: st, Reader: st, Disabled: Disabled(rt), Scratch: st.TempDir() != ""}
 }
 
 // Disabled is what the config switched off, as the use cases carry it into a result.
