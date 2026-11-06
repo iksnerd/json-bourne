@@ -9,7 +9,7 @@ import (
 
 func TestCaseShowDescribesTheExampleCase(t *testing.T) {
 	t.Setenv("JB_KIBANA_API_KEY", "value-that-must-not-appear")
-	got, err := jb.CaseShow("examples/case", jb.CaseShowOptions{})
+	got, err := jb.CaseShow("examples/case", jb.CaseShowOptions{Config: "config/hunt.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,7 +9,7 @@ import (
 
 func TestCaseShowExampleJSON(t *testing.T) {
 	d := testDeps(map[string]string{"JB_KIBANA_API_KEY": secretKey})
-	code, stdout, stderr := run(t, d, "case", "show", "--case", exampleCase, "--output", "json")
+	code, stdout, stderr := run(t, d, "case", "show", "--case", exampleCase, "--config", "config/hunt.yaml", "--output", "json")
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}

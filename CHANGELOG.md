@@ -4,7 +4,19 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Breaking
+- `jb case check DIR` is now `jb case check --case DIR`; the positional directory is removed (RFC 0007).
+- A config file may declare `commands:`; a case with several configs picks the one that declares the command, and the error otherwise lists every config with its commands. A config with `commands:` is refused by an older `jb` as an unknown key (RFC 0008). `examples/case` now lists two configs.
+- `config.UsageError` is removed (internal); use `core.IsUsage`. The unset-credential error now continues after "is not set" with a hint (RFC 0005).
+- `jb watch --output json` without `--once` is a usage error. `evidence/` gains a `watch-status[.NAME].json` file per watcher, and `runlock.Acquire` retries a refusal for up to 40 ms (RFC 0006).
+- The mapper protocol and the file formats carry no compatibility promise before a public release (CONTRIBUTING.md); RFC 0004 is withdrawn.
+
 ### Added
+- `jb.UsageError` and `jb.IsUsage` tell a Go caller a caller mistake from a failure; the CLI's exit 2 uses the same type. `--output table|json` on `watch --once` (cycle report), `db status`, `db rename-source`, `db compact` and `estate promote`. `jb activity --help` explains its fixed 24h window (RFC 0005).
+- `jb watch` writes a machine-readable status record (`watch-status[.NAME].json`, `jb.watch-status/v1`); `jb watch status` and `jb.WatchStatus` report each watcher as running, stale, stopped or unknown (RFC 0006).
+- `jb case show --case DIR` and `jb.CaseShow` print what one config of a case would run, without reading the environment (RFC 0007).
+- `jb hunt` and `jb activity` gain `--no-store` (Go: `NoStore`): the same run over a private temporary store that is deleted on return; the output says `not stored`, and hunt and activity JSON gain a `stored` field (RFC 0009).
+- docs/rfcs/0005 to 0009 (drafts) and 0010 (operations, draft).
 - docs/rfcs/README.md, docs/spec/README.md and docs/rfcs/0000-template.md: the RFC process, the index of specs and the RFC template. A test in `internal/archtest` checks the form of every RFC.
 - docs/rfcs/0001-estate-v2.md: a draft RFC for `jb.estate/v2` (per-host facts, separate assessments, a `service` node kind, live overlays in the dashboard). Not accepted; nothing in it is implemented.
 - docs/rfcs/0002-mapper-plugin-protocol-v1.md: back-fill RFC for the mapper plugin protocol at `v: 1` (scope, reasons, limits, trust model, drawbacks, conformance). The normative text stays in docs/PLUGINS.md.
