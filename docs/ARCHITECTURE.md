@@ -147,7 +147,7 @@ A hunt stores its window and the baseline before it, so a watch writes that much
 
 ## Decisions about other plugin specifications
 
-How `jb` relates to the maintainer's draft plugin specifications (independent, own frozen mapper protocol, built-in dashboard, no action role) is one ADR: [adr/0001-relationship-to-other-plugin-specifications.md](adr/0001-relationship-to-other-plugin-specifications.md).
+How `jb` relates to the maintainer's draft plugin specifications (independent, own mapper protocol, built-in dashboard, no action role) is one ADR: [adr/0001-relationship-to-other-plugin-specifications.md](adr/0001-relationship-to-other-plugin-specifications.md).
 
 ## Mapper plugins
 

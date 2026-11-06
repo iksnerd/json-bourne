@@ -248,11 +248,10 @@ Each rule is checked by the loader and has a corpus case in `internal/casefile/t
 
 Also: `case.yaml` MUST be a single YAML document and at most 1 MiB; `Load` refuses an empty file.
 
-## 7. Versioning and compatibility
+## 7. Versioning
 
-- `apiVersion` is `jb.case/v1`. A reader MUST refuse any other value, with an error that names the value and the version it reads. The version is checked before the other keys, so a v2 file reports "unsupported apiVersion", not the first v2 key it does not know.
-- Within v1 the key set is frozen. A new key, a new enum value or a looser rule is `jb.case/v2`, because a v1 reader would refuse the file or run it under rules it did not understand. A stricter rule MAY ship in a tool release only when it rejects a case that was already unsafe. The cost is a version bump per feature; the benefit is that no reader runs a case it only half understood.
-- A tool MAY read several versions side by side. It MUST NOT guess: a file is read by the rules of its own `apiVersion`.
+- `apiVersion` is `jb.case/v1`. A reader MUST refuse any other value, with an error that names the value and the version it reads and tells the writer to rewrite the file to the current version. The version is checked before the other keys, so an old file reports "unsupported apiVersion", not the first key it does not know.
+- The number increments when the format changes incompatibly: a new key, a new enum value, or a looser or stricter rule. `jb` and one other program are the only users and nothing is public, so there is no support for old versions. A tool reads only the current version and MUST NOT guess: a file is read by the rules of its own `apiVersion`.
 - The schema and the loader move together. `schema_test.go` fails when a property name, a required key, an enum or `additionalProperties: false` differs. The schema cannot express the filesystem and credential rules; the corpus covers those.
 
 ## 8. Evidence and personal data

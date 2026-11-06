@@ -1,6 +1,6 @@
 # ADR 0001: jb's relationship to other plugin specifications
 
-Status: accepted, 2026-11-06.
+Status: accepted, 2026-11-06. Point 3 revised 2026-11-06 (the owner: no backward compatibility before a public release).
 
 ## Context
 
@@ -12,7 +12,7 @@ Status: accepted, 2026-11-06.
 
 1. **`jb` is independent of that specification.** It is not one of its hosts and does not claim to be. Becoming one would mean passing the specification's conformance corpora and publishing a profile; that is a project of its own, not a rename.
 2. **Public text says "informed by", never "conformant".** No file in this repository describes `jb` as following a draft specification, and none cites a draft's section number as a requirement.
-3. **`jb`'s mapper protocol is frozen at `v: 1` as `jb`'s own.** docs/PLUGINS.md says it is not another project's protocol. The cost of changing a wire format rises when the repository is public and other people write plugins, which is why the choice is made now: keep it as it is, and if `jb` ever needs to be a host of that family, migrate before going public, not after.
+3. **`jb`'s mapper protocol is `jb`'s own and carries no compatibility promise.** docs/PLUGINS.md says it is not another project's protocol. `jb` and one other program are the only users, so the protocol changes when the design needs it. The `v` field increments on an incompatible change, and a host reads only the current version. The first version of this decision froze the protocol at `v: 1`; the owner reversed that, because freezing a wire format before anyone outside depends on it costs more than it buys.
 4. **The `sdk` package keeps its name and stays v0.** Its documentation says it implements this protocol only. Renaming it would buy little; the migration in point 3 is where its name would change.
 5. **The dashboard is built in.** Pages that plugins could add are out of scope, and `jb` does not let plugins add pages. The estate graph is served as a neutral document (`/estate/graph.json`: nodes and edges with kind, label and provenance) so that it could become a host-drawn construct later without a rewrite. The Content-Security-Policy and the vendored scripts are `jb`'s own decision (docs/ARCHITECTURE.md, docs/THIRD-PARTY.md).
 6. **`jb` has no action role.** It is passive (docs/POLICY.md). So it has no plans, approvals or credential grants, and a feature that acts needs its own design for those first.
@@ -24,4 +24,4 @@ Status: accepted, 2026-11-06.
 
 - A reader can trust that nothing here claims more than it does, and a plugin author knows which protocol they are writing for.
 - Someone who wants one plugin to run under both `jb` and a host of that family has to write two thin adapters. That is accepted.
-- The decisions to revisit are: becoming a host (point 1, with point 3), letting plugins add pages (point 5), and any feature that acts (point 6). Each starts from the specification as it stands then, not as it stood on 2026-11-06.
+- The decisions to revisit are: becoming a host (point 1), letting plugins add pages (point 5), and any feature that acts (point 6). Each starts from the specification as it stands then, not as it stood on 2026-11-06.

@@ -35,6 +35,16 @@ go test -count=1 ./internal/archtest
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Compatibility before 1.0
+
+`jb` has two users, both ours, and nothing is public. There is no backward compatibility. Change or remove a flag, a config key, a file format, an exported identifier or the plugin protocol when the design needs it. Write no shim, no alias and no dual loader.
+
+Three things keep this safe:
+
+- A file format keeps its `apiVersion`. The number increments when the format changes incompatibly. A loader reads only the current version and tells the writer of an old file to rewrite it.
+- The evidence store keeps forward-only migrations in transactions, because evidence cannot be collected again. A build refuses a newer file. A release that adds a migration says so in the changelog and tells you to back up first.
+- Every breaking change goes in the changelog under "Breaking", with how to migrate. Tell the other user before it merges. That program pins an exact version, so it moves when it chooses.
+
 ## Rules for a change
 
 - **Red first.** Write the test, run it, and see it fail for the reason you expect before you write the fix. A test you never saw fail may be passing for the wrong reason. Say in the PR how you saw it fail.

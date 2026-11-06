@@ -1,6 +1,6 @@
 # RFC 0002: Mapper plugin protocol v1
 Status: implemented
-Scope: the design, limits and trust model of the mapper plugin protocol at `v: 1`, and the rule that it stays frozen as `jb`'s own.
+Scope: the design, limits and trust model of the mapper plugin protocol at `v: 1`, and the rule for changing it.
 Accepted: 2026-11-06 by the maintainer
 
 This is a back-fill RFC. The protocol was built before the RFC process existed. This document records the reasons and the checks of what already ships. It changes no behaviour.
@@ -119,7 +119,7 @@ The limits can be set through `plugin.Limits` in the Go API of the host. The `jb
 - **A heuristic scrub.** The host removes control characters and credential-shaped text from the plugin's stderr and error text, and cuts it to 400 characters. A plugin that wants to leak can encode around it. The scrub stops accidents only.
 - **Serial and chatty.** One request at a time, JSON encoded and decoded for every document. A heavy mapper costs throughput.
 - **No process groups off Unix.** On a platform without them, a deadline kills only the plugin itself. A plugin that forks can outlive it. Only `procgroup_unix.go` and `procgroup_other.go` implement this.
-- **Frozen means stuck.** A mistake in `v: 1` can only be fixed by a new version, with two protocols to carry for a time.
+- **A change breaks every plugin.** There is no compatibility path. With three example plugins and no outside author, the cost is three edits.
 - **Two ways to write a mapper.** A format can be a built-in mapper or a plugin. The conformance corpus keeps the two equal for the cases it covers, and no further.
 
 ## Alternatives and prior art
@@ -136,14 +136,13 @@ The limits can be set through `plugin.Limits` in the Go API of the host. The `jb
 
 ## Compatibility
 
-The protocol is frozen at `v: 1` as `jb`'s own (ADR 0001, point 3). The rule:
+The protocol is `jb`'s own and carries no compatibility promise (ADR 0001, point 3, revised on 2026-11-06). `jb` and one other program are the only users. The rule:
 
-- **No incompatible change inside `v: 1`.** A change that makes a valid v1 plugin fail, or a valid v1 response mean something else, MUST NOT ship under `v: 1`.
-- **Additions are allowed.** A host MUST ignore unknown fields in the manifest, response and event. A v1 plugin can therefore add data later without breaking an older host, and a v1 host accepts a plugin that adds data.
-- **A new version is a new `v`.** A host that meets a manifest with another `v` fails the handshake with a message that names both versions. Held by `TestHandshakeRoleAndVersionAreChecked`, which runs a plugin that announces version 2.
+- **A new incompatible protocol is a new `v`.** A host reads only the current `v`. A host that meets a manifest with another `v` fails the handshake with a message that names both versions. Held by `TestHandshakeRoleAndVersionAreChecked`, which runs a plugin that announces version 2.
+- **A host ignores unknown fields** in the manifest, response and event, so a plugin can add data without a version change.
 - **Changing the protocol needs an RFC.** Any change to the wire format, the limits or the trust rules goes through the process in [docs/rfcs/README.md](README.md).
 
-The Go package `sdk` is the plugin side. It is public and v0, and its API MAY change between minor versions (`sdk/serve.go` says so; so does CHANGELOG.md). Its wire behaviour is bound by this RFC and PLUGINS.md, not by its own version.
+The Go package `sdk` is the plugin side. It is public and v0, and its API MAY change in any release (`sdk/serve.go` says so; so does CHANGELOG.md). Its wire behaviour is bound by this RFC and PLUGINS.md, not by its own version.
 
 Changing the limits is not a protocol change, but it changes what a plugin can rely on. A plugin SHOULD be written to the limits in the table, not to the sdk's own bound (`sdk.MaxRequestLine`, 16 MiB, above the host's 8 MiB request limit).
 
@@ -212,3 +211,4 @@ The maintainer decides each one. None is fixed by this RFC, which changes no beh
 ## Changes
 
 - 2026-11-06: back-filled from the shipped protocol, `docs/PLUGINS.md` and ADR 0001. Status `implemented`.
+- 2026-11-06: the freeze at `v: 1` is removed. The protocol is versioned by `v` and a host reads only the current one (ADR 0001, point 3, revised).
