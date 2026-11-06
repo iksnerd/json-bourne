@@ -166,3 +166,39 @@ func TestMarshalEstateRefusesWhatTheLoaderWouldReject(t *testing.T) {
 		t.Errorf("got %v", err)
 	}
 }
+
+const jsonLinesImport = `{"apiVersion":"jb.estate-facts/v1","method":"synthetic tool piped through jq","source_note":"synthetic run 2026-11-05","observed":"2026-11-05T08:00:00Z"}
+{"node":"ip:192.0.2.10","key":"os","values":["linux"]}
+{"node":"host:edge.example.com","key":"tech","values":["nginx","php"],"observed":"2026-11-05T09:00:00Z"}
+`
+
+// A header line followed by one entry per line is the same import as one document.
+func TestParseFactsImportJSONLines(t *testing.T) {
+	f, err := ParseFactsImport([]byte(jsonLinesImport))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Count() != 3 || len(f.Facts) != 2 || f.Facts[1].Observed != "2026-11-05T09:00:00Z" || f.Method != "synthetic tool piped through jq" {
+		t.Fatalf("%+v", f)
+	}
+}
+
+func TestParseFactsImportJSONLinesRefusals(t *testing.T) {
+	header := `{"apiVersion":"jb.estate-facts/v1","method":"m","source_note":"s","observed":"2026-11-05T08:00:00Z"}` + "\n"
+	for name, body := range map[string]string{
+		"unknown key in an entry, named by number": header + `{"node":"ip:192.0.2.10","key":"os","values":["a"]}` + "\n" + `{"node":"ip:192.0.2.10","key":"os","values":["a"],"port":22}` + "\n",
+		"an entry that is not an object":           header + `["ip:192.0.2.10"]` + "\n",
+		"a header that already holds facts":        `{"apiVersion":"jb.estate-facts/v1","method":"m","source_note":"s","observed":"2026-11-05T08:00:00Z","facts":[{"node":"ip:192.0.2.10","key":"os","values":["a"]}]}` + "\n" + `{"node":"ip:192.0.2.10","key":"os","values":["b"]}` + "\n",
+		"a second header":                          header + header,
+		"a header with no entry":                   header,
+		"an entry with no values":                  header + `{"node":"ip:192.0.2.10","key":"os","values":[]}` + "\n",
+	} {
+		if _, err := ParseFactsImport([]byte(body)); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	_, err := ParseFactsImport([]byte(header + `{"node":"ip:192.0.2.10","key":"os","values":["a"]}` + "\n" + `{"bogus":1}` + "\n"))
+	if err == nil || !strings.Contains(err.Error(), "entry 2") {
+		t.Errorf("the failing entry is not named by number: %v", err)
+	}
+}

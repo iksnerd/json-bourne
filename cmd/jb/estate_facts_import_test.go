@@ -83,3 +83,30 @@ func TestEstateFactsImportCommandUsageErrors(t *testing.T) {
 		})
 	}
 }
+
+// "-" reads the import from standard input, in either shape, so a tool's output can be
+// piped in. The estate file changes only with --apply.
+func TestEstateFactsImportCommandReadsStandardInput(t *testing.T) {
+	lines := `{"apiVersion":"jb.estate-facts/v1","method":"synthetic tool","source_note":"synthetic run","observed":"2026-11-05T08:00:00Z"}` + "\n" +
+		`{"node":"ip:192.0.2.10","key":"os","values":["linux"]}` + "\n"
+	for name, body := range map[string]string{"document": cliImportDoc, "json lines": lines} {
+		dir := copyExampleCase(t, "")
+		estatePath := filepath.Join(dir, "estate", "example-estate.yaml")
+		before, _ := os.ReadFile(estatePath)
+		root := newRootCmdWith(testDeps(nil))
+		var out, errb strings.Builder
+		root.SetIn(strings.NewReader(body))
+		root.SetOut(&out)
+		root.SetErr(&errb)
+		root.SetArgs([]string{"estate", "facts", "import", "--case", dir, "--file", "example-estate.yaml", "-"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%s: %v\n%s", name, err, errb.String())
+		}
+		if !strings.Contains(out.String(), "dry run") || !strings.Contains(out.String(), "stdin") {
+			t.Errorf("%s: dry run output:\n%s", name, out.String())
+		}
+		if after, _ := os.ReadFile(estatePath); string(after) != string(before) {
+			t.Fatalf("%s: a dry run changed the estate file", name)
+		}
+	}
+}

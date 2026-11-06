@@ -137,3 +137,33 @@ func TestEstateFactsImportRefusesAnOversizedFile(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+// A reader replaces the file: the same import, read from a stream, in either shape.
+func TestEstateFactsImportFromAReader(t *testing.T) {
+	for name, body := range map[string]string{"document": factsImportDoc, "json lines": factsImportLines} {
+		dir := copyCase(t)
+		file := "example-estate.yaml"
+		have := estateFacts(t, dir, file)
+		res, err := EstateFactsImport(dir, "", EstateFactsImportOptions{EstateOptions: EstateOptions{File: file}, Input: strings.NewReader(body), InputName: "stdin", Apply: true})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if res.Import != "stdin" || res.Added != 3 || !res.Applied || estateFacts(t, dir, file) != have+3 {
+			t.Errorf("%s: %+v", name, res)
+		}
+	}
+}
+
+func TestEstateFactsImportReaderIsCapped(t *testing.T) {
+	dir := copyCase(t)
+	big := strings.NewReader(strings.Repeat(" ", casefile.MaxFactsImportSize+10))
+	_, err := EstateFactsImport(dir, "", EstateFactsImportOptions{EstateOptions: EstateOptions{File: "example-estate.yaml"}, Input: big, InputName: "stdin"})
+	if !IsUsage(err) || !strings.Contains(err.Error(), "larger than") {
+		t.Errorf("an oversized stream: %v", err)
+	}
+}
+
+const factsImportLines = `{"apiVersion":"jb.estate-facts/v1","method":"export of a synthetic scan store, converted by a synthetic script","source_note":"synthetic store, export dated 2026-11-05","observed":"2026-11-05T08:00:00Z"}
+{"node":"ip:192.0.2.10","key":"os","values":["linux"]}
+{"node":"host:edge.example.com","key":"tech","values":["nginx","php"]}
+`

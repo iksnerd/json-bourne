@@ -252,9 +252,9 @@ Rules:
 
 #### 4.5.2 Facts import (`jb.estate-facts/v1`, implemented)
 
-`jb estate facts import --case DIR [--file NAME] [--apply] FILE` adds facts to the nodes of an estate file from one export file the operator already holds. It reads that one file from disk. It never contacts the network, so it needs no `estate.external` switch; `docs/POLICY.md` ("The test for a source") explains why the role `scan-cache` is passive. jb reads no vendor format: the operator converts an export to this shape with a script they control.
+`jb estate facts import --case DIR [--file NAME] [--apply] FILE|-` adds facts to the nodes of an estate file from one export file, or standard input, the operator already holds. It reads that one file or stream. It never contacts the network, so it needs no `estate.external` switch; `docs/POLICY.md` ("The test for a source") explains why the role `scan-cache` is passive. jb reads no vendor format: the operator converts an export to this shape with a script they control.
 
-The import file is one JSON object, at most 1 MiB, with at most 5000 facts (values) in all. An unknown key is an error at any depth, and so is a second JSON value after the first.
+The import is one JSON object, or a header object followed by one entry object per line (JSON lines), at most 1 MiB with at most 5000 facts (values) in all. In the line form the header holds `apiVersion`, `method`, `source_note` and `observed` and no `facts`; each later line is one entry. A tool's output can then be piped in: `tool -json | jq -c '{node: ..., key: ..., values: [...]}' | jb estate facts import --case DIR -`, where `-` reads standard input (read to the same 1 MiB cap). An unknown key is an error at any depth, an entry error names the entry by number, and so is a second JSON value after a document that already holds `facts`.
 
 | Key | Required | Rules |
 |---|---|---|

@@ -26,11 +26,14 @@ func newEstateFactsImportCmd(d deps) *cobra.Command {
 	var caseDir, file, output string
 	var apply bool
 	cmd := &cobra.Command{
-		Use:   "import --case DIR [--file NAME] [--apply] IMPORT-FILE",
+		Use:   "import --case DIR [--file NAME] [--apply] IMPORT-FILE|-",
 		Short: "Add facts from an export file you hold to a node of the estate file (dry run unless --apply)",
 		Long: "import reads ONE small JSON file in a neutral shape (docs/CASE-SPEC.md section 4.5.2): the method, a\n" +
 			"source note, the time the store observed the data and, per node and key, a list of values. You convert\n" +
-			"a vendor export to that shape with a script you control; jb reads no vendor format.\n\n" +
+			"a vendor export to that shape with a script you control; jb reads no vendor format. The shape is one\n" +
+			"document, or a header object followed by one entry object per line (JSON lines). Name the file, or\n" +
+			"give - to read standard input, so a tool's output can be piped in: tool -json | jq -c ... | jb estate\n" +
+			"facts import --case DIR -\n\n" +
 			"Every fact gets the source `scan-cache` (docs/POLICY.md, \"The test for a source\"): a cache of past\n" +
 			"observations by someone else. The target observes nothing from jb. jb sends nothing anywhere and needs\n" +
 			"no estate.external switch: it reads the one file from disk, which must be at most 1 MiB and hold at\n" +
@@ -50,7 +53,12 @@ func newEstateFactsImportCmd(d deps) *cobra.Command {
 			if output != "table" && output != "json" {
 				return usageErrorf("--output must be table or json, got %q", output)
 			}
-			res, err := jb.EstateFactsImport(caseDir, args[0], jb.EstateFactsImportOptions{EstateOptions: d.estateOptions(file), Apply: apply})
+			opts := jb.EstateFactsImportOptions{EstateOptions: d.estateOptions(file), Apply: apply}
+			name := args[0]
+			if name == "-" {
+				opts.Input, opts.InputName, name = cmd.InOrStdin(), "stdin", ""
+			}
+			res, err := jb.EstateFactsImport(caseDir, name, opts)
 			if err != nil {
 				return err
 			}

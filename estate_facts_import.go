@@ -13,7 +13,7 @@ import (
 
 // EstateFactsImportNote travels with every result of [EstateFactsImport].
 const EstateFactsImportNote = "Imported facts are observations by a store someone else built (source scan-cache), as the operator's export " +
-	"states them. They are not proof, and the viewer shows each with its source and time. Nothing was sent anywhere: the import file was read from disk."
+	"states them. They are not proof, and the viewer shows each with its source and time. Nothing was sent anywhere: the import was read from the file or stream you gave."
 
 // EstateFactsImportOptions are the options of [EstateFactsImport].
 type EstateFactsImportOptions struct {
@@ -23,6 +23,11 @@ type EstateFactsImportOptions struct {
 	// Apply writes the file. The zero value is a dry run: the import is read and checked,
 	// the result says what would be added, and nothing is changed.
 	Apply bool
+	// Input, when set, is read instead of a file (the import file argument must then be
+	// empty). It is read to at most [casefile.MaxFactsImportSize] bytes. The CLI passes
+	// standard input for "-". InputName is how the result names it; empty means "stdin".
+	Input     io.Reader
+	InputName string
 }
 
 // EstateFactsImportResult is the account of one [EstateFactsImport] run.
@@ -80,14 +85,26 @@ func EstateFactsImport(caseDir, importFile string, opts EstateFactsImportOptions
 	if caseDir == "" {
 		return nil, usagef("a case directory is required")
 	}
-	if importFile == "" {
+	switch {
+	case opts.Input != nil && importFile != "":
+		return nil, usagef("give an import file or an input stream, not both")
+	case opts.Input == nil && importFile == "":
 		return nil, usagef("name the import file")
 	}
 	file := opts.file()
 	if err := checkEstateFile(file); err != nil {
 		return nil, err
 	}
-	data, err := readImportFile(importFile)
+	var data []byte
+	var err error
+	if opts.Input != nil {
+		if importFile = opts.InputName; importFile == "" {
+			importFile = "stdin"
+		}
+		data, err = readCapped(opts.Input, importFile)
+	} else {
+		data, err = readImportFile(importFile)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -133,12 +150,18 @@ func readImportFile(path string) ([]byte, error) {
 	if st, err := fh.Stat(); err != nil || !st.Mode().IsRegular() {
 		return nil, usagef("import file %s is not a regular file", path)
 	}
-	data, err := io.ReadAll(io.LimitReader(fh, casefile.MaxFactsImportSize+1))
+	return readCapped(fh, path)
+}
+
+// readCapped reads at most casefile.MaxFactsImportSize bytes of r and refuses a larger
+// input. name is how errors name it.
+func readCapped(r io.Reader, name string) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, casefile.MaxFactsImportSize+1))
 	if err != nil {
-		return nil, fmt.Errorf("read import file %s: %w", path, err)
+		return nil, fmt.Errorf("read import file %s: %w", name, err)
 	}
 	if len(data) > casefile.MaxFactsImportSize {
-		return nil, usagef("import file %s is larger than %d bytes", path, casefile.MaxFactsImportSize)
+		return nil, usagef("import file %s is larger than %d bytes", name, casefile.MaxFactsImportSize)
 	}
 	return data, nil
 }

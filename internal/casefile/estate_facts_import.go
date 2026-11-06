@@ -64,7 +64,8 @@ func (f *FactsImport) factMethod() string {
 }
 
 // ParseFactsImport decodes and validates an import file without touching the
-// filesystem or the network. An unknown key is an error at any depth.
+// filesystem or the network. An unknown key is an error at any depth. The input is one
+// JSON document, or a header object followed by one entry object per line.
 func ParseFactsImport(data []byte) (*FactsImport, error) {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return nil, errors.New("file is empty")
@@ -77,6 +78,22 @@ func ParseFactsImport(data []byte) (*FactsImport, error) {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&f); err != nil {
 		return nil, fmt.Errorf("not a valid import file (JSON object with the keys of docs/CASE-SPEC.md section 4.5.2): %w", err)
+	}
+	if dec.More() {
+		// A first object with no facts is the header of the JSON-lines form: one entry
+		// object per line follows, as a tool's output piped through a filter gives.
+		// A first object that already holds facts is the document form, and a second
+		// value after it is an error.
+		if len(f.Facts) > 0 {
+			return nil, errors.New("more than one JSON value in the file")
+		}
+		for i := 1; dec.More(); i++ {
+			var e FactsImportEntry
+			if err := dec.Decode(&e); err != nil {
+				return nil, fmt.Errorf("entry %d (the lines after the header, each one object with node, key and values): %w", i, err)
+			}
+			f.Facts = append(f.Facts, e)
+		}
 	}
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
 		return nil, errors.New("more than one JSON value in the file")
