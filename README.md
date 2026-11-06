@@ -136,9 +136,24 @@ Check completeness before calling anything clean: `Result.Complete()` (and `Sear
 | `jb db compact (--config FILE \| --case DIR) --to FILE [--apply] [--allow-outside-evidence] [--output table\|json]` | Write a compacted, verified copy of the store to a new file (DuckDB does not shrink a file after deletes). **Dry run by default**; `--apply` needs the store to itself (refused while any process holds it). `--to` must not exist and must be inside the git-ignored evidence directory; mode 0600. It never replaces the original: the swap is yours and the steps are printed. |
 | `jb serve (--case DIR \| --config FILE) [--addr 127.0.0.1:8090] [--allow-remote] [--path-field F] [--status-field F] [--key-field F]` | A read-only HTML dashboard over the evidence store: runs (a run with no stored events is shown INCOMPLETE), per-run event counts by source, kind and status, top paths (query string removed) and top keys, findings, reputation snapshots (labelled context, not attribution), the `watch.log` tail with the last cycle's verdict and the watch state, and the estate map with source, method and caveat on every node and edge. The database is opened read-only per request; no request carries SQL. Binds loopback; a non-loopback `--addr` is refused without `--allow-remote`, and there is **no authentication**. Nothing is fetched from another origin: the scripts and styles are served from the binary, so it works offline. See [docs/CONFIG.md](docs/CONFIG.md#serve). |
 | `jb operations [--tool] [--output json\|table]` | Print the definition of every operation (name, description, input schema, read-only flag, command line). `--tool` prints MCP `tools/list` entries: no `cli`, no command-line-only properties, with `readOnlyHint` and `destructiveHint`. Reads no case, store or environment. See [RFC 0010](docs/rfcs/0010-operations.md). |
+| `jb mcp [--allow NAME ...]` | Serve the operations as Model Context Protocol tools on standard input and output (revision 2025-11-25). Lists only read-only operations; `--allow NAME` (repeatable) adds a mutating one, which still needs `apply=true` in the call. See [Using jb from an agent](#using-jb-from-an-agent-mcp). |
 | `jb version` | Version, commit and build date when known, otherwise `dev`. |
 
 Exit codes: 0 success, 1 runtime failure or an incomplete hunt, 2 usage error.
+
+### Using jb from an agent (MCP)
+
+`jb mcp` lets an MCP client call the operations as tools. Add it to the client's server list (this is the shape Claude Desktop and Claude Code use):
+
+```json
+{
+  "mcpServers": {
+    "jb": { "command": "jb", "args": ["mcp"], "env": { "JB_KIBANA_API_KEY": "..." } }
+  }
+}
+```
+
+By default the server lists only read-only operations. A mutating operation appears only when you name it (`"args": ["mcp", "--allow", "db_prune"]`), and even then a call changes nothing unless it passes `apply=true`. `hunt` and `activity` are offered with the evidence store switched off. The server runs with the environment of its process, so it holds whatever credentials that process holds: give it only the ones it needs, and never put a secret in a tool argument. Result strings come from logs an attacker may have written, so the server strips control characters and cuts each string at 256 characters, and every tool description says the values are untrusted data. That does not stop a short injected sentence: keep a person able to approve or deny each tool call in the client.
 
 ## What is in the box
 

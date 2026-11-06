@@ -183,13 +183,12 @@ Proposed. None of these exists yet.
 
 ## Reference implementations
 
-Shipped: the cobra commands in `cmd/jb`, the option structs in the root package (`jb.go`, `activity.go`, `watch.go`), the usage error of RFC 0005, and steps 1 and 2 of the plan: `internal/ops` (the types, the reflector, the check, the tool projection and the decode step; standard library only, with an archtest rule), and the registry in the root package (`jb.Operations`, `jb.Call`) with `case_show` and `case_check` end to end, `jb operations [--tool]` and the committed `docs/operations.json`.
+Shipped: the cobra commands in `cmd/jb`, the option structs in the root package (`jb.go`, `activity.go`, `watch.go`), the usage error of RFC 0005, and steps 1 and 2 of the plan: `internal/ops` (the types, the reflector, the check, the tool projection and the decode step; standard library only, with an archtest rule), and the registry in the root package (`jb.Operations`, `jb.Call`) with `case_show` and `case_check` end to end, `jb operations [--tool]` and the committed `docs/operations.json`. Step 4: `internal/mcp` (the stdio server of revision 2025-11-25: initialize, ping, tools/list, tools/call, cancellation; standard library and `internal/ops` only, with an archtest rule) and `jb mcp [--allow NAME]` in `cmd/jb/mcp.go`, which lists read-only operations, adds the named mutating ones, forces `store=false` on `hunt` and `activity`, refuses `cli.only` properties, and cuts and strips result strings.
 
 Proposed, in this order, each step ending in something that runs:
 
 3. The flag builder, applied to `case show` first, then to one command at a time.
-4. `jb mcp` with the read-only operations.
-5. The remaining operations, then the mutating ones behind `--allow`.
+4. The remaining operations, then the mutating ones behind `--allow`.
 
 ## Open questions
 

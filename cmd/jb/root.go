@@ -26,7 +26,7 @@ func newRootCmdWith(d deps) *cobra.Command {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return usageErrorf("%v", err)
 	})
-	root.AddCommand(newHuntCmdWith(d), newActivityCmdWith(d), newActorCmd(), newIntelCmdWith(d), newWatchCmdWith(d), newCaseCmd(), newEstateCmdWith(d), newDBCmdWith(d), newServeCmdWith(d), newDoctorCmdWith(d), newOperationsCmd(), newVersionCmd())
+	root.AddCommand(newHuntCmdWith(d), newActivityCmdWith(d), newActorCmd(), newIntelCmdWith(d), newWatchCmdWith(d), newCaseCmd(), newEstateCmdWith(d), newDBCmdWith(d), newServeCmdWith(d), newDoctorCmdWith(d), newOperationsCmd(), newMCPCmd(), newVersionCmd())
 	return root
 }
 
