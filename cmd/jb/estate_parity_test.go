@@ -29,7 +29,7 @@ func jsonKeys(t *testing.T, raw string) []string {
 
 // wantKeys fails unless the object has exactly these keys. It pins the `--output json`
 // shape of a command: a key renamed, added or dropped fails here.
-func wantKeys(t *testing.T, what, raw string, want ...string) {
+func wantEstateKeys(t *testing.T, what, raw string, want ...string) {
 	t.Helper()
 	sort.Strings(want)
 	if got := jsonKeys(t, raw); strings.Join(got, ",") != strings.Join(want, ",") {
@@ -63,9 +63,9 @@ func TestEstateIPJSONKeysAreUnchanged(t *testing.T) {
 	dir := copyExampleCase(t, "")
 	r := &stubRDAP{errs: map[string]error{"192.0.2.10": fmt.Errorf("%w: HTTP 503", core.ErrLookupFailed)}}
 	_, out, _ := run(t, estateDeps(okPTR(), r), "estate", "--case", dir, "--output", "json", "192.0.2.10")
-	wantKeys(t, "estate", out, "note", "file", "complete", "wrote", "addresses", "added", "unchanged", "failures", "conflicts")
-	wantKeys(t, "estate added", subObject(t, out, "added"), "nodes", "edges", "absences")
-	wantKeys(t, "estate failure", firstOf(t, out, "failures"), "ip", "lookup", "error")
+	wantEstateKeys(t, "estate", out, "note", "file", "complete", "wrote", "addresses", "added", "unchanged", "failures", "conflicts")
+	wantEstateKeys(t, "estate added", subObject(t, out, "added"), "nodes", "edges", "absences")
+	wantEstateKeys(t, "estate failure", firstOf(t, out, "failures"), "ip", "lookup", "error")
 }
 
 func TestEstateExternalJSONKeysAreUnchanged(t *testing.T) {
@@ -74,9 +74,9 @@ func TestEstateExternalJSONKeysAreUnchanged(t *testing.T) {
 	st := newExtStubs()
 	st.ct.truncated = true
 	_, out, _ := run(t, st.deps(), "estate", "ct", "--case", dir, "--output", "json", "example.com")
-	wantKeys(t, "estate ct", out, "note", "notes", "service", "asked", "file", "complete", "wrote", "targets", "added", "unchanged", "failures", "conflicts")
-	wantKeys(t, "estate ct added", subObject(t, out, "added"), "nodes", "edges", "absences")
-	wantKeys(t, "estate ct failure", firstOf(t, out, "failures"), "target", "lookup", "error")
+	wantEstateKeys(t, "estate ct", out, "note", "notes", "service", "asked", "file", "complete", "wrote", "targets", "added", "unchanged", "failures", "conflicts")
+	wantEstateKeys(t, "estate ct added", subObject(t, out, "added"), "nodes", "edges", "absences")
+	wantEstateKeys(t, "estate ct failure", firstOf(t, out, "failures"), "target", "lookup", "error")
 }
 
 func TestEstateDriftJSONKeysAreUnchanged(t *testing.T) {
@@ -91,7 +91,7 @@ func TestEstateDriftJSONKeysAreUnchanged(t *testing.T) {
 	if code != exitFailure {
 		t.Fatalf("%d %s %s", code, out, errs)
 	}
-	wantKeys(t, "refresh", out, "note", "snapshot", "file", "based_on", "complete", "nodes", "edges", "absences", "services", "failures")
+	wantEstateKeys(t, "refresh", out, "note", "snapshot", "file", "based_on", "complete", "nodes", "edges", "absences", "services", "failures")
 	svc := firstOf(t, out, "services")
 	failure := firstOf(t, out, "failures")
 	// A complete snapshot to diff and promote.
@@ -100,19 +100,19 @@ func TestEstateDriftJSONKeysAreUnchanged(t *testing.T) {
 	if code, out, errs := run(t, w.deps(), "estate", "refresh", "--case", dir, "--file", "base.yaml", "--output", "json"); code != 0 {
 		t.Fatalf("%d %s %s", code, out, errs)
 	}
-	wantKeys(t, "refresh service", svc, "Name", "State", "Targets", "Reason")
-	wantKeys(t, "refresh failure", failure, "Target", "Lookup", "Reason")
+	wantEstateKeys(t, "refresh service", svc, "Name", "State", "Targets", "Reason")
+	wantEstateKeys(t, "refresh failure", failure, "Target", "Lookup", "Reason")
 	diffKeys := []string{"note", "from", "to", "questions_compared", "changes", "not_comparable", "nodes_not_compared", "counts", "findings"}
 	_, out, _ = run(t, w.deps(), "estate", "diff", "--case", dir, "--file", "base.yaml", "--output", "json")
-	wantKeys(t, "diff", out, diffKeys...)
-	wantKeys(t, "diff side", subObject(t, out, "from"), "ref", "path", "latest_observed", "nodes", "edges", "absences")
-	wantKeys(t, "diff counts", subObject(t, out, "counts"), "all", "nodes", "edges", "absences")
-	wantKeys(t, "diff counts all", subObject(t, subObject(t, out, "counts"), "all"), "added", "removed", "changed")
-	wantKeys(t, "diff finding", firstOf(t, out, "findings"), "detector", "tag", "severity", "summary", "detail")
-	wantKeys(t, "diff change", firstOf(t, out, "changes"), "kind", "type", "subject", "from", "to", "relation", "source", "method", "from_observed", "to_observed")
+	wantEstateKeys(t, "diff", out, diffKeys...)
+	wantEstateKeys(t, "diff side", subObject(t, out, "from"), "ref", "path", "latest_observed", "nodes", "edges", "absences")
+	wantEstateKeys(t, "diff counts", subObject(t, out, "counts"), "all", "nodes", "edges", "absences")
+	wantEstateKeys(t, "diff counts all", subObject(t, subObject(t, out, "counts"), "all"), "added", "removed", "changed")
+	wantEstateKeys(t, "diff finding", firstOf(t, out, "findings"), "detector", "tag", "severity", "summary", "detail")
+	wantEstateKeys(t, "diff change", firstOf(t, out, "changes"), "kind", "type", "subject", "from", "to", "relation", "source", "method", "from_observed", "to_observed")
 	_, out, _ = run(t, w.deps(), "estate", "diff", "--case", dir, "--file", "base.yaml", "--output", "json", "--alert")
-	wantKeys(t, "diff --alert", out, append(diffKeys, "alerts")...)
-	wantKeys(t, "diff alerts", subObject(t, out, "alerts"), "New", "Suppressed", "OptionalFailed")
+	wantEstateKeys(t, "diff --alert", out, append(diffKeys, "alerts")...)
+	wantEstateKeys(t, "diff alerts", subObject(t, out, "alerts"), "New", "Suppressed", "OptionalFailed")
 
 	snaps := snapshotFiles(t, dir)
 	id := strings.TrimSuffix(snaps[len(snaps)-1], ".yaml")
@@ -120,7 +120,7 @@ func TestEstateDriftJSONKeysAreUnchanged(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("%d %s %s", code, out, errs)
 	}
-	wantKeys(t, "promote", out, "promoted", "baseline", "archived")
+	wantEstateKeys(t, "promote", out, "promoted", "baseline", "archived")
 	if _, err := os.Stat(filepath.Join(dir, "estate", "archive")); err != nil {
 		t.Error(err)
 	}
@@ -130,7 +130,7 @@ func TestIntelJSONKeysAreUnchanged(t *testing.T) {
 	gn := fakeGreyNoise(t, 500)
 	dir := intelCase(t, gn, "")
 	_, out, _ := run(t, intelDeps(), "intel", "--case", dir, "--output", "json", "192.0.2.7", "192.0.2.50")
-	wantKeys(t, "intel", out, "note", "complete", "results", "failures")
-	wantKeys(t, "intel row", firstOf(t, out, "results"), "indicator", "feed", "verdict", "observed")
-	wantKeys(t, "intel failure", firstOf(t, out, "failures"), "indicator", "feed", "error")
+	wantEstateKeys(t, "intel", out, "note", "complete", "results", "failures")
+	wantEstateKeys(t, "intel row", firstOf(t, out, "results"), "indicator", "feed", "verdict", "observed")
+	wantEstateKeys(t, "intel failure", firstOf(t, out, "failures"), "indicator", "feed", "error")
 }

@@ -169,15 +169,6 @@ func DBStatus(ctx context.Context, caseDir string, opts DBOptions) (*DBStatusRes
 		Notes: s.notes}, nil
 }
 
-// utcPtr is t in UTC, or nil for the zero time.
-func utcPtr(t time.Time) *time.Time {
-	if t.IsZero() {
-		return nil
-	}
-	u := t.UTC()
-	return &u
-}
-
 // DBUsageOverlap counts the documents stored under two source labels, which a detector
 // would count twice. AtLeast is true when the count stopped at five label pairs. Error
 // says why the check did not run.
