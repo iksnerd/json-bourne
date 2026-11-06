@@ -12,6 +12,30 @@ cmd/jb  ──►  internal/config ──► internal/adapters/*   (kibana, duck
 internal/app  ───────────────────────►  internal/core   (types and ports, standard library only)
 ```
 
+Since v0.1.0 there are two public entry points besides the CLI. Both are composition roots, like `cmd/jb`, and share the wiring in `internal/watchrun` and `internal/config`:
+
+```mermaid
+flowchart TD
+    CLI["cmd/jb (CLI)"] --> WR[internal/watchrun]
+    LIB["jb (public Go API)"] --> WR
+    CLI --> CFG[internal/config]
+    LIB --> CFG
+    CLI --> APP[internal/app]
+    LIB --> APP
+    WR --> APP
+    WR --> CFG
+    CLI --> AD["internal/adapters/*"]
+    LIB --> AD
+    WR --> AD
+    CFG --> AD
+    APP --> CORE["internal/core (types and ports)"]
+    AD -->|implement ports| CORE
+    AD -. "starts, as a child process" .-> PLUG["mapper plugins (separate programs)"]
+    PLUG --> SDK["sdk (public, plugin side)"]
+```
+
+`sdk` is what a plugin author imports. It uses the standard library only and none of the host code. `jb` and `sdk` are the only packages outside `internal/` that code in other modules may import; both are v0 and may change between minor versions.
+
 | Package | Role | May import |
 |---|---|---|
 | `internal/core` | Domain types and the ports. | Standard library only. |
@@ -19,6 +43,9 @@ internal/app  ──────────────────────
 | `internal/adapters/*` | Implementations of the ports. | `core`. Never each other, never `app`. |
 | `internal/config` | Reads YAML, builds adapters, reads credentials from the environment. | `core` and adapters. Not `app`, not cobra. |
 | `internal/adapters/runlock` | The single-instance lock of `jb watch`. | The standard library only: no internal package, no network, no process, no log. |
+| `internal/watchrun` | Builds the ports of `app.Watch` and `app.Hunt` from a loaded case config (file names, lock, store open/close per operation, alert sinks). Shared by `cmd/jb` and `jb`. | `core`, `app`, `config` and adapters. |
+| `jb` (repo root) | The public Go API: `Hunt`, `HuntCase`, `Watch`, `Activity`. | Like `cmd/jb`: it wires config, watchrun, app and the store. |
+| `sdk` | The plugin side of the mapper protocol, public. | Standard library only. |
 | `cmd/jb` | The cobra CLI. Wires config, the store, the watch adapters, the web dashboard and `app.Hunt` / `app.Watch`. | Everything. |
 
 ## Ports
