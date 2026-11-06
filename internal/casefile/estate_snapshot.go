@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -217,6 +218,9 @@ func (s *EstateSnapshot) validate() error {
 		}
 		if s.Estate.APIVersion != EstateAPIVersion {
 			bad("estate.apiVersion must be %s", EstateAPIVersion)
+		}
+		if s.Estate.Subject != "" && !slices.Contains(EstateSubjects, s.Estate.Subject) {
+			bad("estate: %v", errSubject())
 		}
 	} else if err := s.Estate.validate(); err != nil {
 		errs = append(errs, fmt.Errorf("estate: %w", err))

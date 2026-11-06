@@ -9,6 +9,10 @@
   "properties": {
     "apiVersion": { "const": "jb.estate/v2" },
     "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+    "subject": {
+      "enum": ["operated", "adversary"],
+      "description": "Optional. operated: the nodes are infrastructure the case owner operates. adversary: infrastructure of an attacker or a third party seen in the evidence. Absent means unclassified. The loader cannot check that the contents match."
+    },
     "caveat": {
       "type": "string",
       "minLength": 1,

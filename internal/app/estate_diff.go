@@ -175,6 +175,13 @@ func groupEstate(e *casefile.Estate) (map[qkey]*qgroup, string) {
 	return groups, latest
 }
 
+func subjectName(s string) string {
+	if s == "" {
+		return "unclassified"
+	}
+	return s
+}
+
 func driftSide(s *casefile.EstateState, latest string) DriftSide {
 	d := DriftSide{Ref: s.Ref, Path: s.Path, Observed: latest, Nodes: len(s.Estate.Nodes), Edges: len(s.Estate.Edges), Absences: len(s.Estate.Absences)}
 	for _, n := range s.Estate.Nodes {
@@ -194,6 +201,9 @@ func DiffEstates(from, to *casefile.EstateState) (EstateDiff, error) {
 		if s.Snapshot != nil && !s.Snapshot.Complete {
 			return EstateDiff{}, fmt.Errorf("%w: %s did not finish (%d lookup(s) got no full answer); it is not a state of the estate and is never compared", ErrIncompleteSnapshot, s.Ref, len(s.Snapshot.Failures))
 		}
+	}
+	if from.Estate.Subject != to.Estate.Subject {
+		return EstateDiff{}, core.Usagef("cannot compare %s (subject %s) with %s (subject %s): an estate diff compares two files of the same subject", from.Ref, subjectName(from.Estate.Subject), to.Ref, subjectName(to.Estate.Subject))
 	}
 	gf, latestF := groupEstate(from.Estate)
 	gt, latestT := groupEstate(to.Estate)

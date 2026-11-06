@@ -217,7 +217,7 @@ func (e dashEstate) Estates(ctx context.Context) ([]core.EstateGraph, error) {
 	}
 	out := make([]core.EstateGraph, 0, len(es))
 	for _, x := range es {
-		g := core.EstateGraph{ID: x.ID, Caveat: x.Caveat}
+		g := core.EstateGraph{ID: x.ID, Subject: x.Subject, Caveat: x.Caveat}
 		for _, n := range x.Nodes {
 			en := core.EstateNode{ID: n.ID, Kind: n.Kind, Label: n.Label, Source: n.Source, Method: n.Method, Observed: n.Observed}
 			for _, f := range n.Facts {

@@ -5,6 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Added
+- An estate file takes an optional top-level `subject`, `operated` or `adversary` (absent is unclassified). Snapshots copy it and `promote` keeps it, `jb estate diff` refuses two files of different subjects with a usage error, and the Estate page groups maps under "Operated", "Adversary and third-party" and "Unclassified" without merging nodes, edges or corroboration across files (RFC 0015).
 - `jb estate facts import` reads standard input when the file is `-`, and accepts JSON lines (a header object, then one entry object per line) as well as the single document, so a tool's output can be piped in. The library takes `EstateFactsImportOptions.Input`. The 1 MiB and 5000 fact caps apply to the stream, and an entry error names the entry by number.
 
 ## [0.6.0] - 2026-11-06

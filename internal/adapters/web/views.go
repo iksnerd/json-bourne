@@ -562,11 +562,48 @@ func buildGraph(g core.EstateGraph, kinds []string, now time.Time) graphView {
 	return v
 }
 
+// The three layers of the estate page, in this order. The heading text is fixed here and
+// never taken from a file: a subject the viewer does not know falls under Unclassified
+// and is not printed (the loader accepts only operated and adversary, RFC 0015).
+const (
+	headingOperated     = "Operated"
+	headingAdversary    = "Adversary and third-party"
+	headingUnclassified = "Unclassified"
+)
+
+type graphLayer struct {
+	Heading string
+	Graphs  []graphView
+}
+
+// layersOf groups the graphs by subject. A graph is never merged with another: each keeps
+// its own nodes, edges and corroboration. A layer with no graph is left out.
+func layersOf(gs []core.EstateGraph, kinds []string, now time.Time) []graphLayer {
+	layers := []graphLayer{{Heading: headingOperated}, {Heading: headingAdversary}, {Heading: headingUnclassified}}
+	for _, g := range gs {
+		i := 2
+		switch g.Subject {
+		case "operated":
+			i = 0
+		case "adversary":
+			i = 1
+		}
+		layers[i].Graphs = append(layers[i].Graphs, buildGraph(g, kinds, now))
+	}
+	out := layers[:0]
+	for _, l := range layers {
+		if len(l.Graphs) > 0 {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
 type estatePage struct {
 	Nav, Title string
 	Note       note
 	NotWired   bool
-	Graphs     []graphView
+	Layers     []graphLayer
 	Cap        int
 	Kinds      []string // the kinds the filter keeps; empty means all
 }
@@ -627,9 +664,7 @@ func (s *server) estate(w http.ResponseWriter, r *http.Request) {
 		p.Note = note{Absent: "estate dir absent or empty: no estate file has been collected for this case (see `jb estate`)"}
 	}
 	p.Kinds = kindsOf(r)
-	for _, g := range gs {
-		p.Graphs = append(p.Graphs, buildGraph(g, p.Kinds, s.d.Now()))
-	}
+	p.Layers = layersOf(gs, p.Kinds, s.d.Now())
 	if isHX(r) {
 		s.send(w, r, http.StatusOK, estateGraphs(p))
 		return

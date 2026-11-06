@@ -187,6 +187,7 @@ An estate file is the case's map of infrastructure: which addresses, hosts, doma
 |---|---|---|---|
 | `apiVersion` | string | yes | MUST be `jb.estate/v2`. Checked before the other keys. |
 | `id` | string | yes | `^[a-z0-9][a-z0-9-]{0,62}$`. Unique across the estate directory. |
+| `subject` | string | no | `operated` (the nodes are infrastructure the case owner operates) or `adversary` (infrastructure of an attacker or a third party seen in the evidence). Absent means unclassified, which is valid. Any other value, including an empty one, is a load error that names the two valid ones. The loader checks the value, not that the contents match it. A snapshot copies the `subject` of its baseline and `promote` keeps it. `jb estate diff` refuses two files of different subjects (absent equals absent) with a usage error that names both. The dashboard draws one layer per subject and never merges nodes, edges or corroboration across files ([RFC 0015](rfcs/0015-estate-subject.md)). |
 | `caveat` | string | yes | Not empty and not only space; one line of up to 2000 bytes. It MUST say that the map shows infrastructure ownership and relationships, not who typed the commands. The loader checks that it is present, not what it says. |
 | `nodes` | list | yes | 1 to 5000 entries. |
 | `edges` | list | no | At most 20000. |

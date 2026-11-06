@@ -190,7 +190,7 @@ func RefreshEstate(ctx context.Context, d RefreshDeps, req RefreshRequest) (*cas
 		APIVersion: casefile.EstateSnapshotAPIVersion, ID: casefile.SnapshotID(taken), Taken: taken.Format(time.RFC3339),
 		BasedOn:  req.BasedOn,
 		Targets:  casefile.SnapshotTargets{Domains: union(t.DNS, t.CT), Addresses: union(t.Addresses, t.BGPIPs), ASNs: t.BGPASNs},
-		Estate:   casefile.Estate{APIVersion: casefile.EstateAPIVersion, ID: "estate", Caveat: casefile.DefaultEstateCaveat},
+		Estate:   casefile.Estate{APIVersion: casefile.EstateAPIVersion, ID: "estate", Caveat: casefile.DefaultEstateCaveat, Subject: req.Base.Subject},
 		Services: []casefile.SnapshotService{},
 	}
 	fail := func(target, lookup string, err error) {

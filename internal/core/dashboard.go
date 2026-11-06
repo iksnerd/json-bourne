@@ -136,6 +136,7 @@ type WatchStatePeeker interface {
 // EstateGraph is a loaded estate file as the dashboard shows it.
 type EstateGraph struct {
 	ID       string
+	Subject  string
 	Caveat   string
 	Nodes    []EstateNode
 	Edges    []EstateEdge
