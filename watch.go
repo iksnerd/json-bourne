@@ -44,7 +44,9 @@ type WatchOptions struct {
 	// Every is the time between cycle starts; zero means 5 minutes.
 	Every time.Duration
 	// Window is each cycle's hunt window, at least Every; zero means the case's
-	// windows.default, else one hour.
+	// windows.default, else one hour. A case's default can be long (24h): the first
+	// cycle then re-reports whatever happened inside it, so pass Window for a watch
+	// that should only look at the recent past.
 	Window time.Duration
 	// TTL is how long an alerted tag stays quiet unless its severity rises; zero means 3h.
 	TTL time.Duration
