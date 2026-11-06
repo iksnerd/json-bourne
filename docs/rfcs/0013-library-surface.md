@@ -48,13 +48,13 @@ Everything in this section is a proposal. The shipped functions are listed under
 | 1. Read-only inspection | `CaseCheck`, `Doctor`, `ActorStatus`, `DBStatus`, `DBUsage`, `Intel` | `Intel` sends addresses to a reputation feed and keeps the existing switch. |
 | 2. Estate | `EstateIP`, `EstateASN`, `EstateDNS`, `EstateCT`, `EstateDiff`, `EstateRefresh` | Collectors keep their bounds and the passive-only policy. |
 | 3. Mutating | `DBPrune`, `DBCompact`, `DBRenameSource`, `EstatePromote` | `Apply bool`; the zero value is a dry run. |
-| 4. Result types | the JSON types of every command | Moved into the library and used by the CLI, which prints them. |
+| 4. Dashboard | `DashboardHandler`, `Serve` | `DashboardHandler` returns an `http.Handler` over a read-only store, so a program can embed the dashboard. `Serve` runs it on a loopback address until the context ends. |
+| 5. Result types | the JSON types of every command | Moved into the library and used by the CLI, which prints them. |
 
-Group 4 is not a separate step in the code: each function in groups 1 to 3 moves its own result type as it is added.
+Group 5 is not a separate step in the code: each function in groups 1 to 3 moves its own result type as it is added.
 
 ### Not in this RFC
 
-- `jb serve` runs until stopped. A `DashboardHandler` that returns an `http.Handler` is a possible later addition and is not designed here.
 - A reader for stored runs and findings needs its own design.
 - Loaders and types for the case, actor and estate file formats stay internal. The JSON schemas in `schemas/` serve outside readers.
 
@@ -63,6 +63,7 @@ Group 4 is not a separate step in the code: each function in groups 1 to 3 moves
 - It does not change what any command computes, or any flag, default or exit code.
 - It does not add the registry, `jb operations` or `jb mcp` of RFC 0010.
 - It does not make any `internal/` package public.
+- It does not weaken the dashboard security model of RFC 0003: read-only store, no mutation endpoint, strict CSP.
 
 ## Drawbacks
 
@@ -104,6 +105,7 @@ Shipped before this RFC: `Hunt`, `HuntCase`, `Activity`, `Watch`, `WatchStatus`,
 
 Proposed, in groups that can be built apart:
 
+0. Group 4: `DashboardHandler` and `Serve`. The owner named `serve` a must-have on 2026-11-06.
 1. Group 1 part A: `CaseCheck`, `Doctor`, `ActorStatus`.
 2. Group 1 part B and group 3 for the database: `DBStatus`, `DBUsage`, `DBPrune`, `DBCompact`, `DBRenameSource`.
 3. `Intel` and group 2 with `EstatePromote`: the estate functions.
@@ -112,7 +114,7 @@ Proposed, in groups that can be built apart:
 
 1. **Naming.** `DBPrune` or `PruneDB`; `EstateIP` or `Estate`. Decides: the author, then the maintainer when reviewing.
 2. **Sharing result types between functions.** Several estate functions return the same graph. Decides: the author.
-3. **A `DashboardHandler`.** Is embedding the dashboard wanted? Decides: the maintainer.
+3. **Dashboard security.** `DashboardHandler` keeps the loopback-only and read-only rules of RFC 0003 and refuses a non-loopback address in `Serve`. Does the handler alone need a documented warning for a caller who mounts it elsewhere? Decides: the author.
 4. **A reader for stored evidence.** Needs its own RFC. Decides: the maintainer.
 
 ## Changes
