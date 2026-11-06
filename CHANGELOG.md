@@ -11,6 +11,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ### Added
 - Go API, one function per command (RFC 0013): `CaseCheck`, `Doctor`, `ActorStatus`, `DBStatus`, `DBUsage`, `DBPrune`, `DBCompact`, `DBRenameSource`, `Intel`, `EstateIP`, `EstateASN`, `EstateDNS`, `EstateCT`, `EstateRefresh`, `EstateDiff`, `EstatePromote`, `DashboardHandler` and `Serve`. The JSON result types of those commands now belong to the package, and the commands print them. The mutating `DB*` functions are a dry run unless `Apply` is set. See the README table.
+- `jb.Reputation` and `jb db reputation (--config FILE | --case DIR) [--indicator IP ...] [--source NAME] [--since TIME] [--until TIME] [--limit N] [--latest] [--output table|json]`: a read-only reader for the stored reputation rows (indicator, verdict, observed, source), capped at 10000 rows; a result cut at the cap is marked `truncated` and exits 1. `--latest` keeps the newest row per indicator and source.
 - `HuntOptions.Search` and `SearchField` (the `jb hunt --search` options); refusals are `jb.UsageError` and send nothing. `Result.SearchAbsent()` says a term is absent from a live index; `Result.Complete()` is unchanged.
 - `DashboardOptions.AllowedHosts`: an exact list of Host values for a handler behind a reverse proxy, so the Host check stays on (RFC 0003).
 - `jb case check` notes a command that two configs of the case declare, since `jb COMMAND --case` will then ask for `--config`.
