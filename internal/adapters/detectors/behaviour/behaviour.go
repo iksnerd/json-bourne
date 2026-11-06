@@ -73,6 +73,7 @@ import (
 
 	"github.com/iksnerd/json-bourne/internal/core"
 	"github.com/iksnerd/json-bourne/internal/piiguard"
+	"github.com/iksnerd/json-bourne/internal/severityfloor"
 )
 
 // Action classes.
@@ -187,8 +188,7 @@ type matcher struct {
 	fail      map[int]struct{}
 
 	minPerKey int
-	floor     core.Severity // 0 (SevInfo) means no floor
-	note      string
+	floor     severityfloor.Floor
 }
 
 // Detector implements core.Detector.
@@ -424,19 +424,12 @@ func buildRareOptions(m *matcher, a Action, pre string) error {
 		return nil
 	}
 	m.minPerKey = a.MinEventsPerKey
-	m.note = strings.TrimSpace(a.Note)
-	if a.MinSeverity == "" {
-		return nil
+	f, err := severityfloor.Parse(a.MinSeverity, a.Note,
+		[]core.Severity{core.SevActivity, core.SevHigh, core.SevCritical}, false)
+	if err != nil {
+		return errors.New(pre + err.Error())
 	}
-	sev, ok := core.ParseSeverity(a.MinSeverity)
-	if !ok || sev < core.SevActivity {
-		return fmt.Errorf("%smin_severity %q must be %s, %s or %s: a floor at check or info can never raise a rare finding",
-			pre, a.MinSeverity, core.SeverityName(core.SevActivity), core.SeverityName(core.SevHigh), core.SeverityName(core.SevCritical))
-	}
-	if sev == core.SevCritical && m.note == "" {
-		return errors.New(pre + "min_severity critical needs a note: say why this action is critical")
-	}
-	m.floor = sev
+	m.floor = f
 	return nil
 }
 
@@ -797,13 +790,7 @@ func (d *Detector) rare(m *matcher, c, p actTally, baselineEmpty bool, detail ma
 	if baselineEmpty {
 		sev = core.SevCheck
 	}
-	if m.floor > sev { // applied after the drop; baseline_empty stays in Detail
-		sev = m.floor
-		detail["min_severity"] = core.SeverityName(m.floor)
-	}
-	if m.note != "" {
-		detail["note"] = m.note
-	}
+	sev = m.floor.Apply(sev, detail) // applied after the drop; baseline_empty stays in Detail
 	detail["new"] = p.total == 0
 	how := "new, none in the preceding window"
 	if p.total > 0 {
