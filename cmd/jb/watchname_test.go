@@ -84,7 +84,7 @@ func TestUnnamedWatcherKeepsItsFileNamesAndTakesItsLock(t *testing.T) {
 	if code, _, stderr := run(t, testDeps(huntEnv), "watch", "--case", dir, "--once"); code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	want := []string{"watch-state.json", "watch.lock", "watch.log"}
+	want := []string{"watch-state.json", "watch-status.json", "watch.lock", "watch.log"}
 	if got := evidenceFiles(t, dir); strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("evidence holds %v, want %v", got, want)
 	}
@@ -96,7 +96,7 @@ func TestNamedWatchersUseTheirOwnFilesAndRunIDs(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	want := []string{"watch-state.attack.json", "watch.attack.lock", "watch.attack.log"}
+	want := []string{"watch-state.attack.json", "watch-status.attack.json", "watch.attack.lock", "watch.attack.log"}
 	sort.Strings(want)
 	if got := evidenceFiles(t, dir); strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("evidence holds %v, want %v and none of the unnamed watcher's", got, want)

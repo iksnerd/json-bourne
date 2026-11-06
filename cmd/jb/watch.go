@@ -141,7 +141,7 @@ func newWatchCmdWith(d deps) *cobra.Command {
 			}
 
 			deps, webhooks, err := watchrun.Deps(watchrun.Params{
-				Name: name, Evidence: evidence, Cfg: cfg, RT: rt, Env: d.env, Now: d.now,
+				Name: name, Evidence: evidence, CaseDir: plan.c.Dir, ConfigPath: plan.configPath, Cfg: cfg, RT: rt, Env: d.env, Now: d.now,
 				Out: cmd.OutOrStdout(),
 				// Advice in the cycle's own output; the cycle's status does not depend on it.
 				AfterHunt: func(ctx context.Context, st core.SourceOverlapReader, win core.Window) {
@@ -177,6 +177,7 @@ func newWatchCmdWith(d deps) *cobra.Command {
 	f.Var((*windowValue)(&repeat), "repeat", "least time between alerts for the same unchanged outage; a changed failure or a recovery alerts at once")
 	f.StringVar(&name, "name", "", "name this watcher (^[a-z][a-z0-9_-]{0,31}$): own state, log, lock and run ids, so several can watch one case; default: the unnamed watcher")
 	f.BoolVar(&once, "once", false, "run one cycle and exit; 0 when complete, 1 when incomplete or failed")
+	cmd.AddCommand(newWatchStatusCmd(d))
 	return cmd
 }
 

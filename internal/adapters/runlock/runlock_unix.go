@@ -8,14 +8,48 @@ import (
 	"os"
 	"strconv"
 	"syscall"
+	"time"
 )
+
+// A probe (Probe) holds a shared lock for an instant, which refuses an exclusive request
+// made in that instant. Acquire asks again a few times before it calls the lock held.
+const (
+	acquireTries = 4
+	acquireWait  = 10 * time.Millisecond
+)
+
+func probe(path string) (Holder, error) {
+	f, err := os.Open(path) // #nosec G304 -- see readPID
+	if errors.Is(err, os.ErrNotExist) {
+		return Holder{}, nil
+	}
+	if err != nil {
+		return Holder{}, fmt.Errorf("open lock file: %w", err)
+	}
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_SH|syscall.LOCK_NB); err != nil {
+		if errors.Is(err, syscall.EWOULDBLOCK) {
+			return Holder{Held: true, PID: readPID(path)}, nil
+		}
+		return Holder{}, fmt.Errorf("probe %s: %w", path, err)
+	}
+	syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	return Holder{}, nil
+}
 
 func acquire(path string, pid int) (*Lock, error) {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600) // #nosec G304 -- see readPID
 	if err != nil {
 		return nil, fmt.Errorf("open lock file: %w", err)
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	var err2 error
+	for try := 0; try < acquireTries; try++ {
+		if err2 = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err2 != syscall.EWOULDBLOCK {
+			break
+		}
+		time.Sleep(acquireWait)
+	}
+	if err := err2; err != nil {
 		f.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) {
 			return nil, &HeldError{Path: path, PID: readPID(path)}

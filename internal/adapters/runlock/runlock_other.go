@@ -39,3 +39,13 @@ func (l *Lock) Release() error {
 	l.f = nil
 	return errors.Join(f.Close(), os.Remove(l.path))
 }
+
+// probe cannot tell a dead holder from a live one here: a lock file that exists is held.
+func probe(path string) (Holder, error) {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return Holder{}, nil
+	} else if err != nil {
+		return Holder{}, fmt.Errorf("stat lock file: %w", err)
+	}
+	return Holder{Held: true, PID: readPID(path)}, nil
+}

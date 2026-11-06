@@ -63,6 +63,7 @@ const (
 	TagGap        = "watch-gap"
 	TagCycle      = "watch-cycle"
 	TagPrune      = "watch-prune"
+	TagStatusSave = "watch-status-save"
 	TagRecovered  = "watch-recovered"
 )
 
@@ -89,6 +90,9 @@ type WatchDeps struct {
 	// Prune removes watch runs created before the given time and reports how much it
 	// removed. Nil means no retention. It must keep the newest watch run.
 	Prune func(ctx context.Context, before time.Time) (core.PruneResult, error)
+	// Status, when set, receives the watcher's status record at start and after every
+	// cycle, so a program can ask whether the watcher is alive without parsing the log.
+	Status core.WatchStatusSink
 }
 
 // WatchOptions configure a watch.
@@ -506,6 +510,7 @@ func Watch(ctx context.Context, d WatchDeps, o WatchOptions, runPrefix string) (
 	}
 	var last CycleReport
 	var prevTo time.Time
+	d.publish(ctx, o, nil, d.Now().UTC(), d.Now().UTC())
 	for {
 		start := d.Now().UTC().Truncate(time.Second)
 		run := runPrefix + "-" + start.Format("20060102T150405Z")
@@ -521,12 +526,45 @@ func Watch(ctx context.Context, d WatchDeps, o WatchOptions, runPrefix string) (
 			return rep, err // misconfiguration: retrying cannot help
 		}
 		last, prevTo = rep, rep.Window.To
+		ended, next := d.Now().UTC(), time.Time{}
+		if !o.Once {
+			next = start.Add(o.Every)
+			if next.Before(ended) {
+				next = ended // a cycle that overran Every starts the next at once
+			}
+		}
+		d.publish(ctx, o, &rep, ended, next)
 		if o.Once {
 			return last, nil
 		}
 		if !wait(ctx, max(0, o.Every-d.Now().Sub(start))) {
 			return last, nil
 		}
+	}
+}
+
+// publish writes the status record: rep is nil before the first cycle. A failure is an
+// alert, never a stopped watcher; the cycle's own result does not depend on the record.
+func (d WatchDeps) publish(ctx context.Context, o WatchOptions, rep *CycleReport, now, next time.Time) {
+	if d.Status == nil {
+		return
+	}
+	s := core.WatchStatus{Every: o.Every, Window: o.Window, TTL: o.ttl(), Keep: o.keep(), Repeat: o.repeat(), Updated: now, NextDue: next}
+	if rep != nil {
+		s.Last = &core.WatchCycleSummary{
+			Run: rep.Run, Verdict: strings.ToUpper(string(rep.Status)), Ended: now, Window: rep.Window,
+			New: rep.New, Suppressed: rep.Suppressed, Repeated: rep.Repeated, Recovered: rep.Recovered,
+			Failed: append([]string(nil), rep.Failed...),
+		}
+	}
+	if err := d.Status.Save(ctx, s); err != nil {
+		alerts := d.Alerts
+		if d.Name != "" {
+			alerts = namedSink{inner: alerts, name: d.Name}
+		}
+		// Never silent: without the record a program reads this watcher as stale.
+		_ = alerts.Deliver(ctx, core.Alert{Kind: core.AlertError, Tag: TagStatusSave, Severity: "high", At: now.Format(time.RFC3339),
+			Text: fmt.Sprintf("watch status could not be saved (%v); programs reading it will see this watcher as stale", err)})
 	}
 }
 

@@ -155,7 +155,7 @@ func Watch(ctx context.Context, caseDir string, opts WatchOptions) (*CycleReport
 	defer rt.Close() // ends any plugin child process
 
 	deps, _, err := watchrun.Deps(watchrun.Params{
-		Name: opts.Name, Evidence: evidence, Cfg: cfg, RT: rt, Env: opts.Env, Now: opts.Now, Out: opts.Out,
+		Name: opts.Name, Evidence: evidence, CaseDir: plan.Case.Dir, ConfigPath: plan.ConfigPath, Cfg: cfg, RT: rt, Env: opts.Env, Now: opts.Now, Out: opts.Out,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("jb: %w", err)

@@ -54,6 +54,22 @@ func Acquire(path string) (*Lock, error) {
 	return acquire(path, os.Getpid())
 }
 
+// Holder is what Probe found.
+type Holder struct {
+	Held bool
+	PID  int // the PID in the lock file when Held; 0 when it could not be read
+}
+
+// Probe reports whether another process holds the lock at path, without taking it. It
+// never creates the file: a missing file is free. On Unix it asks for a shared lock
+// without waiting and drops it at once, so the exclusive lock of a real holder is never
+// disturbed; Acquire retries a refusal briefly, so a probe racing it cannot make it
+// fail. Where flock is not available the file existing counts as held (see
+// runlock_other.go).
+func Probe(path string) (Holder, error) {
+	return probe(path)
+}
+
 func readPID(path string) int {
 	b, err := os.ReadFile(path) // #nosec G304 -- the lock path is built by the command from the case's evidence directory
 	if err != nil {

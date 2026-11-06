@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/adapters/runlock"
 	"github.com/iksnerd/json-bourne/internal/adapters/watchstate"
+	"github.com/iksnerd/json-bourne/internal/adapters/watchstatus"
 	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
@@ -77,10 +79,13 @@ func Disabled(rt *config.Runtime) []app.Disabled {
 type Params struct {
 	Name     string // watcher name, "" for the unnamed one
 	Evidence string // the case's evidence directory (created by the caller)
-	Cfg      *config.File
-	RT       *config.Runtime
-	Env      config.Env
-	Now      func() time.Time
+	// CaseDir and ConfigPath (both absolute) let the status record name the config
+	// relative to the case. Either may be empty; the record then names no config.
+	CaseDir, ConfigPath string
+	Cfg                 *config.File
+	RT                  *config.Runtime
+	Env                 config.Env
+	Now                 func() time.Time
 	// Out receives alerts (the CLI passes stdout); the same lines go to the log file.
 	Out io.Writer
 	// AfterHunt, when set, runs after each cycle's hunt with the open store and the
@@ -141,6 +146,7 @@ func Deps(p Params) (app.WatchDeps, int, error) {
 			return st.PruneRuns(ctx, app.WatchRunPrefixFor(p.Name)+"-", before)
 		},
 		State:  watchstate.Store{Path: filepath.Join(p.Evidence, File(StateFile, p.Name))},
+		Status: watchstatus.Writer{Path: filepath.Join(p.Evidence, File(StatusFile, p.Name)), Name: p.Name, PID: os.Getpid(), Started: p.Now().UTC(), Config: RelConfig(p.CaseDir, p.ConfigPath)},
 		Alerts: alerts,
 		Now:    p.Now,
 	}, len(extra), nil
