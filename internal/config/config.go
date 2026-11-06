@@ -55,6 +55,7 @@ type File struct {
 	Estate    EstateConfig    `yaml:"estate"`
 
 	caseRef *casefile.Case // set by UseCase; not part of the file
+	path    string         // set by Load, for messages; empty for Parse
 
 	search      []string // set by WithSearch; not part of the file
 	searchField string
@@ -415,7 +416,27 @@ func Load(path string) (*File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("config %s: %w", path, err)
 	}
+	f.path = path
 	return f, nil
+}
+
+// IntelOnly reports whether the file is for `jb intel` alone: `commands:` is exactly
+// [intel] and it has no sources and no detectors. `jb intel` takes its addresses from
+// the command line or from the latest stored hunt and reads no source, so such a file
+// holds only `feeds:`, `intel:` and optionally `store:`. Every other command needs
+// sources and detectors and refuses it (see Build and PlanCase).
+func (f *File) IntelOnly() bool {
+	return slices.Equal(f.Commands, []string{"intel"}) && len(f.Sources) == 0 && len(f.Detectors) == 0
+}
+
+// errIntelOnly is the usage error for a command that needs sources, given a config that
+// is for `jb intel` alone. path may be empty (a config parsed from bytes).
+func errIntelOnly(path, command string) error {
+	name := "this config"
+	if path != "" {
+		name = "config " + path
+	}
+	return core.Usagef("%s is for jb intel only (commands: [intel], no sources or detectors) and cannot run jb %s; use a config with sources and detectors", name, command)
 }
 
 // Parse validates YAML bytes. Unknown keys and unknown types are errors.
@@ -429,6 +450,9 @@ func Parse(data []byte) (*File, error) {
 	}
 	if err := checkCommands(f.Commands); err != nil {
 		return nil, err
+	}
+	if slices.Equal(f.Commands, []string{"intel"}) && len(f.Sources) == 0 && len(f.Detectors) == 0 {
+		return f.parseIntelOnly()
 	}
 	if len(f.Sources) == 0 {
 		return nil, errors.New("sources: at least one source is required")
@@ -464,6 +488,25 @@ func Parse(data []byte) (*File, error) {
 		return nil, err
 	}
 	return &f, nil
+}
+
+// parseIntelOnly finishes Parse for a file that is for `jb intel` alone. It runs the
+// checks that do not need a source and requires a feed, so a file that could never
+// answer `jb intel` does not pass `jb case check`.
+func (f *File) parseIntelOnly() (*File, error) {
+	if len(f.Feeds) == 0 {
+		return nil, errors.New("feeds: at least one feed is required when commands is [intel] and there are no sources")
+	}
+	if err := f.Intel.validate(); err != nil {
+		return nil, err
+	}
+	if err := f.Estate.validate(); err != nil {
+		return nil, err
+	}
+	if err := f.checkFeedNames(); err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 // checkSourceNames refuses two sources that report the same name: the name is part of
@@ -683,6 +726,9 @@ func (rt *Runtime) Close() error {
 func (f *File) Build(env Env) (*Runtime, error) {
 	if env == nil {
 		env = OSEnv
+	}
+	if f.IntelOnly() {
+		return nil, errIntelOnly(f.path, "hunt, watch or activity")
 	}
 	var rt Runtime
 	var errs []error

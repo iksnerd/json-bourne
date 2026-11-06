@@ -45,6 +45,14 @@ func PlanCase(dir, cfgFlag, command string, windowSet bool) (*CasePlan, error) {
 	if p.ConfigPath, err = ChooseCaseConfig(c, cfgFlag, command); err != nil {
 		return nil, err
 	}
+	if command == "hunt" || command == "watch" || command == "activity" || command == "actor" {
+		// A config for `jb intel` alone has no sources: say so before any run starts.
+		if cmds, err := LoadCommands(p.ConfigPath); err == nil && slices.Equal(cmds, []string{"intel"}) {
+			if f, err := Load(p.ConfigPath); err == nil && f.IntelOnly() {
+				return nil, errIntelOnly(p.ConfigPath, command)
+			}
+		}
+	}
 	if !windowSet {
 		w, ok, err := CaseWindow(c, casefile.DefaultWindowName)
 		if err != nil {
