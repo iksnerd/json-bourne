@@ -1,6 +1,6 @@
 # ADR 0001: jb's relationship to other plugin specifications
 
-Status: accepted, 2026-11-06. Point 3 revised 2026-11-06 (the owner: no backward compatibility before a public release).
+Status: accepted, 2026-11-06. Points 3 and 8 revised 2026-11-06 (the owner: no backward compatibility before a public release; one definition per operation).
 
 ## Context
 
@@ -17,7 +17,7 @@ Status: accepted, 2026-11-06. Point 3 revised 2026-11-06 (the owner: no backward
 5. **The dashboard is built in.** Pages that plugins could add are out of scope, and `jb` does not let plugins add pages. The estate graph is served as a neutral document (`/estate/graph.json`: nodes and edges with kind, label and provenance) so that it could become a host-drawn construct later without a rewrite. The Content-Security-Policy and the vendored scripts are `jb`'s own decision (docs/ARCHITECTURE.md, docs/THIRD-PARTY.md).
 6. **`jb` has no action role.** It is passive (docs/POLICY.md). So it has no plans, approvals or credential grants, and a feature that acts needs its own design for those first.
 7. **No data is offered to plugins as declared kinds.** Plugins receive raw log documents and nothing else, never findings, runs or estate data. Offering evidence to plugins would widen what a reviewer has to trust, and nothing needs it.
-8. **One operation, two surfaces: kept in step by a test, not a mechanism.** `Hunt`, `Watch` and `Activity` exist as CLI commands and as Go functions. A test fails when the library's defaults differ from the CLI's. `jb` does not adopt a scheme that derives both from one definition: it has no tool server, and that scheme is itself a draft. Options the CLI has and the library lacks (for example `--search`) are listed in the changelog and added when a caller needs them.
+8. **One operation, one definition.** `Hunt`, `Watch` and `Activity` exist as CLI commands and as Go functions, and keeping two copies in step by a test is the wrong fix. Revised 2026-11-06 (the owner): `jb` adopts the operation model of the maintainer's draft RFC for operations as its own design: each operation is defined once, as data, and the command line, the JSON output, the Go functions and a later MCP tool all come from that definition and one check of the arguments. This is RFC 0010. `jb` ports the rules and runs the maintainer's corpus when it is present on the machine. It still claims no conformance to the draft.
 9. **No OpenTelemetry.** `jb` needs no spans. Whether the evidence store should be tamper-evident is a separate decision, recorded as an open task (a per-run hash manifest is the candidate), and is not part of this one.
 
 ## Consequences
