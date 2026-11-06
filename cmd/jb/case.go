@@ -22,29 +22,28 @@ func newCaseCmd() *cobra.Command {
 		RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 	}
 	c.AddCommand(newCaseCheckCmd())
+	c.AddCommand(newCaseShowCmd())
 	return c
 }
 
 func newCaseCheckCmd() *cobra.Command {
-	var output string
+	var output, caseDir string
 	cmd := &cobra.Command{
-		Use:   "check DIR",
+		Use:   "check --case DIR [--output table|json]",
 		Short: "Validate a case: case.yaml, the evidence git guard and every listed config",
-		Long: "check loads DIR/case.yaml, asks git whether the evidence directory is ignored, and\n" +
+		Long: "check loads DIR/case.yaml (the --case directory), asks git whether the evidence directory is ignored, and\n" +
 			"loads each file listed under `config:` with the hunt config loader. Loading a config\n" +
 			"never reads an API key from the environment. check never reads the evidence directory.\n" +
 			"It exits 0 only when everything passes and 1 otherwise.",
-		Args: func(cmd *cobra.Command, args []string) error {
-			if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-				return usageErrorf("%v", err)
+		Args: noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if caseDir == "" {
+				return usageErrorf("--case is required")
 			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
 			if output != "table" && output != "json" {
 				return usageErrorf("--output must be table or json, got %q", output)
 			}
-			rep := checkCase(args[0])
+			rep := checkCase(caseDir)
 			var err error
 			if output == "json" {
 				err = writeCaseJSON(cmd.OutOrStdout(), rep)
@@ -60,6 +59,7 @@ func newCaseCheckCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); required")
 	cmd.Flags().StringVar(&output, "output", "table", "output format: table or json")
 	return cmd
 }

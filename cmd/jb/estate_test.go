@@ -82,7 +82,7 @@ func TestEstateWritesAFileTheCheckAccepts(t *testing.T) {
 	if e.Caveat == "" || len(e.Nodes) != 4 {
 		t.Fatalf("%+v", e)
 	}
-	code, stdout, stderr = run(t, testDeps(nil), "case", "check", dir)
+	code, stdout, stderr = run(t, testDeps(nil), "case", "check", "--case", dir)
 	if code != 0 || !strings.Contains(stdout, "estate") || !strings.Contains(stdout, "OK (2: ") {
 		t.Fatalf("case check after estate: exit %d\n%s\n%s", code, stdout, stderr)
 	}

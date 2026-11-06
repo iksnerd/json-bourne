@@ -76,7 +76,7 @@ func unignore(t *testing.T, dir string) {
 
 func TestCaseCheckExample(t *testing.T) {
 	// No environment at all: check must not need an API key.
-	code, stdout, stderr := run(t, testDeps(nil), "case", "check", exampleCase)
+	code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", exampleCase)
 	if code != 0 {
 		t.Fatalf("exit %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
 	}
@@ -91,7 +91,7 @@ func TestCaseCheckExample(t *testing.T) {
 }
 
 func TestCaseCheckJSON(t *testing.T) {
-	code, stdout, stderr := run(t, testDeps(nil), "case", "check", exampleCase, "--output", "json")
+	code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", exampleCase, "--output", "json")
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
@@ -112,7 +112,7 @@ func TestCaseCheckJSON(t *testing.T) {
 	// A failing case is still valid JSON on stdout, with ok=false, and exits 1.
 	bad := copyExampleCase(t, "")
 	editFile(t, filepath.Join(bad, "case.yaml"), "passive_only: true", "passive_only: false")
-	code, stdout, _ = run(t, testDeps(nil), "case", "check", bad, "--output", "json")
+	code, stdout, _ = run(t, testDeps(nil), "case", "check", "--case", bad, "--output", "json")
 	if code != exitFailure {
 		t.Fatalf("exit = %d, want 1", code)
 	}
@@ -125,7 +125,7 @@ func TestCaseCheckJSON(t *testing.T) {
 func TestCaseCheckGuardResultsAreDistinct(t *testing.T) {
 	t.Run("not a git work tree", func(t *testing.T) {
 		dir := copyExampleCase(t, "")
-		code, stdout, stderr := run(t, testDeps(nil), "case", "check", dir)
+		code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", dir)
 		if code != 0 {
 			t.Fatalf("exit %d: %s%s", code, stdout, stderr)
 		}
@@ -139,7 +139,7 @@ func TestCaseCheckGuardResultsAreDistinct(t *testing.T) {
 	t.Run("ignored", func(t *testing.T) {
 		dir := copyExampleCase(t, "")
 		gitInit(t, dir)
-		code, stdout, stderr := run(t, testDeps(nil), "case", "check", dir)
+		code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", dir)
 		if code != 0 {
 			t.Fatalf("exit %d: %s%s", code, stdout, stderr)
 		}
@@ -186,7 +186,7 @@ func TestCaseCheckFailures(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			code, stdout, stderr := run(t, testDeps(nil), "case", "check", tc.setup(t))
+			code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", tc.setup(t))
 			if code != exitFailure {
 				t.Fatalf("exit = %d, want 1\nstdout: %s\nstderr: %s", code, stdout, stderr)
 			}
@@ -205,7 +205,7 @@ func TestCaseCheckFailures(t *testing.T) {
 func TestCaseCheckNeverPrintsOrNeedsACredential(t *testing.T) {
 	d := testDeps(map[string]string{"JB_KIBANA_API_KEY": secretKey})
 	for _, out := range []string{"table", "json"} {
-		code, stdout, stderr := run(t, d, "case", "check", exampleCase, "--output", out)
+		code, stdout, stderr := run(t, d, "case", "check", "--case", exampleCase, "--output", out)
 		if code != 0 || strings.Contains(stdout+stderr, secretKey) {
 			t.Errorf("%s: code=%d, credential in output=%v", out, code, strings.Contains(stdout+stderr, secretKey))
 		}
@@ -215,9 +215,10 @@ func TestCaseCheckNeverPrintsOrNeedsACredential(t *testing.T) {
 func TestCaseUsageErrorsExitTwo(t *testing.T) {
 	for name, args := range map[string][]string{
 		"no directory":   {"case", "check"},
-		"two directions": {"case", "check", "a", "b"},
-		"bad output":     {"case", "check", exampleCase, "--output", "xml"},
-		"unknown flag":   {"case", "check", exampleCase, "--nope"},
+		"positional dir": {"case", "check", exampleCase},
+		"two directions": {"case", "check", "--case", "a", "b"},
+		"bad output":     {"case", "check", "--case", exampleCase, "--output", "xml"},
+		"unknown flag":   {"case", "check", "--case", exampleCase, "--nope"},
 		"unknown sub":    {"case", "frobnicate"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -551,11 +552,11 @@ func TestHuntPlainConfigUnchanged(t *testing.T) {
 }
 
 func TestCaseCheckReportsEstate(t *testing.T) {
-	code, stdout, stderr := run(t, testDeps(nil), "case", "check", exampleCase)
+	code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", exampleCase)
 	if code != 0 || !strings.Contains(stdout, "estate") || !strings.Contains(stdout, "example-estate") {
 		t.Fatalf("exit %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
 	}
-	_, js, _ := run(t, testDeps(nil), "case", "check", exampleCase, "--output", "json")
+	_, js, _ := run(t, testDeps(nil), "case", "check", "--case", exampleCase, "--output", "json")
 	var got caseReport
 	if err := json.Unmarshal([]byte(js), &got); err != nil {
 		t.Fatal(err)
@@ -579,7 +580,7 @@ func TestCaseCheckFailsOnABrokenEstateFile(t *testing.T) {
 			} else {
 				editFile(t, filepath.Join(d, "estate", "example-estate.yaml"), edit[0], edit[1])
 			}
-			code, stdout, stderr := run(t, testDeps(nil), "case", "check", d)
+			code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", d)
 			if code != exitFailure || !strings.Contains(stdout, "estate") || !strings.Contains(stdout, "FAIL") || !strings.Contains(stderr, "example-estate.yaml") {
 				t.Fatalf("exit %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
 			}

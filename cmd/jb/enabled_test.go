@@ -251,7 +251,7 @@ func TestDoctorListsDisabledAndDoesNotRequireTheirKey(t *testing.T) {
 
 func TestCaseCheckReportsDisabledAsNotesNotFailures(t *testing.T) {
 	dir, _, _ := profileCase(t)
-	code, stdout, stderr := run(t, testDeps(nil), "case", "check", dir)
+	code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", dir)
 	if code != 0 {
 		t.Fatalf("exit %d: a disabled entry is a note, not a failure\n%s\n%s", code, stdout, stderr)
 	}
@@ -260,7 +260,7 @@ func TestCaseCheckReportsDisabledAsNotesNotFailures(t *testing.T) {
 			t.Errorf("case check lacks %q:\n%s", want, stdout)
 		}
 	}
-	_, js, _ := run(t, testDeps(nil), "case", "check", dir, "--output", "json")
+	_, js, _ := run(t, testDeps(nil), "case", "check", "--case", dir, "--output", "json")
 	if !strings.Contains(js, `"notes"`) {
 		t.Errorf("JSON lacks notes:\n%s", js)
 	}
