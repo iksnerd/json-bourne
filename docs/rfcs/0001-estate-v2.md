@@ -104,24 +104,19 @@ An assessment is one author's judgement about one node.
 
 The `caveat` of a v2 file SHOULD also say that assessments are the opinion of their author and not a fact. The loader checks that the caveat is present, as in v1, and not what it says. The viewer MUST NOT rely on the caveat for this. It MUST show a fixed notice with every assessment section (see Dashboard).
 
-### Edge strength and overlays
+### Edge weight and overlays
 
-The viewer derives the strength of an edge, `strong`, `moderate` or `weak`, from its `relation` alone. A later RFC MAY add the `source` as a second input. The initial table is below. It is a starting point for review, not a measured result.
+The viewer draws an edge's weight from what the file counts, not from a judgement about the relation. The maintainer decided on 2026-11-06 (after a Hashimoto-rigor grill) to drop the earlier table that mapped each relation to `strong`, `moderate` or `weak`: it asserted a confidence the data does not carry, because a `resolves_to` answer from an old passive DNS record is not strong.
 
-| Strength | Relations |
-|---|---|
-| strong | `resolves_to`, `cname` |
-| moderate | `ptr`, `mx`, `ns`, `registered_to`, `spf_authorises`, `spf_include`, `spf_redirect` |
-| weak | `within`, `originated_by`, `announced_in`, `held_by`, `ct_candidate` |
+- **Corroboration.** The number of distinct sources that claim the same edge (same two nodes and relation). One source draws a thin line, two a medium line, three or more a thick line. The sheet lists the sources.
+- **Age.** The newest observed time among the edge's claims. An edge whose newest claim is older than 90 days is drawn dashed, and the sheet shows the time. The number 90 is a viewer default and not part of the file.
 
-Any other relation is `weak`. The table covers every relation that the collectors write, which [CASE-SPEC.md](../CASE-SPEC.md) section 4.5 lists. The file stores no strength.
+The file stores no weight and no age class. The viewer MAY draw two overlays on an `ip` node. It reads both from the evidence store when the person opens the node's record, never from the file and never when the map loads.
 
-The viewer MAY draw two overlays on an `ip` node. The viewer reads both from the evidence store when it builds the page. It never reads them from the file.
+- The latest reputation rows for the address, one per source (the same read as `jb db reputation --latest`).
+- The last time the address appeared in the stored events, found through the key field that `jb serve` takes (`--key-field`, default `client_ip`; see [CONFIG.md](../CONFIG.md), "serve").
 
-- The latest reputation verdict for the address. `jb intel` records these snapshots.
-- The time the address last appeared in the stored events. The viewer finds it through the key field that `jb serve` already takes (`--key-field`, default `client_ip`; see [CONFIG.md](../CONFIG.md), "serve").
-
-An overlay is labelled with its source and time. A page that cannot read the store shows no overlay and says so. It never shows an empty overlay as "clean".
+An overlay is plain text with its source and time, for example `reputation: malicious (greynoise, observed 2026-11-03)` or `last seen in logs: 2026-11-04`. It has no verdict colour: a colour would be a judgement the tool does not make. The overlay query runs once per opened record, covers the last 30 days of events, and has a statement time limit. The sheet separates three states and never merges them: a result, `none in the last 30 days` or `never looked up`, and `could not read the store`. An empty overlay is never shown as clean.
 
 ### Drift
 
@@ -135,7 +130,7 @@ The collectors write no facts, so `refresh` carries the facts of the baseline fi
 
 ### Dashboard
 
-The Estate page MUST show facts and assessments in the record sheet. Assessments MUST sit in their own section with the heading `Assessments (opinion)` and a fixed notice that an assessment is its author's opinion and not an observation. Each shows `by`, `decided` and its basis. The graph SHOULD draw edge strength as line weight and SHOULD offer a filter by node kind. The page MUST escape the text of every new field like all stored text, and MUST show at most 300 characters of one stored string, as it does today ([RFC 0003](0003-dashboard-security-model.md)).
+The Estate page MUST show facts and assessments in the record sheet. Assessments MUST sit in their own section with the heading `Assessments (opinion)` and a fixed notice that an assessment is its author's opinion and not an observation. Each shows `by`, `decided` and its basis. The graph MUST draw corroboration as line weight and age as a dashed line, and MUST offer a filter by node kind. The filter is an htmx fragment, like the findings filter. The page MUST escape the text of every new field like all stored text, and MUST show at most 300 characters of one stored string, as it does today ([RFC 0003](0003-dashboard-security-model.md)).
 
 ## Non-goals
 
@@ -195,7 +190,9 @@ Proposed. None of these exist yet.
 - Drift tests: a gained value, a lost value and a group present on one side only, for facts, and a test that an assessment change is not drift.
 - A test that every assessment `basis` reference resolves, and that an assessment without `by` or `basis` fails.
 - Dashboard tests, three of them. An assessment renders under the "opinion" heading and not in the node table. Every new field is escaped: the existing hostile-text tests cover the new fields. An overlay is absent, with a note, when the store cannot be read.
-- A test that the strength table covers every relation that CASE-SPEC section 4.5 lists as written by the collectors, and that an unknown relation is `weak`.
+- Weight tests: an edge claimed by one, two and three or more distinct sources gets the thin, medium and thick classes; two claims by the same source count once; an edge whose newest claim is older than 90 days is dashed and one exactly at the boundary is not; the file carries no weight.
+- Overlay tests: no store is read when the map loads; opening a record queries once; a result, `none in the last 30 days`, `never looked up` and `could not read the store` render as four distinct texts; an overlay carries its source and time and no verdict colour class; a slow query hits the time limit and shows the could-not-read state.
+- A node-kind filter test: the htmx fragment lists only the chosen kinds, escapes every value, and the unfiltered page is unchanged.
 - A test that the viewer shows the fixed assessment notice whatever the `caveat` says.
 
 ### Examples
@@ -262,6 +259,7 @@ Proposed:
 ## Changes
 
 - 2026-11-06: first draft.
+- 2026-11-06: fourth grill: edge weight comes from corroboration and age, not from a table over the relation; overlays are text badges without verdict colour, loaded lazily when a record opens, bounded to 30 days with a time limit.
 - 2026-11-06: revised for one current format: v1 is removed, drift covers facts, and the compatibility section lists what the two users change. This follows the owner's decision that `jb` has no backward compatibility before a public release.
 - 2026-11-06: revised after a clean-room read: the loader rules that v1 already defines are stated, the contradictions in the wording are removed, and the proposal is separated from the present throughout.
 - 2026-11-06: accepted by the maintainer after three Hashimoto-rigor grills. Code may start; the status becomes `implemented` when the Reference implementations section is moved from proposed to shipped.
