@@ -123,14 +123,14 @@ func Intel(ctx context.Context, caseDir string, indicators []string, opts IntelO
 		// windowSet is true: intel has no window, so the case's default is not announced.
 		var err error
 		if plan, err = config.PlanCase(caseDir, opts.Config, "intel", true); err != nil {
-			return nil, fmt.Errorf("jb: %w", err)
+			return nil, fmt.Errorf("%w", err)
 		}
 		cfgPath = plan.ConfigPath
 		notes = append(notes, plan.Notes...)
 	}
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	if plan != nil {
 		if n := config.PlaceCaseStore(plan.Case, cfg); n != "" {
@@ -138,33 +138,33 @@ func Intel(ctx context.Context, caseDir string, indicators []string, opts IntelO
 		}
 	}
 	if len(cfg.Feeds) == 0 {
-		return nil, fmt.Errorf("jb: %s has no feeds: add a `feeds:` entry (docs/CONFIG.md)", cfgPath)
+		return nil, fmt.Errorf("%s has no feeds: add a `feeds:` entry (docs/CONFIG.md)", cfgPath)
 	}
 	feeds, err := cfg.BuildFeeds(opts.Env)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	for _, name := range cfg.DisabledFeeds() {
 		notes = append(notes, fmt.Sprintf("note: feed %s is listed but not enabled (enabled: true), so it is not asked and nothing is sent to it", name))
 	}
 	if len(feeds) == 0 {
-		return nil, fmt.Errorf("jb: %s lists feeds but none is enabled: set `enabled: true` on the feed you mean to ask (docs/CONFIG.md)", cfgPath)
+		return nil, fmt.Errorf("%s lists feeds but none is enabled: set `enabled: true` on the feed you mean to ask (docs/CONFIG.md)", cfgPath)
 	}
 	iopts := cfg.IntelOptions()
 
 	st, err := duckdb.OpenContext(ctx, cfg.StorePath(), false, duckdb.OpenOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("jb: open database: %w", err)
+		return nil, fmt.Errorf("open database: %w", err)
 	}
 	defer st.Close()
 	if _, err := st.Migrate(); err != nil {
-		return nil, fmt.Errorf("jb: migrate database: %w", err)
+		return nil, fmt.Errorf("migrate database: %w", err)
 	}
 
 	r, ierr := app.Intel(ctx, app.IntelDeps{Feeds: feeds, Store: st, Indicators: st},
 		app.IntelRequest{Indicators: indicators, Fields: iopts.IPFields, MaxIndicators: iopts.MaxIndicators})
 	if ierr != nil && len(r.Requested) == 0 {
-		return nil, fmt.Errorf("jb: %w", ierr) // nothing was asked: an input problem, nothing to report
+		return nil, fmt.Errorf("%w", ierr) // nothing was asked: an input problem, nothing to report
 	}
 	res := &IntelResult{Note: IntelNote, Run: r.Run, Skipped: r.Skipped, Requested: r.Requested, Notes: notes}
 	for _, x := range r.Rows {
@@ -178,7 +178,7 @@ func Intel(ctx context.Context, caseDir string, indicators []string, opts IntelO
 		res.Failures = append(res.Failures, f)
 	}
 	if ierr != nil {
-		return res, fmt.Errorf("jb: %w", ierr)
+		return res, fmt.Errorf("%w", ierr)
 	}
 	return res, nil
 }

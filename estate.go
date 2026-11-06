@@ -171,7 +171,7 @@ func loadEstateBase(c *casefile.Case, file string) (*casefile.Estate, error) {
 	case err == nil:
 		return existing, nil
 	case !errors.Is(err, fs.ErrNotExist):
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	return base, nil
 }
@@ -182,7 +182,7 @@ func mergeEstate(c *casefile.Case, file string, base, claims *casefile.Estate) (
 	wrote := mr.AddedNodes+mr.AddedEdges+mr.AddedAbsences > 0
 	if wrote {
 		if err := casefile.SaveEstateFile(c, file, merged); err != nil {
-			return mr, false, fmt.Errorf("jb: %w", err)
+			return mr, false, fmt.Errorf("%w", err)
 		}
 	}
 	return mr, wrote, nil
@@ -191,7 +191,7 @@ func mergeEstate(c *casefile.Case, file string, base, claims *casefile.Estate) (
 func loadEstateCase(caseDir string) (*casefile.Case, error) {
 	c, err := casefile.Load(caseDir)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	return c, nil
 }
@@ -204,11 +204,11 @@ func estateConfig(c *casefile.Case, name string) (*config.File, error) {
 		if core.IsUsage(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	cfg, err := config.Load(path)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	return cfg, nil
 }
@@ -415,7 +415,7 @@ func EstateIP(ctx context.Context, caseDir string, ips []string, opts EstateIPOp
 		if errors.Is(err, app.ErrTooManyIPs) {
 			return nil, usagef("%v", err)
 		}
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	mr, wrote, err := mergeEstate(c, file, base, res.Estate)
 	if err != nil {
@@ -814,7 +814,7 @@ func EstateRefresh(ctx context.Context, caseDir string, opts EstateRefreshOption
 	}
 	base, err := casefile.LoadEstateFile(c, file)
 	if err != nil {
-		return nil, fmt.Errorf("jb: baseline: %w", err) // a missing or corrupt baseline is never an empty one
+		return nil, fmt.Errorf("baseline: %w", err) // a missing or corrupt baseline is never an empty one
 	}
 	targets := app.EstateTargets(base)
 
@@ -834,7 +834,7 @@ func EstateRefresh(ctx context.Context, caseDir string, opts EstateRefreshOption
 	for _, a := range targets.Addresses {
 		ip, perr := netip.ParseAddr(a)
 		if perr != nil {
-			return nil, fmt.Errorf("jb: estate file records %q as an address target, which does not parse", a)
+			return nil, fmt.Errorf("estate file records %q as an address target, which does not parse", a)
 		}
 		addrs = append(addrs, ip)
 	}
@@ -898,11 +898,11 @@ func EstateRefresh(ctx context.Context, caseDir string, opts EstateRefreshOption
 		if errors.Is(err, app.ErrTooManyTargets) || errors.Is(err, app.ErrNoTargets) {
 			return nil, usagef("%v", err)
 		}
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	rel, err := casefile.WriteEstateSnapshot(c, snap)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	return &EstateRefreshResult{Note: EstateExternalNote, Snapshot: snap.ID, File: rel, BasedOn: snap.BasedOn,
 		Nodes: len(snap.Estate.Nodes), Edges: len(snap.Estate.Edges), Absences: len(snap.Estate.Absences),
@@ -1007,7 +1007,7 @@ func EstateDiff(ctx context.Context, caseDir string, opts EstateDiffOptions) (*E
 	if to == "" {
 		latest, err := casefile.LatestEstateSnapshot(c)
 		if err != nil {
-			return nil, fmt.Errorf("jb: %w", err)
+			return nil, fmt.Errorf("%w", err)
 		}
 		if latest == nil {
 			return nil, usagef("there is no snapshot to compare with; run `jb estate refresh` (EstateRefresh) for the case first, or name one (--to, To)")
@@ -1016,15 +1016,15 @@ func EstateDiff(ctx context.Context, caseDir string, opts EstateDiffOptions) (*E
 	}
 	fs, err := casefile.LoadEstateState(c, from)
 	if err != nil {
-		return nil, fmt.Errorf("jb: from: %w", err)
+		return nil, fmt.Errorf("from: %w", err)
 	}
 	ts, err := casefile.LoadEstateState(c, to)
 	if err != nil {
-		return nil, fmt.Errorf("jb: to: %w", err)
+		return nil, fmt.Errorf("to: %w", err)
 	}
 	diff, err := app.DiffEstates(fs, ts)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	findings := app.DriftFindings(diff)
 
@@ -1047,23 +1047,23 @@ func EstateDiff(ctx context.Context, caseDir string, opts EstateDiffOptions) (*E
 
 func deliverDrift(ctx context.Context, opts EstateDiffOptions, c *casefile.Case, ttl time.Duration, findings []core.Finding) (*app.DriftDelivery, error) {
 	if _, err := casefile.Guard(c.EvidenceDir()); err != nil {
-		return nil, fmt.Errorf("jb: refusing to write alerts into %s: %w", c.Paths.Evidence, err)
+		return nil, fmt.Errorf("refusing to write alerts into %s: %w", c.Paths.Evidence, err)
 	}
 	cfgFile, err := config.ChooseCaseConfig(c, opts.Config, "estate")
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	cfg, err := config.Load(cfgFile)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	extra, err := cfg.BuildAlerts(opts.Env)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	evidence := c.EvidenceDir()
 	if err := os.MkdirAll(evidence, 0o700); err != nil {
-		return nil, fmt.Errorf("jb: evidence directory: %w", err)
+		return nil, fmt.Errorf("evidence directory: %w", err)
 	}
 	out := opts.Out
 	if out == nil {
@@ -1078,7 +1078,7 @@ func deliverDrift(ctx context.Context, opts EstateDiffOptions, c *casefile.Case,
 	res, err := app.DeliverDrift(ctx, watchstate.Store{Path: filepath.Join(evidence, driftStateFile)}, sink, now, ttl,
 		"estate-drift-"+casefile.SnapshotID(now), findings)
 	if err != nil {
-		err = fmt.Errorf("jb: %w", err)
+		err = fmt.Errorf("%w", err)
 	}
 	return &res, err
 }
@@ -1124,7 +1124,7 @@ func EstatePromote(caseDir, snapshotID string, opts EstateOptions) (*EstatePromo
 		if errors.Is(err, app.ErrNotPromotable) {
 			return nil, usagef("%v", err)
 		}
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	return &EstatePromoteResult{Promoted: snapshotID, Baseline: c.Paths.Estate + "/" + file, Archived: archived}, nil
 }

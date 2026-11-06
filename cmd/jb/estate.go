@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -15,24 +14,6 @@ import (
 )
 
 const estateMaxFailsShow = 25
-
-// libErr prints a library error as the CLI does: the "jb: " the package puts in front
-// of its errors is what the CLI adds itself, so it is dropped here. The error class (a
-// usage error exits 2) and the chain are kept.
-func libErr(err error) error {
-	if msg, ok := strings.CutPrefix(err.Error(), "jb: "); ok {
-		return &trimmedErr{msg: msg, err: err}
-	}
-	return err
-}
-
-type trimmedErr struct {
-	msg string
-	err error
-}
-
-func (e *trimmedErr) Error() string { return e.msg }
-func (e *trimmedErr) Unwrap() error { return e.err }
 
 // rejectZero refuses a limit or timeout given as 0. The library reads 0 as "the
 // default", which on the command line is what leaving the flag out means.
@@ -91,7 +72,7 @@ func newEstateCmdWith(d deps) *cobra.Command {
 			res, err := jb.EstateIP(cmd.Context(), caseDir, args, jb.EstateIPOptions{EstateOptions: d.estateOptions(file),
 				RDAPURL: rdapURL, Resolver: resolver, Timeout: timeout, MaxIPs: maxIPs})
 			if err != nil {
-				return libErr(err)
+				return err
 			}
 			var perr error
 			if output == "json" {

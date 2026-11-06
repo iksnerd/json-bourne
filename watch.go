@@ -103,7 +103,7 @@ func Watch(ctx context.Context, caseDir string, opts WatchOptions) (*CycleReport
 
 	plan, err := config.PlanCase(caseDir, opts.Config, "watch", opts.Window != 0)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	window := opts.Window
 	if window == 0 {
@@ -129,28 +129,28 @@ func Watch(ctx context.Context, caseDir string, opts WatchOptions) (*CycleReport
 
 	evidence := plan.Case.EvidenceDir()
 	if err := os.MkdirAll(evidence, 0o700); err != nil {
-		return nil, fmt.Errorf("jb: evidence directory: %w", err)
+		return nil, fmt.Errorf("evidence directory: %w", err)
 	}
 	// One watcher per name and case, taken before anything is built or read.
 	lock, err := watchrun.Acquire(evidence, opts.Name)
 	if err != nil {
 		var held *runlock.HeldError
 		if errors.As(err, &held) {
-			return nil, fmt.Errorf("jb: %w (%w)", ErrWatcherRunning, err)
+			return nil, fmt.Errorf("%w (%w)", ErrWatcherRunning, err)
 		}
-		return nil, fmt.Errorf("jb: watch lock: %w", err)
+		return nil, fmt.Errorf("watch lock: %w", err)
 	}
 	defer lock.Release()
 
 	cfg, err := config.Load(plan.ConfigPath)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	config.PlaceCaseStore(plan.Case, cfg)
 	cfg.UseCase(plan.Case)
 	rt, err := cfg.Build(opts.Env)
 	if err != nil {
-		return nil, fmt.Errorf("jb: build config: %w", err)
+		return nil, fmt.Errorf("build config: %w", err)
 	}
 	defer rt.Close() // ends any plugin child process
 
@@ -158,7 +158,7 @@ func Watch(ctx context.Context, caseDir string, opts WatchOptions) (*CycleReport
 		Name: opts.Name, Evidence: evidence, CaseDir: plan.Case.Dir, ConfigPath: plan.ConfigPath, Cfg: cfg, RT: rt, Env: opts.Env, Now: opts.Now, Out: opts.Out,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	rep, err := app.Watch(ctx, deps, wopts, app.WatchRunPrefixFor(opts.Name))
 	return &rep, err

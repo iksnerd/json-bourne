@@ -73,17 +73,17 @@ func Activity(ctx context.Context, caseDir string, opts ActivityOptions) (*Activ
 	}
 	cp, err := config.PlanCase(caseDir, opts.Config, "activity", true)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	cfg, err := config.Load(cp.ConfigPath)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	config.PlaceCaseStore(cp.Case, cfg)
 	cfg.UseCase(cp.Case)
 	rt, err := cfg.Build(opts.Env)
 	if err != nil {
-		return nil, fmt.Errorf("jb: build config: %w", err)
+		return nil, fmt.Errorf("build config: %w", err)
 	}
 	defer rt.Close()
 
@@ -98,7 +98,7 @@ func Activity(ctx context.Context, caseDir string, opts ActivityOptions) (*Activ
 	}
 	st, err := config.OpenRunStore(ctx, cfg, opts.NoStore, cp.Case.Dir, cp.Case.EvidenceDir())
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	defer st.Close() // removes the scratch store of NoStore
 	res, aerr := app.Activity(ctx, watchrun.RunDeps(rt, dets, st), run, w)

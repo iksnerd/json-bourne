@@ -36,7 +36,7 @@ type CaseShowOptions struct {
 func CaseShow(caseDir string, opts CaseShowOptions) (*CaseShowResult, error) {
 	r, err := config.ShowCase(caseDir, opts.Config)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	return r, nil
 }

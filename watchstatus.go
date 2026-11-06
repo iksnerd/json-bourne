@@ -56,7 +56,7 @@ func WatchStatus(caseDir string, opts WatchStatusOptions) ([]WatcherStatus, erro
 	}
 	out, err := watchrun.CaseStatus(caseDir, opts.Config, o)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	return out, nil
 }

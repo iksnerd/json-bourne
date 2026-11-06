@@ -61,7 +61,7 @@ func newEstateRefreshCmd(d deps) *cobra.Command {
 			res, err := jb.EstateRefresh(cmd.Context(), caseDir, jb.EstateRefreshOptions{EstateOptions: d.estateOptions(file),
 				Config: cfgPath, RDAPURL: rdapURL, Resolver: resolver, Timeout: timeout, MaxTargets: maxTargets})
 			if err != nil {
-				return libErr(err)
+				return err
 			}
 			var perr error
 			if output == "json" {
@@ -166,7 +166,7 @@ func newEstateDiffCmd(d deps) *cobra.Command {
 			res, derr := jb.EstateDiff(cmd.Context(), caseDir, jb.EstateDiffOptions{EstateOptions: d.estateOptions(file),
 				From: from, To: to, Alert: alert, Config: cfgPath, TTL: ttl, Out: cmd.ErrOrStderr()})
 			if res == nil {
-				return libErr(derr)
+				return derr
 			}
 			var perr error
 			if output == "json" {
@@ -178,7 +178,7 @@ func newEstateDiffCmd(d deps) *cobra.Command {
 				return fmt.Errorf("write output: %w", perr)
 			}
 			if derr != nil {
-				return libErr(derr)
+				return derr
 			}
 			return nil
 		},
@@ -272,7 +272,7 @@ func newEstatePromoteCmd(d deps) *cobra.Command {
 			}
 			res, err := jb.EstatePromote(caseDir, args[0], d.estateOptions(file))
 			if err != nil {
-				return libErr(err)
+				return err
 			}
 			if output == "json" {
 				return writeIndentedJSON(cmd.OutOrStdout(), res)

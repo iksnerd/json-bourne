@@ -37,6 +37,11 @@ type DashboardOptions struct {
 	// AllowRemote switches off the Host header check. Leave it false unless the
 	// handler is bound to, or reached through, a non-loopback name.
 	AllowRemote bool
+	// AllowedHosts, when set, replaces the loopback-only Host rule with an exact list
+	// of Host header values (host or host:port, at most 16, no wildcards). Use it when
+	// the handler sits behind a reverse proxy that rewrites Host, so the check stays
+	// on. An invalid list is a usage error. Empty keeps the loopback rule.
+	AllowedHosts []string
 	// Now is the clock. Nil means time.Now. The dashboard reads no environment
 	// variable and no credential, so there is no Env option.
 	Now func() time.Time
@@ -102,7 +107,7 @@ func DashboardHandler(opts DashboardOptions) (http.Handler, *DashboardInfo, erro
 	} else {
 		plan, err := config.PlanCase(opts.Case, opts.Config, "serve", true)
 		if err != nil {
-			return nil, nil, fmt.Errorf("jb: %w", err)
+			return nil, nil, fmt.Errorf("%w", err)
 		}
 		cfg, err := config.Load(plan.ConfigPath)
 		if err != nil {
@@ -116,6 +121,10 @@ func DashboardHandler(opts DashboardOptions) (http.Handler, *DashboardInfo, erro
 		estate = dashEstate{c: plan.Case}
 	}
 	store := info.Store
+	wopts := web.Options{Loopback: !opts.AllowRemote, AllowedHosts: opts.AllowedHosts}
+	if err := wopts.Validate(); err != nil {
+		return nil, nil, core.UsageWrap(err)
+	}
 	h := web.New(web.Deps{
 		Open: func(ctx context.Context) (core.DashboardStore, error) {
 			st, err := duckdb.OpenDashboardContext(ctx, store)
@@ -129,7 +138,7 @@ func DashboardHandler(opts DashboardOptions) (http.Handler, *DashboardInfo, erro
 		State:  watchstate.Store{Path: filepath.Join(info.Evidence, watchrun.StateFile)},
 		Fields: fields,
 		Now:    opts.Now,
-	}, web.Options{Loopback: !opts.AllowRemote})
+	}, wopts)
 	return h, info, nil
 }
 
@@ -169,7 +178,7 @@ func Serve(ctx context.Context, opts ServeOptions) error {
 	}
 	listen, remote, err := web.CheckAddr(addr, opts.AllowRemote)
 	if err != nil {
-		return usagef("%v", err)
+		return core.UsageWrap(err)
 	}
 	dopts := opts.Dashboard
 	dopts.AllowRemote = remote

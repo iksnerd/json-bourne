@@ -111,7 +111,7 @@ func newExtCmd(d deps, s extSpec) *cobra.Command {
 				Resolver: resolver, MaxNames: maxNames}
 			res, err := s.call(cmd.Context(), caseDir, args, opts)
 			if err != nil {
-				return libErr(err)
+				return err
 			}
 			var perr error
 			if output == "json" {

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
 	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/internal/adapters/web"
 	"github.com/iksnerd/json-bourne/internal/core"
 )
 
@@ -52,10 +54,13 @@ func newServeCmdWith(d deps) *cobra.Command {
 					fmt.Fprintf(outw, "listening on http://%s/ (read-only, no authentication)\n", i.Addr)
 				},
 			})
-			if err != nil {
-				return err
+			switch {
+			case errors.Is(err, web.ErrNotLoopback):
+				return usageErrorf("%v; use 127.0.0.1, or pass --allow-remote to accept that risk", err)
+			case errors.Is(err, web.ErrBadAddr):
+				return usageErrorf("--addr: %v", err)
 			}
-			return nil
+			return err
 		},
 	}
 	cmd.Flags().StringVar(&caseDir, "case", "", "case directory (jb.case/v1): its config, evidence directory and estate directory")

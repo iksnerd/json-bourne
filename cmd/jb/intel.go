@@ -45,7 +45,7 @@ func newIntelCmdWith(d deps) *cobra.Command {
 			}
 			res, ierr := jb.Intel(cmd.Context(), caseDir, args, jb.IntelOptions{Config: cfgPath, Env: d.env})
 			if res == nil {
-				return libErr(ierr) // nothing was asked: input problem, nothing to print
+				return ierr // nothing was asked: input problem, nothing to print
 			}
 			for _, n := range res.Notes {
 				fmt.Fprintln(cmd.ErrOrStderr(), n)
@@ -57,7 +57,7 @@ func newIntelCmdWith(d deps) *cobra.Command {
 				perr = writeIntelTable(cmd.OutOrStdout(), res)
 			}
 			if ierr != nil {
-				return libErr(ierr)
+				return ierr
 			}
 			if perr != nil {
 				return fmt.Errorf("write output: %w", perr)

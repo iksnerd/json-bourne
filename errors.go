@@ -13,5 +13,5 @@ type UsageError = core.UsageError
 // the message.
 func IsUsage(err error) bool { return core.IsUsage(err) }
 
-// usagef returns a [UsageError] with the package's "jb: " prefix.
-func usagef(format string, a ...any) error { return core.Usagef("jb: "+format, a...) }
+// usagef returns a [UsageError]. Library errors carry no "jb: " prefix: the CLI adds its own.
+func usagef(format string, a ...any) error { return core.Usagef(format, a...) }

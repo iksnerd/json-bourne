@@ -31,3 +31,20 @@ func TestIsUsageSeesThroughWrapping(t *testing.T) {
 		}
 	}
 }
+
+func TestUsageWrapKeepsTheCause(t *testing.T) {
+	cause := errors.New("address is not a loopback address")
+	err := UsageWrap(cause)
+	if !IsUsage(err) {
+		t.Fatalf("IsUsage(%v) = false", err)
+	}
+	if !errors.Is(err, cause) {
+		t.Fatalf("errors.Is(err, cause) = false: the cause was lost")
+	}
+	if err.Error() != cause.Error() {
+		t.Fatalf("message %q, want %q", err.Error(), cause.Error())
+	}
+	if UsageWrap(nil) != nil {
+		t.Fatalf("UsageWrap(nil) must be nil")
+	}
+}

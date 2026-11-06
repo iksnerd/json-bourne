@@ -153,11 +153,11 @@ type CaseHuntOptions struct {
 func HuntCase(ctx context.Context, caseDir string, opts CaseHuntOptions) (*Result, error) {
 	plan, err := config.PlanCase(caseDir, opts.Config, "hunt", opts.Window != 0)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	cfg, err := config.Load(plan.ConfigPath)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	config.PlaceCaseStore(plan.Case, cfg)
 	cfg.UseCase(plan.Case) // detectors read the case's data files
@@ -202,13 +202,13 @@ func hunt(ctx context.Context, cfg *Config, opts HuntOptions, keepOut ...string)
 
 	rt, err := cfg.Build(opts.Env)
 	if err != nil {
-		return nil, fmt.Errorf("jb: build config: %w", err)
+		return nil, fmt.Errorf("build config: %w", err)
 	}
 	defer rt.Close() // ends any plugin child process
 
 	st, err := config.OpenRunStore(ctx, cfg, opts.NoStore, keepOut...)
 	if err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, fmt.Errorf("%w", err)
 	}
 	defer st.Close() // removes the scratch store of NoStore
 
