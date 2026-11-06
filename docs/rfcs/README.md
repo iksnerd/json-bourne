@@ -77,3 +77,4 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0013](0013-library-surface.md) | Library surface | implemented |
 | [0010](0010-operations.md) | Operations | accepted |
 | [0014](0014-newkey-history.md) | History probe for the newkey detector | draft |
+| [0015](0015-external-tool-runner.md) | Inventory of the operator's own cloud | draft |
