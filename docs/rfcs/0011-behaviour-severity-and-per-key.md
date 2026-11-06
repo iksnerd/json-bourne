@@ -1,6 +1,7 @@
 # RFC 0011: Behaviour severity floor and per-key threshold
-Status: draft
+Status: accepted
 Scope: add `min_severity`, `note` and `min_events_per_key` to a `rare` action of the `behaviour` detector, and say what happens when keys are truncated.
+Accepted: 2026-11-06 by the maintainer
 
 ## Summary
 
@@ -99,3 +100,4 @@ Shipped: none.
 
 - Should `Hunt` keep the findings of a detector that returns findings and an error? Decided by the maintainer; it would remove the main drawback above.
 - Should a `note` be allowed on a floor below `critical`? The code allows it. The maintainer decides.
+- 2026-11-06: accepted by the maintainer; the code is merged.

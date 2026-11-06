@@ -12,6 +12,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - The mapper protocol and the file formats carry no compatibility promise before a public release (CONTRIBUTING.md); RFC 0004 is withdrawn.
 
 ### Added
+- behaviour: rare actions take `min_severity` (a floor; `critical` needs a `note`), `note` and `min_events_per_key`; keys dropped at `max_keys` with no key at the threshold make the run incomplete, not quiet (RFC 0011).
 - `jb.UsageError` and `jb.IsUsage` tell a Go caller a caller mistake from a failure; the CLI's exit 2 uses the same type. `--output table|json` on `watch --once` (cycle report), `db status`, `db rename-source`, `db compact` and `estate promote`. `jb activity --help` explains its fixed 24h window (RFC 0005).
 - `jb watch` writes a machine-readable status record (`watch-status[.NAME].json`, `jb.watch-status/v1`); `jb watch status` and `jb.WatchStatus` report each watcher as running, stale, stopped or unknown (RFC 0006).
 - `jb case show --case DIR` and `jb.CaseShow` print what one config of a case would run, without reading the environment (RFC 0007).
