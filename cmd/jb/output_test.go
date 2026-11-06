@@ -17,6 +17,7 @@ import (
 var outputExempt = map[string]string{
 	"jb serve":   "starts a server and prints its address, not a result",
 	"jb version": "prints one line of build information",
+	"jb mcp":     "speaks JSON-RPC on standard output; its results are tool results, not a document",
 }
 
 // Commands cobra adds on its own, after the tree is built. They are not in the tree

@@ -4,12 +4,21 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-06
+
 ### Breaking
+- `jb.estate/v1` and `jb.estate-snapshot/v1` files are refused with a message that names both versions. To migrate, change `apiVersion` to `jb.estate/v2` in each estate file (nothing else changes). Rewrite snapshot files the same way (`jb.estate-snapshot/v2`, and `jb.estate/v2` in the body), or regenerate them with `jb estate refresh`. `diff --output json` gains keys (`facts`, `value`, `subject`); none is removed (RFC 0001).
+- `jb.WatchStatus` returns a `*WatchStatusResult` (`Checked` and `Watchers`) in place of a slice of `WatcherStatus`. `jb watch status --output json` is unchanged.
+- `jb db status` accepts `--case DIR`, and `--config` is no longer required with it. Its `--config` help text changed.
 - Errors returned by the Go package no longer start with `jb: `; the command line adds its own. A caller that matched that prefix matches the message instead, or uses `jb.IsUsage` (RFC 0013).
 - The address errors of the dashboard no longer name `--addr` or `--allow-remote`. Match `web.ErrNotLoopback` and `web.ErrBadAddr`; `jb serve` still prints the flag hints.
 - `jb db usage` reports a failed overlap check instead of "no overlap", and `jb db status` on a missing store says so before opening it (same exit code, nothing created).
 
 ### Added
+- `jb operations [--tool]`, `jb.Operations()`, `jb.Call()` and `jb.CallTool()`: every operation is defined once from its option struct (`jb:` tags), one check validates the arguments for every surface, and the committed `docs/operations.json` lists all 21 (RFC 0010). 13 commands register their flags from their operation; a test pins every command's flags.
+- `jb mcp [--allow NAME ...]`: an MCP server (revision 2025-11-25) on standard input and output. It lists only read-only operations; a mutating one needs `--allow NAME` and `apply=true`. `hunt` and `activity` run with the store off. Strings from evidence are cut at 256 characters and stripped of control characters (RFC 0010).
+- Estate v2 (RFC 0001): `service` nodes, `facts` and `assessments`; drift compares facts; `jb estate facts import [--apply] FILE` reads one neutral JSON file under the source role `scan-cache` and never the network; the dashboard shows facts, and assessments marked as opinion.
+- The results of `hunt`, `activity` and `watch_status` marshal to the same document `--output json` prints, so they carry the CLI keys over `jb.Call` and `jb mcp`.
 - Go API, one function per command (RFC 0013): `CaseCheck`, `Doctor`, `ActorStatus`, `DBStatus`, `DBUsage`, `DBPrune`, `DBCompact`, `DBRenameSource`, `Intel`, `EstateIP`, `EstateASN`, `EstateDNS`, `EstateCT`, `EstateRefresh`, `EstateDiff`, `EstatePromote`, `DashboardHandler` and `Serve`. The JSON result types of those commands now belong to the package, and the commands print them. The mutating `DB*` functions are a dry run unless `Apply` is set. See the README table.
 - `jb.Reputation` and `jb db reputation (--config FILE | --case DIR) [--indicator IP ...] [--source NAME] [--since TIME] [--until TIME] [--limit N] [--latest] [--output table|json]`: a read-only reader for the stored reputation rows (indicator, verdict, observed, source), capped at 10000 rows; a result cut at the cap is marked `truncated` and exits 1. `--latest` keeps the newest row per indicator and source.
 - `HuntOptions.Search` and `SearchField` (the `jb hunt --search` options); refusals are `jb.UsageError` and send nothing. `Result.SearchAbsent()` says a term is absent from a live index; `Result.Complete()` is unchanged.

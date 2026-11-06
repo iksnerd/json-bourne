@@ -109,6 +109,12 @@
 --output	-	string	table	output format: table or json
 --resolver	-	string		DNS resolver HOST:PORT (default: the system resolver)
 --timeout	-	duration	5s	timeout for each request
+## jb estate facts
+## jb estate facts import
+--apply	-	bool	false	write the facts (default: dry run, nothing is changed)
+--case	-	string		case directory (docs/CASE-SPEC.md) (required)
+--file	-	string	estate.yaml	estate file name inside the case's estate directory; it must exist
+--output	-	string	table	output format: table or json
 ## jb estate promote
 --case	-	string		case directory (docs/CASE-SPEC.md) (required)
 --file	-	string	estate.yaml	the baseline estate file to replace
@@ -135,6 +141,8 @@
 --case	-	string		case directory (docs/CASE-SPEC.md)
 --config	-	string		path to the YAML config (required without --case; with --case, one of the case's configs)
 --output	-	string	table	output format: table or json
+## jb mcp
+--allow	-	stringArray	[]	also expose the mutating operation `NAME` (repeatable); a call still needs apply=true
 ## jb operations
 --output	-	string	json	output format: json or table
 --tool	-	bool	false	print MCP tools/list entries instead of the full definitions
