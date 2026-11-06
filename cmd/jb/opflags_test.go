@@ -96,13 +96,15 @@ func TestBuilderScalarPositionalsAreCountedAsUsageErrors(t *testing.T) {
 
 // notOperations are the commands that are not an operation, each with the reason.
 var notOperations = map[string]string{
-	"jb watch":      "runs until stopped",
-	"jb serve":      "runs until stopped",
-	"jb version":    "prints one line of build information",
-	"jb operations": "prints the registry itself",
-	"jb actor":      "group: prints help",
-	"jb case":       "group: prints help",
-	"jb db":         "group: prints help",
+	"jb watch":        "runs until stopped",
+	"jb serve":        "runs until stopped",
+	"jb version":      "prints one line of build information",
+	"jb operations":   "prints the registry itself",
+	"jb mcp":          "serves the registry over the Model Context Protocol; it is not an operation of it",
+	"jb estate facts": "group: prints help",
+	"jb actor":        "group: prints help",
+	"jb case":         "group: prints help",
+	"jb db":           "group: prints help",
 }
 
 // handWritten are the flags of a command that the operation spells differently: the flag

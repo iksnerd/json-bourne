@@ -15,7 +15,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - `jb db usage` reports a failed overlap check instead of "no overlap", and `jb db status` on a missing store says so before opening it (same exit code, nothing created).
 
 ### Added
-- `jb operations [--tool]`, `jb.Operations()`, `jb.Call()` and `jb.CallTool()`: every operation is defined once from its option struct (`jb:` tags), one check validates the arguments for every surface, and the committed `docs/operations.json` lists all 21 (RFC 0010). 13 commands register their flags from their operation; a test pins every command's flags.
+- `jb operations [--tool]`, `jb.Operations()`, `jb.Call()` and `jb.CallTool()`: every operation is defined once from its option struct (`jb:` tags), one check validates the arguments for every surface, and the committed `docs/operations.json` lists all 22 (RFC 0010). 13 commands register their flags from their operation; a test pins every command's flags.
 - `jb mcp [--allow NAME ...]`: an MCP server (revision 2025-11-25) on standard input and output. It lists only read-only operations; a mutating one needs `--allow NAME` and `apply=true`. `hunt` and `activity` run with the store off. Strings from evidence are cut at 256 characters and stripped of control characters (RFC 0010).
 - Estate v2 (RFC 0001): `service` nodes, `facts` and `assessments`; drift compares facts; `jb estate facts import [--apply] FILE` reads one neutral JSON file under the source role `scan-cache` and never the network; the dashboard shows facts, and assessments marked as opinion.
 - The results of `hunt`, `activity` and `watch_status` marshal to the same document `--output json` prints, so they carry the CLI keys over `jb.Call` and `jb mcp`.

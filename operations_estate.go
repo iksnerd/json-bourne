@@ -66,6 +66,13 @@ type estateDiffInput struct {
 	TTL    string `jb:"ttl" cli:"only" desc:"with alert: how long an alerted tag stays quiet unless its severity rises (7d, 3h)"`
 }
 
+type estateFactsImportInput struct {
+	Case       string `jb:"case" required:"true" desc:"case directory (docs/CASE-SPEC.md) (required)"`
+	File       string `jb:"file" default:"estate.yaml" desc:"the estate file the facts are added to; it must exist, and an import never creates a node"`
+	ImportFile string `jb:"import_file" required:"true" desc:"the jb.estate-facts/v1 JSON file to import (at most 1 MiB and 5000 facts)"`
+	Apply      bool   `jb:"apply" desc:"write the facts into the estate file; the default is a dry run that changes nothing"`
+}
+
 type estatePromoteInput struct {
 	Case     string `jb:"case" required:"true" desc:"case directory (docs/CASE-SPEC.md) (required)"`
 	File     string `jb:"file" default:"estate.yaml" desc:"the baseline estate file to replace"`
@@ -161,6 +168,12 @@ func estateOperations() []registered {
 					o.TTL = ttl
 				}
 				return both(EstateDiff(ctx, in.Case, o))
+			}),
+		register("estate_facts_import", "Add imported facts to the estate file",
+			"Read one local jb.estate-facts/v1 JSON file (node, key, values, source note, observed time, method) and add its facts to nodes the estate file already has, under the source role scan-cache. Reads no network. The whole import is refused if it names a node the file lacks or if the result would not load. A dry run unless apply is true. Writes the estate file when apply is true.",
+			false, ops.CLI{Command: []string{"estate", "facts", "import"}, Positional: []string{"import_file"}},
+			func(_ context.Context, in estateFactsImportInput, env Env, _ argv) (any, error) {
+				return both(EstateFactsImport(in.Case, in.ImportFile, EstateFactsImportOptions{EstateOptions: EstateOptions{File: in.File, Env: env}, Apply: in.Apply}))
 			}),
 		register("estate_promote", "Adopt a snapshot as the baseline",
 			"Copy the estate map out of a complete snapshot into the baseline estate file, so later diffs are measured from it. The current baseline is first written to the archive and never overwritten there. An incomplete snapshot, or one that skipped a service, is refused. Promoting accepts the drift the snapshot shows: the next diff will not report it. It takes effect when called; there is no dry run.",

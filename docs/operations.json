@@ -658,6 +658,49 @@
     }
   },
   {
+    "name": "estate_facts_import",
+    "title": "Add imported facts to the estate file",
+    "description": "Read one local jb.estate-facts/v1 JSON file (node, key, values, source note, observed time, method) and add its facts to nodes the estate file already has, under the source role scan-cache. Reads no network. The whole import is refused if it names a node the file lacks or if the result would not load. A dry run unless apply is true. Writes the estate file when apply is true.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "apply": {
+          "type": "boolean",
+          "description": "write the facts into the estate file; the default is a dry run that changes nothing"
+        },
+        "case": {
+          "type": "string",
+          "description": "case directory (docs/CASE-SPEC.md) (required)"
+        },
+        "file": {
+          "type": "string",
+          "description": "the estate file the facts are added to; it must exist, and an import never creates a node",
+          "default": "estate.yaml"
+        },
+        "import_file": {
+          "type": "string",
+          "description": "the jb.estate-facts/v1 JSON file to import (at most 1 MiB and 5000 facts)"
+        }
+      },
+      "required": [
+        "case",
+        "import_file"
+      ]
+    },
+    "readOnly": false,
+    "cli": {
+      "command": [
+        "estate",
+        "facts",
+        "import"
+      ],
+      "positional": [
+        "import_file"
+      ]
+    }
+  },
+  {
     "name": "estate_ip",
     "title": "Record the registration and reverse DNS of addresses",
     "description": "Record, for each address, its reverse DNS name and the registration of the range that covers it (RDAP) into the case's estate file, stamped with source, method and time. The file is merged into, never replaced. Lookups go to a resolver and an RDAP service, never to the address. A lookup that failed is listed and nothing is stored for it (complete is false); a claim that disagrees with a recorded one is a conflict and the recorded one stays. Writes the estate file and contacts third-party services.",

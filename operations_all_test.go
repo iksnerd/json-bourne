@@ -36,6 +36,7 @@ var rfcOperations = []struct {
 	{"estate_ct", "estate ct", false},
 	{"estate_diff", "estate diff", true},
 	{"estate_dns", "estate dns", false},
+	{"estate_facts_import", "estate facts import", false},
 	{"estate_ip", "estate", false},
 	{"estate_promote", "estate promote", false},
 	{"estate_refresh", "estate refresh", false},
