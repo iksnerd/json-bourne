@@ -62,16 +62,16 @@ func TestChooseCaseConfigRelativeToTheCase(t *testing.T) {
 	t.Chdir(root)
 
 	for _, flag := range []string{"config/drafts/x.yaml", "./config/drafts/x.yaml", "config/../config/drafts/x.yaml", draft} {
-		got, err := ChooseCaseConfig(c, flag)
+		got, err := ChooseCaseConfig(c, flag, "hunt")
 		if err != nil || got != draft {
 			t.Errorf("--config %q = %q, %v; want %q", flag, got, err, draft)
 		}
 	}
 	// A listed entry still works from anywhere, and an unlisted file next to it too.
-	if got, err := ChooseCaseConfig(c, "config/hunt.yaml"); err != nil || got != filepath.Join(c.Dir, "config", "hunt.yaml") {
+	if got, err := ChooseCaseConfig(c, "config/hunt.yaml", "hunt"); err != nil || got != filepath.Join(c.Dir, "config", "hunt.yaml") {
 		t.Errorf("listed entry = %q, %v", got, err)
 	}
-	if got, err := ChooseCaseConfig(c, "config/fingerprint.yaml"); err != nil || got != filepath.Join(c.Dir, "config", "fingerprint.yaml") {
+	if got, err := ChooseCaseConfig(c, "config/fingerprint.yaml", "hunt"); err != nil || got != filepath.Join(c.Dir, "config", "fingerprint.yaml") {
 		t.Errorf("unlisted file = %q, %v", got, err)
 	}
 }
@@ -83,13 +83,13 @@ func TestChooseCaseConfigFallsBackToTheWorkingDirectory(t *testing.T) {
 	t.Chdir(filepath.Join(c.Dir, "config", "drafts"))
 
 	// Not at <case>/x.yaml, but at ./x.yaml, which is inside the case.
-	got, err := ChooseCaseConfig(c, "x.yaml")
+	got, err := ChooseCaseConfig(c, "x.yaml", "hunt")
 	if err != nil || got != draft {
 		t.Errorf("--config x.yaml = %q, %v; want %q", got, err, draft)
 	}
 	// The case directory wins when both exist.
 	writeFile(t, filepath.Join(c.Dir, "x.yaml"))
-	if got, err = ChooseCaseConfig(c, "x.yaml"); err != nil || got != filepath.Join(c.Dir, "x.yaml") {
+	if got, err = ChooseCaseConfig(c, "x.yaml", "hunt"); err != nil || got != filepath.Join(c.Dir, "x.yaml") {
 		t.Errorf("both exist: --config x.yaml = %q, %v; want the case's", got, err)
 	}
 }
@@ -113,7 +113,7 @@ func TestChooseCaseConfigRefusesWhatLeavesTheCase(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Chdir(tc.cwd)
-			got, err := ChooseCaseConfig(c, tc.flag)
+			got, err := ChooseCaseConfig(c, tc.flag, "hunt")
 			var ue *UsageError
 			if !errors.As(err, &ue) || !strings.Contains(err.Error(), "outside the case directory") {
 				t.Errorf("--config %q = %q, %v; want the outside-the-case usage error", tc.flag, got, err)
@@ -125,7 +125,7 @@ func TestChooseCaseConfigRefusesWhatLeavesTheCase(t *testing.T) {
 func TestChooseCaseConfigNotFoundNamesBothPlaces(t *testing.T) {
 	c, root := chooseFixture(t)
 	t.Chdir(root)
-	_, err := ChooseCaseConfig(c, "config/nope.yaml")
+	_, err := ChooseCaseConfig(c, "config/nope.yaml", "hunt")
 	var ue *UsageError
 	if !errors.As(err, &ue) {
 		t.Fatalf("err = %v, want a usage error", err)
@@ -141,7 +141,7 @@ func TestPlanCaseAcceptsARelativeConfigInsideTheCase(t *testing.T) {
 	c, root := chooseFixture(t)
 	writeFile(t, filepath.Join(c.Dir, "config", "drafts", "x.yaml"))
 	t.Chdir(root)
-	p, err := PlanCase(c.Dir, "config/drafts/x.yaml", true)
+	p, err := PlanCase(c.Dir, "config/drafts/x.yaml", "hunt", true)
 	if err != nil {
 		t.Fatal(err)
 	}

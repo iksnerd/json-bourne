@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -32,8 +33,10 @@ type CasePlan struct {
 
 // PlanCase loads the case, refuses when the evidence guard fails, and chooses the
 // config and the default window. Nothing here reads the environment or evidence/.
-// windowSet says the caller already has a window, so the case's default is not used.
-func PlanCase(dir, cfgFlag string, windowSet bool) (*CasePlan, error) {
+// command names the jb command asking (one of CaseCommands); it picks the config when
+// cfgFlag is empty. windowSet says the caller already has a window, so the case's
+// default is not used.
+func PlanCase(dir, cfgFlag, command string, windowSet bool) (*CasePlan, error) {
 	c, err := casefile.Load(dir)
 	if err != nil {
 		return nil, fmt.Errorf("case %s: %w", dir, err)
@@ -46,7 +49,7 @@ func PlanCase(dir, cfgFlag string, windowSet bool) (*CasePlan, error) {
 	if st.String() == casefile.GuardNotWorkTree.String() {
 		p.Notes = append(p.Notes, fmt.Sprintf("note: case %s is not in a git work tree, so evidence cannot be committed by accident yet; run `jb case check` again if it is put under git", c.ID))
 	}
-	if p.ConfigPath, err = ChooseCaseConfig(c, cfgFlag); err != nil {
+	if p.ConfigPath, err = ChooseCaseConfig(c, cfgFlag, command); err != nil {
 		return nil, err
 	}
 	if !windowSet {
@@ -96,20 +99,63 @@ func ParseWindow(s string) (time.Duration, error) {
 	return d, nil
 }
 
-// ChooseCaseConfig returns the absolute path of the hunt config to use. flag names one
-// of the case's configs, or a file inside the case; empty means the case's only config.
-// A relative flag that is not a listed entry is looked for in the case directory, then
-// in the working directory; the real path (symlinks followed) must be inside the case.
-func ChooseCaseConfig(c *casefile.Case, flag string) (string, error) {
+// chooseDeclared picks the config for command when --config is empty: the one listed
+// config that declares the command, else the only listed config, else a usage error
+// that shows every listed config with its commands.
+func chooseDeclared(c *casefile.Case, command string) (string, error) {
+	abs := func(rel string) string { return filepath.Join(c.Dir, filepath.FromSlash(rel)) }
+	if !slices.Contains(caseCommands, command) {
+		return "", fmt.Errorf("internal: %q is not a command a config can be chosen for", command)
+	}
+	switch len(c.Config) {
+	case 0:
+		return "", usagef("case %s lists no config: pass --config FILE (a file inside the case)", c.ID)
+	case 1:
+		return abs(c.Config[0]), nil
+	}
+	declared := make([][]string, len(c.Config))
+	var hits []string
+	for i, rel := range c.Config {
+		cmds, err := LoadCommands(abs(rel))
+		if err != nil {
+			return "", fmt.Errorf("case %s, config %s: %w", c.ID, rel, err)
+		}
+		declared[i] = cmds
+		if slices.Contains(cmds, command) {
+			hits = append(hits, rel)
+		}
+	}
+	if len(hits) == 1 {
+		return abs(hits[0]), nil
+	}
+	var b strings.Builder
+	if len(hits) == 0 {
+		fmt.Fprintf(&b, "case %s lists %d configs and none declares `commands: [%s]`; pass --config with one of these:", c.ID, len(c.Config), command)
+	} else {
+		fmt.Fprintf(&b, "case %s: more than one config declares `commands: [%s]` (%s); pass --config with one of these:", c.ID, command, strings.Join(hits, ", "))
+	}
+	for i, rel := range c.Config {
+		list := "no commands declared"
+		if len(declared[i]) > 0 {
+			list = "commands: " + strings.Join(declared[i], ", ")
+		}
+		fmt.Fprintf(&b, "\n  %s  (%s)", rel, list)
+	}
+	return "", usagef("%s", b.String())
+}
+
+// ChooseCaseConfig returns the absolute path of the config command (one of
+// CaseCommands) should use. flag names one of the case's configs, or a file inside the
+// case, and wins. Empty flag: the one listed config that declares command under
+// `commands:`; else, when the case lists one config, that one; else a usage error that
+// lists every config with its commands. command is not consulted when flag is set, so
+// a caller that never chooses (jb doctor) may pass "". A relative flag that is not a
+// listed entry is looked for in the case directory, then in the working directory; the
+// real path (symlinks followed) must be inside the case.
+func ChooseCaseConfig(c *casefile.Case, flag, command string) (string, error) {
 	abs := func(rel string) string { return filepath.Join(c.Dir, filepath.FromSlash(rel)) }
 	if flag == "" {
-		switch len(c.Config) {
-		case 0:
-			return "", usagef("case %s lists no config: pass --config FILE (a file inside the case)", c.ID)
-		case 1:
-			return abs(c.Config[0]), nil
-		}
-		return "", usagef("case %s lists %d configs, pass --config with one of: %s", c.ID, len(c.Config), strings.Join(c.Config, ", "))
+		return chooseDeclared(c, command)
 	}
 	clean := path.Clean(filepath.ToSlash(flag))
 	for _, rel := range c.Config {

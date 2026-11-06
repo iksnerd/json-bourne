@@ -10,6 +10,7 @@ The loader is strict. An unknown key, an unknown `type`, a missing `type`, a fil
 
 | Key | Type | Required | Meaning |
 |---|---|---|---|
+| `commands` | list of string | no | The commands this config answers, from a closed set; see [Which config answers a command](#which-config-answers-a-command). |
 | `sources` | list | yes | Each element is a mapping with a `type`. |
 | `detectors` | list | yes | Each element is a mapping with a `type`. |
 | `store.path` | string | no | Path of the DuckDB file. |
@@ -17,6 +18,23 @@ The loader is strict. An unknown key, an unknown `type`, a missing `type`, a fil
 | `intel` | mapping | no | Options of `jb intel`; see [Reputation lookups](#reputation-lookups). |
 | `estate` | mapping | no | Which external services `jb estate asn\|dns\|ct` and `jb estate refresh` may ask; see [Estate collectors](#estate-collectors) and [Estate drift](#estate-drift). Ignored by every other command. |
 | `alerts` | list | no | Extra places `jb watch` delivers alerts, in addition to stdout and `watch.log`; see [Alert delivery](#alert-delivery). Ignored by `hunt` and `intel`. |
+
+## Which config answers a command
+
+A case can list several configs (a hunt, a fingerprint check, a watcher). A config says what it is for with `commands`, a list of names from this closed set: `activity`, `actor`, `estate`, `hunt`, `intel`, `rename-source`, `serve`, `watch`. `estate` covers every `jb estate` subcommand. Any other name, an empty name or a repeat is a load error. `jb doctor` is not in the set: without `--config` it checks every listed config.
+
+```yaml
+commands: [activity, actor]
+```
+
+A command that takes `--case` chooses its config in this order:
+
+1. `--config`, when given.
+2. The one listed config that declares the command.
+3. When none declares it and the case lists exactly one config, that config.
+4. Otherwise a usage error (exit 2) that lists every config of the case with its commands. Two configs that declare the same command give the same error.
+
+Reading the choice needs only the `commands` key of each listed config: no source is built and no environment variable is read. The Go options `Config` follow the same rule with the command each function stands for (`HuntCase`: `hunt`, `Watch`: `watch`, `Activity`: `activity`). `examples/case` lists two configs: `config/hunt.yaml` declares `hunt` and the others, `config/fingerprint.yaml` declares `activity` and `actor`.
 
 ## Sources
 
@@ -227,7 +245,7 @@ Rules, checked at load:
 - Two sources still may not report the same name, enabled or not; the same holds for the stored source column.
 - `--search` is applied to the enabled sources only.
 
-Example: an attack profile and a health profile of one case. `case.yaml` lists both configs, so every command asks for `--config`:
+Example: an attack profile and a health profile of one case. `case.yaml` lists both configs. Neither declares `commands`, so every command asks for `--config`; add `commands: [watch]` to one of them and `jb watch` no longer needs it:
 
 ```yaml
 # config/attack.yaml: the hunt for the actor, on the ingress and Keycloak logs
@@ -700,7 +718,7 @@ jb estate dns --case DIR [...] [--resolver HOST:PORT] DOMAIN ...
 jb estate ct  --case DIR [...] [--max-names 500] DOMAIN ...
 ```
 
-`--config` defaults to the case's only config. The three are subcommands of `jb estate` rather than flags, because each has its own target type (AS or address, domain, domain), its own service and its own caps; `jb estate IP ...` is unchanged.
+`--config` defaults to the config that declares `estate` under `commands`, else the case's only config. The three are subcommands of `jb estate` rather than flags, because each has its own target type (AS or address, domain, domain), its own service and its own caps; `jb estate IP ...` is unchanged.
 
 The bounds are flags: `--timeout` (1s to 2m, per request), `--min-interval` (0 to 1m between requests; defaults 1s for `asn` and `ct`, 250ms for `dns`), `--max-targets` (default 10, at most 50; more is refused, not truncated) and, for `ct`, `--max-names` (default 500, at most 2000). Responses are size-limited in the adapters (4 MiB for BGP, 16 MiB for CT).
 

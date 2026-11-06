@@ -185,7 +185,7 @@ func (a *doctorAdapter) Inspect(dir, configFlag string) (app.DoctorCase, error) 
 		}
 	}
 	if configFlag != "" {
-		p, err := chooseCaseConfig(c, configFlag)
+		p, err := chooseCaseConfig(c, configFlag, "")
 		if err != nil {
 			return app.DoctorCase{}, err
 		}

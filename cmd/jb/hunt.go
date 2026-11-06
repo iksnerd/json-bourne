@@ -102,7 +102,7 @@ func newHuntCmdWith(d deps) *cobra.Command {
 			var plan *casePlan
 			if caseDir != "" {
 				var err error
-				plan, err = planCase(cmd.ErrOrStderr(), caseDir, cfgPath, cmd.Flags().Changed("window"))
+				plan, err = planCase(cmd.ErrOrStderr(), caseDir, cfgPath, "hunt", cmd.Flags().Changed("window"))
 				if err != nil {
 					return err
 				}

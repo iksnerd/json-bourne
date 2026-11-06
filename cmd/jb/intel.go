@@ -65,7 +65,7 @@ func newIntelCmdWith(d deps) *cobra.Command {
 			if caseDir != "" {
 				var err error
 				// windowSet is true: intel has no window, so the case's default is not announced.
-				plan, err = planCase(cmd.ErrOrStderr(), caseDir, cfgPath, true)
+				plan, err = planCase(cmd.ErrOrStderr(), caseDir, cfgPath, "intel", true)
 				if err != nil {
 					return err
 				}

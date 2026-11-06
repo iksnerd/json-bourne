@@ -195,7 +195,7 @@ func newExtCmd(d deps, s extSpec) *cobra.Command {
 				return err
 			}
 			// The gate comes before any adapter is built and before any request.
-			cfgFile, cfgErr := chooseCaseConfig(c, cfgPath)
+			cfgFile, cfgErr := chooseCaseConfig(c, cfgPath, "estate")
 			var cfg *config.File
 			if cfgErr == nil {
 				cfg, cfgErr = config.Load(cfgFile)

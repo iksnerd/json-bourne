@@ -96,7 +96,7 @@ func newWatchCmdWith(d deps) *cobra.Command {
 				return usageErrorf("--repeat must be positive, got %s", repeat)
 			}
 			stderr := cmd.ErrOrStderr()
-			plan, err := planCase(stderr, caseDir, cfgPath, cmd.Flags().Changed("window"))
+			plan, err := planCase(stderr, caseDir, cfgPath, "watch", cmd.Flags().Changed("window"))
 			if err != nil {
 				return err
 			}

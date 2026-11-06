@@ -133,7 +133,7 @@ type CaseHuntOptions struct {
 //
 // Like [Hunt], a nil error does not mean the result is clean: check [Result.Complete].
 func HuntCase(ctx context.Context, caseDir string, opts CaseHuntOptions) (*Result, error) {
-	plan, err := config.PlanCase(caseDir, opts.Config, opts.Window != 0)
+	plan, err := config.PlanCase(caseDir, opts.Config, "hunt", opts.Window != 0)
 	if err != nil {
 		return nil, fmt.Errorf("jb: %w", err)
 	}

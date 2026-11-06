@@ -14,7 +14,6 @@ func searchCase(t *testing.T, idx *fakeIndex) string {
 	t.Helper()
 	dir := copyExampleCase(t, idx.srv.URL)
 	gitInit(t, dir)
-	listFingerprintConfig(t, dir)
 	editFile(t, filepath.Join(dir, fpConfigRel), "https://kibana.example.com", idx.srv.URL)
 	editFile(t, filepath.Join(dir, "case.yaml"), "default: 24h", "default: 1h")
 	return dir

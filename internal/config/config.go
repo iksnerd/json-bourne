@@ -37,6 +37,9 @@ func OSEnv(name string) (string, bool) { return os.LookupEnv(name) }
 
 // File is the parsed, validated configuration. Credentials are not resolved yet.
 type File struct {
+	// Commands names the jb commands this file is for (see CaseCommands), so a case
+	// that lists several configs can choose the one that answers a command. Optional.
+	Commands  []string        `yaml:"commands"`
 	Sources   []SourceEntry   `yaml:"sources"`
 	Detectors []DetectorEntry `yaml:"detectors"`
 	Store     Store           `yaml:"store"`
@@ -416,6 +419,9 @@ func Parse(data []byte) (*File, error) {
 		if errors.Is(err, io.EOF) {
 			return nil, errors.New("file is empty")
 		}
+		return nil, err
+	}
+	if err := checkCommands(f.Commands); err != nil {
 		return nil, err
 	}
 	if len(f.Sources) == 0 {
