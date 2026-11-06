@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -118,49 +121,36 @@ func TestMCPWritesNothingToStdoutBeforeAMessage(t *testing.T) {
 	}
 }
 
-// pruneRegistry is the registry with a stand-in db_prune whose handler is the library
-// function with the same option mapping the real handler uses: apply is the only thing
-// that deletes.
-func pruneRegistry(config string) *mcpRegistry {
-	schema := ops.Schema{Type: "object", Properties: map[string]ops.Property{
-		"run":   {Type: "string"},
-		"apply": {Type: "boolean"},
-	}, Required: []string{}}
-	return &mcpRegistry{
-		ops: []ops.Operation{
-			{Name: "case_check", Description: "Checks.", InputSchema: ops.Schema{Type: "object", Properties: map[string]ops.Property{}, Required: []string{}}, ReadOnly: true},
-			{Name: "db_prune", Description: "Prunes.", InputSchema: schema, ReadOnly: false},
-		},
-		call: func(ctx context.Context, name string, args map[string]any) (any, error) {
-			apply, _ := args["apply"].(bool)
-			return jb.DBPrune(ctx, "", jb.DBPruneOptions{Config: config, RunIDs: []string{args["run"].(string)}, Apply: apply})
-		},
+func toolNames(ts []ops.ToolEntry) []string {
+	var n []string
+	for _, t := range ts {
+		n = append(n, t.Name)
 	}
+	return n
 }
 
+// The real db_prune is a mutating operation: hidden from tools/list and refused as an
+// unknown tool until the operator names it, and even then a call without apply=true
+// changes nothing.
 func TestMCPMutatingToolIsHiddenUntilAllowedAndNeedsApply(t *testing.T) {
 	cfg, store := seedMaint(t, runIDHunts)
-	reg := pruneRegistry(cfg)
+	reg := newMCPRegistry()
 
-	if got := reg.Tools(nil); len(got) != 1 || got[0].Name != "case_check" {
-		t.Fatalf("default tools = %v", got)
+	if slices.Contains(toolNames(reg.Tools(nil)), "db_prune") {
+		t.Fatalf("db_prune is listed by default: %v", toolNames(reg.Tools(nil)))
 	}
-	if got := reg.Tools([]string{"db_prune"}); len(got) != 2 || got[1].Annotations.ReadOnlyHint {
-		t.Fatalf("allowed tools = %v", got)
+	var allowed *ops.ToolEntry
+	for _, tl := range reg.Tools([]string{"db_prune"}) {
+		if tl.Name == "db_prune" {
+			tl := tl
+			allowed = &tl
+		}
+	}
+	if allowed == nil || allowed.Annotations.ReadOnlyHint {
+		t.Fatalf("db_prune with --allow = %+v", allowed)
 	}
 
-	var in, out bytes.Buffer
-	in.WriteString(mcpInit)
-	in.WriteString(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"db_prune","arguments":{"run":"hunt-20261001T000000Z"}}}` + "\n")
-	if err := mcp.Serve(context.Background(), &in, &out, &bytes.Buffer{}, mcp.Config{Version: "t", Registry: reg}); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), "-32602") {
-		t.Errorf("an unallowed mutating tool was callable: %s", out.String())
-	}
-	before := eventsOf(t, store)
-
-	run := func(allow []string, args string) {
+	call := func(allow []string, args string) string {
 		t.Helper()
 		var in, out bytes.Buffer
 		in.WriteString(mcpInit)
@@ -168,15 +158,23 @@ func TestMCPMutatingToolIsHiddenUntilAllowedAndNeedsApply(t *testing.T) {
 		if err := mcp.Serve(context.Background(), &in, &out, &bytes.Buffer{}, mcp.Config{Version: "t", Allow: allow, Registry: reg}); err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(out.String(), `"isError":false`) {
-			t.Fatalf("call failed: %s", out.String())
-		}
+		return out.String()
 	}
-	run([]string{"db_prune"}, `{"run":"hunt-20261001T000000Z"}`)
+	args := `{"config":` + strconv.Quote(cfg) + `,"run":["hunt-20261001T000000Z"]`
+	before := eventsOf(t, store)
+
+	if got := call(nil, args+`}`); !strings.Contains(got, "-32602") {
+		t.Errorf("an unallowed mutating tool was callable: %s", got)
+	}
+	if got := call([]string{"db_prune"}, args+`}`); !strings.Contains(got, `"isError":false`) {
+		t.Fatalf("allowed call failed: %s", got)
+	}
 	if got := eventsOf(t, store); !sameCounts(got, before) {
 		t.Errorf("a call without apply changed the store: %v -> %v", before, got)
 	}
-	run([]string{"db_prune"}, `{"run":"hunt-20261001T000000Z","apply":true}`)
+	if got := call([]string{"db_prune"}, args+`,"apply":true}`); !strings.Contains(got, `"isError":false`) {
+		t.Fatalf("apply call failed: %s", got)
+	}
 	if got := eventsOf(t, store); sameCounts(got, before) {
 		t.Errorf("apply=true deleted nothing: %v", got)
 	}
@@ -194,37 +192,41 @@ func sameCounts(a, b map[string]int) bool {
 	return true
 }
 
+// hunt and activity write a run unless store is false. As tools they are read-only: the
+// property is not offered, a call that supplies it is refused, and a call leaves no
+// evidence database behind. A property only the command line accepts is refused too.
 func TestMCPHuntAndActivityNeverStoreAndHideTheStoreProperty(t *testing.T) {
-	schema := ops.Schema{Type: "object", Properties: map[string]ops.Property{"store": {Type: "boolean"}, "case": {Type: "string"}}, Required: []string{}}
-	var seen map[string]any
-	reg := &mcpRegistry{
-		ops: []ops.Operation{
-			{Name: "hunt", Description: "Hunts.", InputSchema: schema, ReadOnly: false},
-			{Name: "case_show", Description: "Shows.", InputSchema: schema, ReadOnly: true, CLI: &ops.CLI{Command: []string{"case", "show"}, Only: []string{"case"}}},
-		},
-		call: func(_ context.Context, _ string, args map[string]any) (any, error) {
-			seen = args
-			return map[string]any{}, nil
-		},
+	reg := newMCPRegistry()
+	byName := map[string]ops.ToolEntry{}
+	for _, tl := range reg.Tools(nil) {
+		byName[tl.Name] = tl
 	}
-	tools := reg.Tools(nil)
-	if len(tools) != 2 || tools[0].Name != "hunt" || !tools[0].Annotations.ReadOnlyHint {
-		t.Fatalf("hunt is not a default read-only tool: %+v", tools)
+	for _, name := range []string{"hunt", "activity"} {
+		tl, ok := byName[name]
+		if !ok || !tl.Annotations.ReadOnlyHint {
+			t.Fatalf("%s is not a default read-only tool: %+v", name, tl)
+		}
+		if _, has := tl.InputSchema.Properties["store"]; has {
+			t.Errorf("%s still offers the store property", name)
+		}
+		if tl.Fixed["store"] != false {
+			t.Errorf("%s does not fix store=false: %v", name, tl.Fixed)
+		}
 	}
-	if _, ok := tools[0].InputSchema.Properties["store"]; ok {
-		t.Error("the store property is still offered")
+
+	t.Setenv("JB_KIBANA_API_KEY", secretKey)
+	idx := newFakeIndex(t, searchDocs())
+	dir := searchCase(t, idx)
+	if _, err := reg.Call(context.Background(), "hunt", map[string]any{"case": dir, "config": "config/hunt.yaml"}); err != nil && jb.IsUsage(err) {
+		t.Fatalf("hunt through the tool path: %v", err)
 	}
-	if _, err := reg.Call(context.Background(), "hunt", map[string]any{"case": "x"}); err != nil {
-		t.Fatal(err)
+	if left, _ := filepath.Glob(filepath.Join(dir, "evidence", "*.duckdb")); len(left) != 0 {
+		t.Errorf("a tool call to hunt stored evidence: %v", left)
 	}
-	if seen["store"] != false || seen["case"] != "x" {
-		t.Errorf("handler saw %v", seen)
-	}
-	if _, err := reg.Call(context.Background(), "hunt", map[string]any{"store": true}); err == nil || !jb.IsUsage(err) {
+	if _, err := reg.Call(context.Background(), "hunt", map[string]any{"case": dir, "store": true}); err == nil || !jb.IsUsage(err) {
 		t.Errorf("a supplied store was accepted: %v", err)
 	}
-	// A property that only the command line accepts is refused as unknown.
-	if _, err := reg.Call(context.Background(), "case_show", map[string]any{"case": "x"}); err == nil || !strings.Contains(err.Error(), "not an argument") {
-		t.Errorf("cli.only property accepted: %v", err)
+	if _, err := reg.Call(context.Background(), "estate_diff", map[string]any{"case": dir, "alert": true}); err == nil || !jb.IsUsage(err) {
+		t.Errorf("a command-line-only property was accepted: %v", err)
 	}
 }
