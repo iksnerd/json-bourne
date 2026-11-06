@@ -111,6 +111,9 @@ var netHTTPAllowed = map[string]bool{
 // symbols it uses.
 var netHTTPServing = map[string]bool{
 	mod + "/internal/adapters/web": true,
+	// The root package returns the dashboard as an http.Handler (dashboard.go). It
+	// uses the type only; it builds no client.
+	mod: true,
 }
 
 func TestNetHTTPIsConfinedToTheRemoteAdapters(t *testing.T) {
