@@ -89,7 +89,7 @@ func Watch(ctx context.Context, caseDir string, opts WatchOptions) (*CycleReport
 		}
 	}
 	if opts.Every == 0 {
-		opts.Every = 5 * time.Minute
+		opts.Every = DefaultWatchEvery
 	}
 	if opts.Env == nil {
 		opts.Env = config.OSEnv
@@ -110,7 +110,7 @@ func Watch(ctx context.Context, caseDir string, opts WatchOptions) (*CycleReport
 		window = plan.Window
 	}
 	if window == 0 {
-		window = time.Hour
+		window = DefaultWindow
 	}
 	keep := opts.Keep
 	if keep == 0 {

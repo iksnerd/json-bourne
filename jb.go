@@ -68,6 +68,18 @@ const (
 // ErrNoRecords is returned (wrapped) by a source or detector that read zero records.
 var ErrNoRecords = core.ErrNoRecords
 
+// The defaults of the Go functions. They are the defaults of the CLI commands of the
+// same name, and a test in cmd/jb fails if the two differ.
+const (
+	// DefaultWindow is the hunt window of [Hunt], [HuntCase] and [Watch] when none is given
+	// (a case's windows.default replaces it for the case functions).
+	DefaultWindow = time.Hour
+	// DefaultActivityWindow is the window of [Activity] when none is given.
+	DefaultActivityWindow = 24 * time.Hour
+	// DefaultWatchEvery is the time between cycles of [Watch] when none is given.
+	DefaultWatchEvery = 5 * time.Minute
+)
+
 // MaxHistoricalWindow is the longest window a hunt ending in the past accepts.
 const MaxHistoricalWindow = 31 * 24 * time.Hour
 
@@ -140,7 +152,7 @@ func hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 		return nil, fmt.Errorf("jb: window must be positive, got %s", opts.Window)
 	}
 	if opts.Window == 0 {
-		opts.Window = time.Hour
+		opts.Window = DefaultWindow
 	}
 	if opts.Env == nil {
 		opts.Env = config.OSEnv

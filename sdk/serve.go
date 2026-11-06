@@ -7,6 +7,10 @@
 // links nothing of the host. The protocol is documented in docs/PLUGINS.md; this
 // package is one implementation of it, not the definition. The API is v0 and may
 // change between minor versions.
+//
+// This is the plugin side of json-bourne's own mapper protocol and nothing else. It is
+// not an implementation of another project's plugin protocol, and a plugin built with
+// it will not run under another host. See docs/adr/0001-relationship-to-other-plugin-specifications.md.
 package sdk
 
 import (

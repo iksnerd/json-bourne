@@ -4,6 +4,8 @@
 
 A mapper turns one raw document into an event. The built-in mappers (`default`, `nginx_ingress`) are Go code compiled into `jb`. A **plugin** is the same job done by a separate executable that you have allowlisted, so parsing for one product's log format does not have to live in the core binary.
 
+> **Not another project's plugin protocol.** The protocol below is `jb`'s own. It has the shape of a long-lived plugin protocol (a handshake line, one request in flight, a deadline, the process group killed on a break, a breaker after three breaks), but it is not an implementation of any published one, and a plugin written for another host will not run here. It is frozen at `v: 1` and versioned by that field. Why `jb` keeps its own, and what it would take to change that, is in [adr/0001-relationship-to-other-plugin-specifications.md](adr/0001-relationship-to-other-plugin-specifications.md).
+
 There is one plugin role, `mapper`, and one place a plugin is used: a `kibana` source with `mapper: plugin:<name>`. Hunt, watch and activity behave exactly as with a built-in mapper: the host hands the source events, and the source counts what the plugin could not parse in the same `Stats.Unparsable` the built-ins use.
 
 ## What runs on your machine

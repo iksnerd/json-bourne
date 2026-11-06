@@ -57,7 +57,7 @@ func Activity(ctx context.Context, caseDir string, opts ActivityOptions) (*Activ
 		return nil, fmt.Errorf("jb: window must be positive, got %s", opts.Window)
 	}
 	if opts.Window == 0 {
-		opts.Window = 24 * time.Hour
+		opts.Window = DefaultActivityWindow
 	}
 	if opts.Env == nil {
 		opts.Env = config.OSEnv

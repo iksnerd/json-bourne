@@ -9,6 +9,13 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - **The Content-Security-Policy changes** from `default-src 'none'` (no script at all) to `script-src 'self'; connect-src 'self'; form-action 'self'`. Scripts are the vendored, hash-pinned htmx and d3 and two small files of this project; there is still no inline script, no eval and no other origin, and the dashboard stays GET-only and read-only. See docs/ARCHITECTURE.md and docs/THIRD-PARTY.md.
 - New dependencies: `github.com/a-h/templ` and `github.com/dominikbraun/graph`. The `jb` and `sdk` packages do not import them.
 
+### Added
+- `jb.DefaultWindow`, `jb.DefaultActivityWindow` and `jb.DefaultWatchEvery`: the defaults of the Go functions, now constants. A test fails if they differ from the defaults of the CLI commands of the same name.
+- docs/adr/0001-relationship-to-other-plugin-specifications.md: `jb` is independent of the maintainer's draft plugin specifications, its mapper protocol is frozen at `v: 1` as its own, it has no action role, and what it would take to change that.
+
+### Known gaps
+- The Go functions lack some CLI options. `Hunt` and `HuntCase` have no equivalent of `--search` and `--search-field`, and no JSON or table output (a caller has the `Result` value). They are added when a caller needs them.
+
 ## [0.2.1] - 2026-11-06
 
 ### Security
