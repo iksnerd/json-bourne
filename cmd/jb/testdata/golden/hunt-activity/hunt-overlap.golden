@@ -1,0 +1,17 @@
+exit 0
+--- stdout
+run       hunt-20261105T120000Z
+window    2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z
+baseline  2026-11-05T10:00:00Z to 2026-11-05T11:00:00Z
+
+SOURCE     STATUS  EVENTS    NOTE
+new-label  ok      2         
+                             
+DETECTOR   STATUS  FINDINGS  NOTE
+behaviour  ok      1         
+
+SEVERITY  DETECTOR   TAG                    SUMMARY
+check     behaviour  behaviour:device-code  rare action "device-code" occurred 2 time(s) (new, none in the preceding window) from 1 distinct key(s)
+--- stderr
+hunting hunt-20261105T120000Z [2026-11-05T11:00:00Z, 2026-11-05T12:00:00Z) with 1 source(s), 1 detector(s)
+WARNING: the store holds the same 2 document(s) under two source labels, "new-label" and "old-label", in the window being read, so a detector that reads both counts them twice. Fix: jb db rename-source --case <CASE> --config config/behaviour.yaml new-label old-label --merge   (a dry run; add --apply to change the store); swap the two labels if "new-label" is the one your config still uses

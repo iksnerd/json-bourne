@@ -1,0 +1,49 @@
+exit 0
+--- stdout
+{
+  "run": "activity-20261105T120000Z",
+  "verdict": "ACTIVE",
+  "complete": true,
+  "stored": true,
+  "reasons": [],
+  "window": [
+    "2026-11-05T11:00:00Z",
+    "2026-11-05T12:00:00Z"
+  ],
+  "baseline": [
+    "2026-11-05T10:00:00Z",
+    "2026-11-05T11:00:00Z"
+  ],
+  "sources": [
+    {
+      "name": "kibana:logs-http-*",
+      "status": "ok",
+      "events": 4
+    }
+  ],
+  "detectors": [
+    {
+      "name": "fingerprint",
+      "status": "ok",
+      "findings_before_stop": 1,
+      "events_read": 4,
+      "unparsable": 0,
+      "subjects": [
+        {
+          "subject": "actor-a",
+          "kind": "actor",
+          "active": true,
+          "window_events": 1,
+          "preceding_events": 0,
+          "last_genuine": "2026-11-05T11:02:00Z"
+        }
+      ]
+    }
+  ],
+  "genuine_events_window": 1,
+  "genuine_events_preceding": 0,
+  "common_action_events_window": 0,
+  "common_action_events_preceding": 0,
+  "common_actions_flagged": []
+}
+--- stderr

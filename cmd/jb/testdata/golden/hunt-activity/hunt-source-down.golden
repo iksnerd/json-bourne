@@ -1,0 +1,17 @@
+exit 1
+--- stdout
+run       hunt-20261105T120000Z
+window    2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z
+baseline  2026-11-05T10:00:00Z to 2026-11-05T11:00:00Z
+
+SOURCE              STATUS       EVENTS    NOTE
+kibana:logs-http-*  unavailable  0         event stream for run "hunt-20261105T120000Z/kibana:logs-http-*": source unavailable: kibana returned HTTP 502
+                                           
+DETECTOR            STATUS       FINDINGS  NOTE
+fingerprint         no_records   0         fingerprint: no records: current window had no event with user_agent, path, status and a time (0 unparsable)
+
+INCOMPLETE: 2 component(s) did not finish; this is not a clean result.
+No findings from the components that completed.
+--- stderr
+hunting hunt-20261105T120000Z [2026-11-05T11:00:00Z, 2026-11-05T12:00:00Z) with 1 source(s), 1 detector(s)
+jb: hunt incomplete, no clean result: 2 component(s) did not finish: [source kibana:logs-http-* detector fingerprint]

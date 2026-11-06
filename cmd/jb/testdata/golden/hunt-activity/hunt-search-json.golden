@@ -1,0 +1,73 @@
+exit 0
+--- stdout
+{
+  "search": {
+    "terms": [
+      "needle-token"
+    ],
+    "absent": false
+  },
+  "run": "search-20261105T120000Z",
+  "window": [
+    "2026-11-05T11:00:00Z",
+    "2026-11-05T12:00:00Z"
+  ],
+  "baseline": [
+    "2026-11-05T10:00:00Z",
+    "2026-11-05T11:00:00Z"
+  ],
+  "complete": true,
+  "stored": true,
+  "sources": [
+    {
+      "name": "kibana:logs-http-*",
+      "status": "ok",
+      "events": 2,
+      "outcome": "matched"
+    }
+  ],
+  "detectors": [
+    {
+      "name": "fingerprint",
+      "status": "ok",
+      "findings": 1
+    }
+  ],
+  "findings": [
+    {
+      "detector": "fingerprint",
+      "tag": "fingerprint:actor-a",
+      "severity": "check",
+      "summary": "actor \"actor-a\": 1 genuine events against 0 in the preceding window; last genuine activity 2026-11-05T11:02:00Z (window)",
+      "window": [
+        "2026-11-05T11:00:00Z",
+        "2026-11-05T12:00:00Z"
+      ],
+      "baseline": [
+        "2026-11-05T10:00:00Z",
+        "2026-11-05T11:00:00Z"
+      ],
+      "detail": {
+        "actor": "actor-a",
+        "actor_label": "Example sprayer A",
+        "baseline_empty": true,
+        "cur_filtered": 0,
+        "cur_genuine": 1,
+        "cur_ignored": 0,
+        "cur_parsable": 2,
+        "last_genuine": "2026-11-05T11:02:00Z",
+        "last_genuine_in": "window",
+        "prev_filtered": 0,
+        "prev_genuine": 0,
+        "prev_ignored": 0,
+        "prev_parsable": 0,
+        "unparsable_cur": 0,
+        "unparsable_prev": 0
+      }
+    }
+  ]
+}
+--- stderr
+window 1h from the case (windows.default)
+hunting search-20261105T120000Z [2026-11-05T11:00:00Z, 2026-11-05T12:00:00Z) with 1 source(s), 1 detector(s)
+narrowed by 1 search term(s) on field message; the detectors read the stored evidence for the window, which includes events saved by earlier runs, not only the matches

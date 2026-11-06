@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/app"
-	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
 )
 
@@ -70,57 +70,27 @@ func newActivityCmdWith(d deps) *cobra.Command {
 					return usageErrorf("%v", uerr)
 				}
 			}
-			wp, err := planWindow(d.now(), window, untilT)
-			if err != nil {
+			if err := checkUntilWindow(window, untilT); err != nil {
 				return err
 			}
-			plan, err := planCase(cmd.ErrOrStderr(), caseDir, cfgPath, "activity", true)
-			if err != nil {
-				return err
-			}
-			cfg, rt, err := openCase(cmd.ErrOrStderr(), d.env, plan.configPath, plan)
-			if err != nil {
-				return err
-			}
-			defer rt.Close() // ends any plugin child process, on success, failure and interrupt alike
-			var dets []core.Detector
-			var skipped []string
-			for _, det := range rt.Detectors {
-				if _, ok := det.(core.ActivityReporter); ok {
-					dets = append(dets, det)
-				} else {
-					skipped = append(skipped, det.Name())
-				}
-			}
-			if note := app.DisabledNote(disabledOf(rt)); note != "" {
-				fmt.Fprintln(cmd.ErrOrStderr(), note)
-			}
-			if len(dets) == 0 {
-				if note := app.DisabledNote(disabledOf(rt)); note != "" {
-					return usageErrorf("config %s has no enabled fingerprint or behaviour detector, so it cannot say whether an actor is active. %s", plan.configPath, note)
-				}
-				return usageErrorf("config %s has no fingerprint or behaviour detector, so it cannot say whether an actor is active", plan.configPath)
-			}
-			if len(skipped) > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "note: not an activity detector, skipped: %s\n", strings.Join(skipped, ", "))
-			}
-			st, err := config.OpenRunStore(cmd.Context(), cfg, noStore, plan.keepOut()...)
-			if err != nil {
-				return err
-			}
-			defer st.Close() // removes a --no-store scratch store, on success, failure and interrupt alike
 
-			run := wp.runID("activity")
-			res, aerr := app.Activity(cmd.Context(), runDeps(rt, dets, st), run, wp.W)
-			res.Until = wp.Until
-			warnSourceOverlap(cmd.Context(), cmd.ErrOrStderr(), st, core.Window{From: wp.W.Previous().From, To: wp.W.To}, renameScope(caseDir, cfgPath))
+			// The flags become the library's options; the library does the rest and hands
+			// each advice line to Notice as it arises, so stderr keeps its order and timing.
+			stderr := cmd.ErrOrStderr()
+			res, aerr := jb.Activity(cmd.Context(), caseDir, jb.ActivityOptions{
+				Config: cfgPath, Window: window, Until: untilT, Env: d.env, Now: d.now, NoStore: noStore,
+				Notice: func(note string) { fmt.Fprintln(stderr, note) },
+			})
+			if res == nil {
+				return aerr
+			}
 
 			if len(res.Sources) > 0 {
 				var perr error
 				if output == "json" {
 					perr = writeJSON(cmd.OutOrStdout(), res)
 				} else {
-					perr = writeActivityTable(cmd.OutOrStdout(), res)
+					perr = writeActivityTable(cmd.OutOrStdout(), *res)
 				}
 				if perr != nil && aerr == nil {
 					aerr = fmt.Errorf("write output: %w", perr)

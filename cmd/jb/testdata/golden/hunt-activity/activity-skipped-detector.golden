@@ -1,0 +1,16 @@
+exit 0
+--- stdout
+run       activity-20261105T120000Z
+window    2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z
+baseline  2026-11-05T10:00:00Z to 2026-11-05T11:00:00Z
+
+SOURCE              STATUS  EVENTS FETCHED  UNPARSABLE  OUTCOME
+kibana:logs-http-*  ok      4               0           matched
+
+detector behaviour: ok
+SUBJECT  KIND    WINDOW  PRECEDING  LAST GENUINE  NOTE
+login    common  2       0          none          ordinary traffic, failure share unchanged
+
+QUIET: window 2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z (1h0m0s); sources read: kibana:logs-http-* (4 events fetched), events fetched cover the window and the one before it; detectors: behaviour; judged: behaviour read 4 events in the window, actor/rare-action events: 0 (window), 0 (preceding); common-action events (ordinary traffic): 2 (window), 0 (preceding); every source and detector completed and none found an actor or rare action active; common-action traffic is ordinary unless its failure share moved.
+--- stderr
+note: not an activity detector, skipped: authspike

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -115,29 +114,11 @@ func writeRename(w io.Writer, store string, r jb.DBRenameSourceResult, apply, me
 
 // renameScope is the part of a `jb db rename-source` command line that names the
 // config, as the caller was given it, quoted for a shell.
-func renameScope(caseDir, cfgPath string) string {
-	var parts []string
-	if caseDir != "" {
-		parts = append(parts, "--case "+app.ShellQuote(caseDir))
-	}
-	if cfgPath != "" {
-		parts = append(parts, "--config "+app.ShellQuote(cfgPath))
-	}
-	return strings.Join(parts, " ")
-}
+func renameScope(caseDir, cfgPath string) string { return app.RenameScope(caseDir, cfgPath) }
 
 // warnSourceOverlap prints, to w, a WARNING when the store holds the same documents
 // under two source labels inside win. It is advice: it never returns an error and the
 // caller's verdict and exit code do not depend on it. A failed check is noted, not hidden.
 func warnSourceOverlap(ctx context.Context, w io.Writer, r core.SourceOverlapReader, win core.Window, scope string) {
-	ov, err := app.SourceOverlaps(ctx, r, win)
-	if err != nil {
-		if ctx.Err() == nil {
-			fmt.Fprintf(w, "note: the check for one set of documents stored under two source labels did not run: %v\n", err)
-		}
-		return
-	}
-	if msg := app.SourceOverlapWarning(ov, scope); msg != "" {
-		fmt.Fprint(w, msg)
-	}
+	fmt.Fprint(w, app.OverlapAdvice(ctx, r, win, scope))
 }

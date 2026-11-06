@@ -1,0 +1,14 @@
+exit 1
+--- stdout
+run       activity-20261105T120000Z
+window    2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z
+baseline  2026-11-05T10:00:00Z to 2026-11-05T11:00:00Z
+
+SOURCE              STATUS       EVENTS FETCHED  UNPARSABLE  OUTCOME
+kibana:logs-http-*  unavailable  0               0           unreachable: event stream for run "activity-20261105T120000Z/kibana:logs-http-*": source unavailable: kibana returned HTTP 502
+
+detector fingerprint: no_records: fingerprint: no records: current window had no event with user_agent, path, status and a time (0 unparsable)
+
+INCOMPLETE: window 2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z (1h0m0s); sources read: kibana:logs-http-* (0 events fetched), events fetched cover the window and the one before it; detectors: fingerprint; judged: fingerprint: not judged (no_records); this is not QUIET because source kibana:logs-http-* did not finish (unavailable); detector fingerprint did not finish (no_records).
+--- stderr
+jb: activity incomplete, not QUIET: source kibana:logs-http-* did not finish (unavailable); detector fingerprint did not finish (no_records)

@@ -1,0 +1,16 @@
+exit 1
+--- stdout
+run       activity-20261105T120000Z
+window    2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z
+baseline  2026-11-05T10:00:00Z to 2026-11-05T11:00:00Z
+
+SOURCE              STATUS  EVENTS FETCHED  UNPARSABLE  OUTCOME
+kibana:logs-http-*  ok      5               0           matched
+
+detector behaviour: error: behaviour: action "admin-login" cannot be judged: 2 distinct keys filled max_keys (2) before any reached min_events_per_key 3; raise max_keys in the behaviour config
+  1 finding(s) proved before the detector stopped; they count as activity, and the detector is still incomplete.
+
+NOTE: ACTIVE stands, but the check is also incomplete: detector behaviour did not finish (error).
+ACTIVE: window 2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z (1h0m0s); sources read: kibana:logs-http-* (5 events fetched), events fetched cover the window and the one before it; detectors: behaviour; judged: behaviour: not judged (error), 1 finding(s) proved before it stopped;.
+--- stderr
+jb: activity ACTIVE, but the check is incomplete: detector behaviour did not finish (error)

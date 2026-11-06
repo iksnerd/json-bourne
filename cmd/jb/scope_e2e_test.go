@@ -12,6 +12,7 @@ import (
 	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/watchrun"
 )
 
 // Two fake Kibanas, two indices, two mappers, one hunt. The ingress index holds nginx
@@ -110,7 +111,7 @@ func huntTwoSources(t *testing.T, ingress, kc []doc, detectors string) app.Resul
 		t.Fatal(err)
 	}
 	w := core.Window{From: fixedNow.Add(-time.Hour), To: fixedNow}
-	res, err := app.Hunt(context.Background(), runDeps(rt, rt.Detectors, st), "e2e", w)
+	res, err := app.Hunt(context.Background(), watchrun.RunDeps(rt, rt.Detectors, st), "e2e", w)
 	if err != nil {
 		t.Fatalf("hunt: %v", err)
 	}

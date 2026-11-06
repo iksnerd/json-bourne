@@ -82,3 +82,31 @@ func shellQuote(s string) string {
 
 // ShellQuote is shellQuote for callers that build the scope argument.
 func ShellQuote(s string) string { return shellQuote(s) }
+
+// OverlapAdvice is the advice of a run about one set of documents stored under two source
+// labels: the WARNING with its fix, or a note that the check did not run, or "" when there
+// is nothing to say. Advice only: it never fails the caller, who prints it and keeps the
+// verdict. It ends with a newline when it is not empty.
+func OverlapAdvice(ctx context.Context, r core.SourceOverlapReader, win core.Window, scope string) string {
+	ov, err := SourceOverlaps(ctx, r, win)
+	if err != nil {
+		if ctx.Err() == nil {
+			return fmt.Sprintf("note: the check for one set of documents stored under two source labels did not run: %v\n", err)
+		}
+		return ""
+	}
+	return SourceOverlapWarning(ov, scope)
+}
+
+// RenameScope is the part of a `jb db rename-source` command line that names the config,
+// as the caller was given it, quoted for a shell.
+func RenameScope(caseDir, cfgPath string) string {
+	var parts []string
+	if caseDir != "" {
+		parts = append(parts, "--case "+ShellQuote(caseDir))
+	}
+	if cfgPath != "" {
+		parts = append(parts, "--config "+ShellQuote(cfgPath))
+	}
+	return strings.Join(parts, " ")
+}

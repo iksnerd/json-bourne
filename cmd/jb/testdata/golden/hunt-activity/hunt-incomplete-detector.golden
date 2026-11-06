@@ -1,0 +1,18 @@
+exit 1
+--- stdout
+run       hunt-20261105T120000Z
+window    2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z
+baseline  2026-11-05T10:00:00Z to 2026-11-05T11:00:00Z
+
+SOURCE              STATUS  EVENTS    NOTE
+kibana:logs-http-*  ok      5         
+                                      
+DETECTOR            STATUS  FINDINGS  NOTE
+behaviour           error   1         behaviour: action "admin-login" cannot be judged: 2 distinct keys filled max_keys (2) before any reached min_events_per_key 3; raise max_keys in the behaviour config
+
+INCOMPLETE: 1 component(s) did not finish; this is not a clean result.
+SEVERITY  DETECTOR   TAG                    SUMMARY
+check     behaviour  behaviour:device-code  rare action "device-code" occurred 1 time(s) (new, none in the preceding window) from 1 distinct key(s)
+--- stderr
+hunting hunt-20261105T120000Z [2026-11-05T11:00:00Z, 2026-11-05T12:00:00Z) with 1 source(s), 1 detector(s)
+jb: hunt incomplete, no clean result: 1 component(s) did not finish: [detector behaviour]

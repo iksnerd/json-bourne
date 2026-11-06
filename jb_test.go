@@ -26,6 +26,22 @@ func TestPlan(t *testing.T) {
 		t.Fatalf("past: %v %q %v", w, run, err)
 	}
 
+	// Run ids (moved from cmd/jb when the planning became the library's only): a past
+	// run cannot collide with a live one of the same second, windows of different
+	// length ending together differ, and none can be reaped by watch retention.
+	_, live, _ := plan(until, HuntOptions{Window: time.Hour}, "hunt")
+	_, past1h, _ := plan(until.Add(time.Hour), HuntOptions{Window: time.Hour, Until: until}, "hunt")
+	_, past24h, _ := plan(until.Add(time.Hour), HuntOptions{Window: 24 * time.Hour, Until: until}, "hunt")
+	if live == past1h || past1h == past24h {
+		t.Errorf("run ids collide: %q %q %q", live, past1h, past24h)
+	}
+	for _, p := range []string{"hunt", "search", "activity"} {
+		_, id, _ := plan(until, HuntOptions{Window: time.Hour, Until: until}, p)
+		if strings.HasPrefix(id, "watch-") {
+			t.Errorf("%s run id would be reaped by watch retention", p)
+		}
+	}
+
 	for name, o := range map[string]HuntOptions{
 		"future":     {Window: time.Hour, Until: now.Add(time.Hour).Truncate(time.Second)},
 		"fractional": {Window: time.Hour, Until: until.Add(time.Nanosecond)},

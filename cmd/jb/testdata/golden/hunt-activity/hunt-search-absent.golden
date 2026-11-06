@@ -1,0 +1,18 @@
+exit 0
+--- stdout
+run       search-20261105T120000Z
+window    2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z
+baseline  2026-11-05T10:00:00Z to 2026-11-05T11:00:00Z
+
+SOURCE              STATUS      EVENTS    NOTE
+kibana:logs-http-*  ok          0         no match; index alive (4 document(s) in the window and the one before it without the filter)
+                                          
+DETECTOR            STATUS      FINDINGS  NOTE
+fingerprint         no_records  0         fingerprint: no records: current window had no event with user_agent, path, status and a time (0 unparsable)
+
+SEARCH "no-such-term": the detectors read the stored evidence for the window, including events saved by earlier runs, not only the matches.
+SEARCH RESULT: no match in 1 source(s), and each index answered an unfiltered count, so the term is absent from the window and the one before it; the index is not empty.
+--- stderr
+window 1h from the case (windows.default)
+hunting search-20261105T120000Z [2026-11-05T11:00:00Z, 2026-11-05T12:00:00Z) with 1 source(s), 1 detector(s)
+narrowed by 1 search term(s) on field message (or each source's search_field); the detectors read the stored evidence for the window, which includes events saved by earlier runs, not only the matches

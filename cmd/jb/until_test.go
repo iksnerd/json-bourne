@@ -8,8 +8,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/iksnerd/json-bourne/internal/core"
 )
 
 // untilEnd is the end of the past window the tests hunt: a month before fixedNow.
@@ -221,26 +219,6 @@ func TestUntilSeesExactlyTheWindowWhateverTheStoreHolds(t *testing.T) {
 
 // Rule 2: run ids.
 func TestUntilRunIDs(t *testing.T) {
-	live := windowPlan{W: windowFor(untilEnd, time.Hour)}
-	past := windowPlan{W: windowFor(untilEnd, time.Hour), Until: untilEnd}
-	if got := live.runID("hunt"); got != "hunt-20261001T120000Z" {
-		t.Errorf("live id = %q: the live format must not change", got)
-	}
-	if got := past.runID("hunt"); got != "hunt-until-20261001T120000Z-w3600s" {
-		t.Errorf("historical id = %q", got)
-	}
-	if live.runID("hunt") == past.runID("hunt") {
-		t.Error("a historical run collides with a live run of the same second")
-	}
-	long := windowPlan{W: windowFor(untilEnd, 24*time.Hour), Until: untilEnd}
-	if long.runID("hunt") == past.runID("hunt") {
-		t.Error("windows of different length ending together share a run id, so one would replace the other's events")
-	}
-	for _, p := range []string{"hunt", "search", "activity"} {
-		if strings.HasPrefix(past.runID(p), "watch-") {
-			t.Errorf("%s run id would be reaped by watch retention", p)
-		}
-	}
 
 	dir, _ := untilCase(t, pastDocs(), 0)
 	u, _, _ := untilJSON(t, depsAt(untilEnd), dir, "--until", untilArg) // until == now, same second as a live run
@@ -254,10 +232,6 @@ func TestUntilRunIDs(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &sr); err != nil || code != 0 || !strings.HasPrefix(sr.Run, "search-until-20261001T120000Z-w3600s") {
 		t.Errorf("search run = %q (exit %d, %v)", sr.Run, code, err)
 	}
-}
-
-func windowFor(end time.Time, d time.Duration) core.Window {
-	return core.Window{From: end.Add(-d), To: end}
 }
 
 // Rule 4: hunting the same absolute window again, by either name, counts nothing twice.

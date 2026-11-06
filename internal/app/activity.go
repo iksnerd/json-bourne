@@ -71,6 +71,8 @@ type ActivityResult struct {
 	Current, Previous             int
 	CommonCurrent, CommonPrevious int
 	Flagged                       []string
+	// Notes are advice lines for the operator, as [Result.Notes]. Not part of the JSON.
+	Notes []string `json:"-"`
 }
 
 // KindCommon is the ActivitySubject.Kind of an ordinary action judged by its failure

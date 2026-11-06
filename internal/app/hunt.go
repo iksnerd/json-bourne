@@ -198,6 +198,11 @@ type Result struct {
 	// run without one. The sources fetched only the matches, so their counts are about
 	// the term, while the detectors still read the stored evidence of the window.
 	Search []string
+	// Notes are advice lines for the operator, in the order they arose: a case outside
+	// version control, a window taken from the case, where the store sits, what was
+	// disabled, a source label stored twice. The package jb fills them (Hunt never does);
+	// the CLI prints them to stderr. They are not part of the JSON document.
+	Notes []string `json:"-"`
 }
 
 // SearchAbsent reports whether a search matched nothing anywhere and every index was

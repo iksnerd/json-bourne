@@ -1,0 +1,16 @@
+exit 0
+--- stdout
+run       hunt-20261105T120000Z
+window    2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z
+baseline  2026-11-05T10:00:00Z to 2026-11-05T11:00:00Z
+
+SOURCE              STATUS  EVENTS    NOTE
+kibana:logs-auth-*  ok      200       
+                                      
+DETECTOR            STATUS  FINDINGS  NOTE
+authspike           ok      1         
+
+SEVERITY  DETECTOR   TAG                  SUMMARY
+high      authspike  authspike:192.0.2.7  failure share for "192.0.2.7" rose from 0.0% (0/50) to 80.0% (40/50)
+--- stderr
+hunting hunt-20261105T120000Z [2026-11-05T11:00:00Z, 2026-11-05T12:00:00Z) with 1 source(s), 1 detector(s)

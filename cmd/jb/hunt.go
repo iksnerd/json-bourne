@@ -10,24 +10,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
+	jb "github.com/iksnerd/json-bourne"
+
 	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
-	"github.com/iksnerd/json-bourne/internal/watchrun"
 )
-
-// runDeps is the one place a built config becomes the ports of app.Hunt and app.Activity,
-// so every command that runs detectors applies the same `sources:` scopes. dets may be a
-// subset of rt.Detectors (jb activity skips those that cannot report activity); a scope
-// for a detector left out is dropped with it, because Hunt refuses a scope that names no
-// detector.
-func runDeps(rt *config.Runtime, dets []core.Detector, st *duckdb.Store) app.Deps {
-	return watchrun.RunDeps(rt, dets, st)
-}
-
-// disabledOf is what the config switched off, as the use cases carry it into a result.
-func disabledOf(rt *config.Runtime) []app.Disabled { return watchrun.Disabled(rt) }
 
 func newHuntCmd() *cobra.Command { return newHuntCmdWith(defaultDeps()) }
 
@@ -95,57 +83,36 @@ func newHuntCmdWith(d deps) *cobra.Command {
 				}
 			}
 
-			scope := renameScope(caseDir, cfgPath)
-			var plan *casePlan
+			if err := checkUntilWindow(window, untilT); err != nil {
+				return err
+			}
+
+			// The flags become the library's options; the library does the rest and hands
+			// each advice line to Notice as it arises, so stderr keeps the order and timing
+			// it always had.
+			stderr := cmd.ErrOrStderr()
+			opts := jb.HuntOptions{
+				Window: window, Until: untilT, Env: d.env, Now: d.now, NoStore: noStore,
+				Search: search, SearchField: sfield, ConfigPath: cfgPath,
+				Notice: func(note string) { fmt.Fprintln(stderr, note) },
+			}
+			var res *jb.Result
+			var huntErr error
 			if caseDir != "" {
-				var err error
-				plan, err = planCase(cmd.ErrOrStderr(), caseDir, cfgPath, "hunt", cmd.Flags().Changed("window"))
+				if !cmd.Flags().Changed("window") {
+					opts.Window = 0 // the case's windows.default, else the library's default hour
+				}
+				res, huntErr = jb.HuntCase(cmd.Context(), caseDir, jb.CaseHuntOptions{HuntOptions: opts, Config: cfgPath})
+			} else {
+				cfg, err := jb.LoadConfig(cfgPath)
 				if err != nil {
 					return err
 				}
-				cfgPath = plan.configPath
-				if plan.window > 0 {
-					window = plan.window
-				}
+				res, huntErr = jb.Hunt(cmd.Context(), cfg, opts)
 			}
-
-			wp, err := planWindow(d.now(), window, untilT)
-			if err != nil {
-				return err
+			if res == nil {
+				return huntErr
 			}
-
-			cfg, rt, err := openCaseSearch(cmd.ErrOrStderr(), d.env, cfgPath, plan, search, sfield)
-			if err != nil {
-				return err
-			}
-			defer rt.Close() // ends any plugin child process, on success, failure and interrupt alike
-			st, err := config.OpenRunStore(cmd.Context(), cfg, noStore, plan.keepOut()...)
-			if err != nil {
-				return err
-			}
-			defer st.Close() // removes a --no-store scratch store, on success, failure and interrupt alike
-
-			w := wp.W
-			prefix := "hunt"
-			if len(search) > 0 {
-				prefix = "search" // a narrowed subset is not a hunt of the window
-			}
-			run := wp.runID(prefix)
-			fmt.Fprintf(cmd.ErrOrStderr(), "hunting %s [%s, %s) with %d source(s), %d detector(s)\n",
-				run, w.From.Format(time.RFC3339), w.To.Format(time.RFC3339), len(rt.Sources), len(rt.Detectors))
-			if note := app.DisabledNote(disabledOf(rt)); note != "" {
-				fmt.Fprintln(cmd.ErrOrStderr(), note)
-			}
-			if len(search) > 0 {
-				fmt.Fprintf(cmd.ErrOrStderr(), "narrowed by %d search term(s) on field %s; the detectors read the stored evidence for the window, which includes events saved by earlier runs, not only the matches\n", len(search), searchFieldName(sfield))
-			}
-
-			res, huntErr := app.Hunt(cmd.Context(), runDeps(rt, rt.Detectors, st), run, w)
-			res.Until = wp.Until
-			res.Search = search
-			// Advice only: the detectors have just read the store, and if one set of documents
-			// sits under two labels they counted it twice. The verdict below is not touched.
-			warnSourceOverlap(cmd.Context(), cmd.ErrOrStderr(), st, core.Window{From: w.Previous().From, To: w.To}, scope)
 
 			// Print whatever was learned before reporting why the hunt stopped.
 			if len(res.Sources) > 0 { // none means the hunt never started (bad input)
@@ -153,7 +120,7 @@ func newHuntCmdWith(d deps) *cobra.Command {
 				if output == "json" {
 					perr = writeJSON(cmd.OutOrStdout(), res)
 				} else {
-					perr = writeTable(cmd.OutOrStdout(), res)
+					perr = writeTable(cmd.OutOrStdout(), *res)
 				}
 				if perr != nil && huntErr == nil {
 					huntErr = fmt.Errorf("write output: %w", perr)
@@ -195,13 +162,6 @@ const (
 		"stored run. Use it for a question that must leave no evidence."
 	notStoredLine = "not stored: this run left no evidence"
 )
-
-func searchFieldName(override string) string {
-	if override != "" {
-		return override
-	}
-	return "message (or each source's search_field)"
-}
 
 // sourceNote is the NOTE column of a source row: the error, or what a zero means.
 func sourceNote(s app.SourceResult) string {

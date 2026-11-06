@@ -1,0 +1,15 @@
+exit 0
+--- stdout
+run       activity-20261105T120000Z
+window    2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z
+baseline  2026-11-05T10:00:00Z to 2026-11-05T11:00:00Z
+
+SOURCE              STATUS  EVENTS FETCHED  UNPARSABLE  OUTCOME
+kibana:logs-http-*  ok      4               0           matched
+
+detector fingerprint: ok
+SUBJECT  KIND   WINDOW  PRECEDING  LAST GENUINE          NOTE
+actor-a  actor  1       0          2026-11-05T11:02:00Z  
+
+ACTIVE: window 2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z (1h0m0s); sources read: kibana:logs-http-* (4 events fetched), events fetched cover the window and the one before it; detectors: fingerprint; judged: fingerprint read 4 events in the window, actor/rare-action events: 1 (window), 0 (preceding); last activity 2026-11-05T11:02:00Z (58m ago).
+--- stderr

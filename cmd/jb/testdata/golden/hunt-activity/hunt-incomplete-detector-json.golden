@@ -1,0 +1,72 @@
+exit 1
+--- stdout
+{
+  "run": "hunt-20261105T120000Z",
+  "window": [
+    "2026-11-05T11:00:00Z",
+    "2026-11-05T12:00:00Z"
+  ],
+  "baseline": [
+    "2026-11-05T10:00:00Z",
+    "2026-11-05T11:00:00Z"
+  ],
+  "complete": false,
+  "stored": true,
+  "sources": [
+    {
+      "name": "kibana:logs-http-*",
+      "status": "ok",
+      "events": 5,
+      "outcome": "matched"
+    }
+  ],
+  "detectors": [
+    {
+      "name": "behaviour",
+      "status": "error",
+      "findings": 1,
+      "error": "behaviour: action \"admin-login\" cannot be judged: 2 distinct keys filled max_keys (2) before any reached min_events_per_key 3; raise max_keys in the behaviour config"
+    }
+  ],
+  "findings": [
+    {
+      "detector": "behaviour",
+      "tag": "behaviour:device-code",
+      "severity": "check",
+      "summary": "rare action \"device-code\" occurred 1 time(s) (new, none in the preceding window) from 1 distinct key(s)",
+      "window": [
+        "2026-11-05T11:00:00Z",
+        "2026-11-05T12:00:00Z"
+      ],
+      "baseline": [
+        "2026-11-05T10:00:00Z",
+        "2026-11-05T11:00:00Z"
+      ],
+      "detail": {
+        "action": "device-code",
+        "baseline_empty": true,
+        "class": "rare",
+        "cur_events": 1,
+        "ignored_cur": 0,
+        "ignored_prev": 0,
+        "ignored_ua_cur": 0,
+        "ignored_ua_prev": 0,
+        "judged_cur": 5,
+        "judged_prev": 0,
+        "key_field": "client_ip",
+        "keys_cur": 1,
+        "keys_truncated": false,
+        "min_events": 1,
+        "new": true,
+        "prev_events": 0,
+        "sole_key": "203.0.113.55",
+        "unkeyed_cur": 0,
+        "unparsable_cur": 0,
+        "unparsable_prev": 0
+      }
+    }
+  ]
+}
+--- stderr
+hunting hunt-20261105T120000Z [2026-11-05T11:00:00Z, 2026-11-05T12:00:00Z) with 1 source(s), 1 detector(s)
+jb: hunt incomplete, no clean result: 1 component(s) did not finish: [detector behaviour]

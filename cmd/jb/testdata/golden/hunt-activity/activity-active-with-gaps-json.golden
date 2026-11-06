@@ -1,0 +1,44 @@
+exit 1
+--- stdout
+{
+  "run": "activity-20261105T120000Z",
+  "verdict": "ACTIVE",
+  "complete": false,
+  "stored": true,
+  "reasons": [
+    "detector behaviour did not finish (error)"
+  ],
+  "window": [
+    "2026-11-05T11:00:00Z",
+    "2026-11-05T12:00:00Z"
+  ],
+  "baseline": [
+    "2026-11-05T10:00:00Z",
+    "2026-11-05T11:00:00Z"
+  ],
+  "sources": [
+    {
+      "name": "kibana:logs-http-*",
+      "status": "ok",
+      "events": 5
+    }
+  ],
+  "detectors": [
+    {
+      "name": "behaviour",
+      "status": "error",
+      "error": "behaviour: action \"admin-login\" cannot be judged: 2 distinct keys filled max_keys (2) before any reached min_events_per_key 3; raise max_keys in the behaviour config",
+      "findings_before_stop": 1,
+      "events_read": 0,
+      "unparsable": 0,
+      "subjects": []
+    }
+  ],
+  "genuine_events_window": 0,
+  "genuine_events_preceding": 0,
+  "common_action_events_window": 0,
+  "common_action_events_preceding": 0,
+  "common_actions_flagged": []
+}
+--- stderr
+jb: activity ACTIVE, but the check is incomplete: detector behaviour did not finish (error)

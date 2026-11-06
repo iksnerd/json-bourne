@@ -14,11 +14,13 @@ package jb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/watchrun"
 )
 
 // Types re-exported from the internal packages. They are aliases, so values flow
@@ -118,6 +120,29 @@ type HuntOptions struct {
 	// SearchField is the field Search matches against. Empty means each source's
 	// search_field, else "message". It needs Search.
 	SearchField string
+	// ConfigPath is the file cfg was read from. It only words the advice in
+	// [Result].Notes (the command that fixes a source label stored twice names it); empty
+	// leaves a generic "--config FILE". [HuntCase] ignores it: the case names the config.
+	ConfigPath string
+	// Notice, when set, is called with each advice line as it arises, before the call
+	// returns, so a caller can show it while sources are still being read. The same lines
+	// are in [Result].Notes, and a Notice call also happens for a line raised before an
+	// error that returns no Result.
+	Notice func(note string)
+}
+
+// notes collects the advice lines of one call, in order, and hands each to the caller's
+// Notice as it arises.
+type notes struct {
+	lines  []string
+	notice func(string)
+}
+
+func (n *notes) add(s string) {
+	n.lines = append(n.lines, s)
+	if n.notice != nil {
+		n.notice(s)
+	}
 }
 
 // Hunt fetches the window and its baseline, stores both as evidence, runs every enabled
@@ -130,7 +155,16 @@ func Hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 	if cfg == nil {
 		return nil, usagef("nil config")
 	}
-	return hunt(ctx, cfg, opts)
+	if len(opts.Search) > 0 || opts.SearchField != "" {
+		// Narrow a copy: the caller's Config is theirs and may be reused for a plain
+		// hunt. The terms are checked here, before an adapter is built or a request sent.
+		narrowed := *cfg
+		if err := narrowed.UseSearch(opts.Search, opts.SearchField); err != nil {
+			return nil, usagef("%v", err)
+		}
+		cfg = &narrowed
+	}
+	return hunt(ctx, cfg, opts, &notes{notice: opts.Notice}, app.RenameScope("", opts.ConfigPath))
 }
 
 // CaseHuntOptions are the options of [HuntCase].
@@ -151,23 +185,42 @@ type CaseHuntOptions struct {
 //
 // Like [Hunt], a nil error does not mean the result is clean: check [Result.Complete].
 func HuntCase(ctx context.Context, caseDir string, opts CaseHuntOptions) (*Result, error) {
+	n := &notes{notice: opts.Notice}
 	plan, err := config.PlanCase(caseDir, opts.Config, "hunt", opts.Window != 0)
 	if err != nil {
 		return nil, fmt.Errorf("%w", err)
+	}
+	for _, note := range plan.Notes {
+		n.add(note)
 	}
 	cfg, err := config.Load(plan.ConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("%w", err)
 	}
-	config.PlaceCaseStore(plan.Case, cfg)
+	if err := cfg.UseSearch(opts.Search, opts.SearchField); err != nil {
+		return nil, usagef("%v", err)
+	}
+	if note := config.PlaceCaseStore(plan.Case, cfg); note != "" {
+		n.add(note)
+	}
 	cfg.UseCase(plan.Case) // detectors read the case's data files
 	if opts.Window == 0 {
 		opts.Window = plan.Window
 	}
-	return hunt(ctx, cfg, opts.HuntOptions, plan.Case.Dir, plan.Case.EvidenceDir())
+	return hunt(ctx, cfg, opts.HuntOptions, n, app.RenameScope(caseDir, opts.Config), plan.Case.Dir, plan.Case.EvidenceDir())
 }
 
-func hunt(ctx context.Context, cfg *Config, opts HuntOptions, keepOut ...string) (*Result, error) {
+// searchFieldName words the field of an ad-hoc search for the note of a hunt.
+func searchFieldName(override string) string {
+	if override != "" {
+		return override
+	}
+	return "message (or each source's search_field)"
+}
+
+// hunt runs a hunt over a config that is already narrowed by opts.Search. It raises the
+// advice lines of the run in the order the CLI has always printed them.
+func hunt(ctx context.Context, cfg *Config, opts HuntOptions, n *notes, scope string, keepOut ...string) (*Result, error) {
 	if opts.Window < 0 {
 		return nil, usagef("window must be positive, got %s", opts.Window)
 	}
@@ -190,19 +243,10 @@ func hunt(ctx context.Context, cfg *Config, opts HuntOptions, keepOut ...string)
 	if err != nil {
 		return nil, err
 	}
-	if len(opts.Search) > 0 || opts.SearchField != "" {
-		// Narrow a copy: the caller's Config is theirs and may be reused for a plain
-		// hunt. The terms are checked here, before an adapter is built or a request sent.
-		narrowed := *cfg
-		if err := narrowed.UseSearch(opts.Search, opts.SearchField); err != nil {
-			return nil, usagef("%v", err)
-		}
-		cfg = &narrowed
-	}
 
 	rt, err := cfg.Build(opts.Env)
 	if err != nil {
-		return nil, fmt.Errorf("build config: %w", err)
+		return nil, err
 	}
 	defer rt.Close() // ends any plugin child process
 
@@ -212,26 +256,24 @@ func hunt(ctx context.Context, cfg *Config, opts HuntOptions, keepOut ...string)
 	}
 	defer st.Close() // removes the scratch store of NoStore
 
-	scopes := map[string][]string{}
-	for _, d := range rt.Detectors {
-		if sc, ok := rt.Scopes[d.Name()]; ok {
-			scopes[d.Name()] = sc
-		}
+	n.add(fmt.Sprintf("hunting %s [%s, %s) with %d source(s), %d detector(s)",
+		run, w.From.Format(time.RFC3339), w.To.Format(time.RFC3339), len(rt.Sources), len(rt.Detectors)))
+	if note := app.DisabledNote(watchrun.Disabled(rt)); note != "" {
+		n.add(note)
 	}
-	var disabled []app.Disabled
-	for _, n := range rt.DisabledSources {
-		disabled = append(disabled, app.Disabled{Kind: "source", Name: n})
-	}
-	for _, n := range rt.DisabledDetectors {
-		disabled = append(disabled, app.Disabled{Kind: "detector", Name: n})
+	if len(opts.Search) > 0 {
+		n.add(fmt.Sprintf("narrowed by %d search term(s) on field %s; the detectors read the stored evidence for the window, which includes events saved by earlier runs, not only the matches", len(opts.Search), searchFieldName(opts.SearchField)))
 	}
 
-	res, herr := app.Hunt(ctx, app.Deps{
-		Sources: rt.Sources, Detectors: rt.Detectors, Scopes: scopes,
-		Sink: st, Reader: st, Disabled: disabled, Scratch: opts.NoStore,
-	}, run, w)
+	res, herr := app.Hunt(ctx, watchrun.RunDeps(rt, rt.Detectors, st), run, w)
 	res.Until = opts.Until
 	res.Search = append([]string(nil), opts.Search...)
+	// Advice only: the detectors have just read the store, and if one set of documents
+	// sits under two labels they counted it twice. The verdict is not touched.
+	if advice := app.OverlapAdvice(ctx, st, core.Window{From: w.Previous().From, To: w.To}, scope); advice != "" {
+		n.add(strings.TrimSuffix(advice, "\n"))
+	}
+	res.Notes = n.lines
 	return &res, herr
 }
 

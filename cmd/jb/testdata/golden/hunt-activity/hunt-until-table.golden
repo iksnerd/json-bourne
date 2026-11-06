@@ -1,0 +1,17 @@
+exit 0
+--- stdout
+run       hunt-until-20261001T120000Z-w3600s
+until     2026-10-01T12:00:00Z (historical window; not relative to now)
+window    2026-10-01T11:00:00Z to 2026-10-01T12:00:00Z
+baseline  2026-10-01T10:00:00Z to 2026-10-01T11:00:00Z
+
+SOURCE              STATUS  EVENTS    NOTE
+kibana:logs-http-*  ok      3         
+                                      
+DETECTOR            STATUS  FINDINGS  NOTE
+fingerprint         ok      1         
+
+SEVERITY  DETECTOR     TAG                  SUMMARY
+activity  fingerprint  fingerprint:actor-a  actor "actor-a": 2 genuine events against 1 in the preceding window; last genuine activity 2026-10-01T11:30:00Z (window)
+--- stderr
+hunting hunt-until-20261001T120000Z-w3600s [2026-10-01T11:00:00Z, 2026-10-01T12:00:00Z) with 1 source(s), 1 detector(s)

@@ -120,5 +120,5 @@ Proposed, in groups that can be built apart:
 ## Changes
 
 - 2026-11-06: first draft, accepted by the maintainer the same day ("first lets just add them - we want to use JB as a package").
-- 2026-11-06: implemented. All functions of groups 1 to 5 shipped on main; the result types moved into the package. `jb hunt` still composes its own pieces and shares the search logic with `jb.Hunt`; full unification of that command is a follow-up. `EstatePromote` has no dry run because the command has none.
+- 2026-11-06: implemented. All functions of groups 1 to 5 shipped on main; the result types moved into the package. `jb hunt` and `jb activity` now call `jb.Hunt`, `jb.HuntCase` and `jb.Activity` and print the value (the results carry the stderr advice as `Notes`; `Notice` streams it); `jb watch` keeps its own wiring. `EstatePromote` has no dry run because the command has none.
 - 2026-11-06: added `Reputation` (`jb db reputation`) for a downstream program that must read the stored reputation rows, which only the dashboard showed. Read-only, never creates the store, row cap with `Truncated`. Its rows carry no run id because the table has none.

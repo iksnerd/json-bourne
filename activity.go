@@ -3,6 +3,7 @@ package jb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/app"
@@ -43,6 +44,9 @@ type ActivityOptions struct {
 	// NoStore asks the question over a private temporary store that is deleted before
 	// the function returns; see [HuntOptions.NoStore]. [ActivityResult.Stored] is false.
 	NoStore bool
+	// Notice, when set, is called with each advice line as it arises; see
+	// [HuntOptions.Notice]. The same lines are in [ActivityResult].Notes.
+	Notice func(note string)
 }
 
 // Activity asks whether the actors a case names are active from any client, with the
@@ -71,30 +75,49 @@ func Activity(ctx context.Context, caseDir string, opts ActivityOptions) (*Activ
 	if err != nil {
 		return nil, err
 	}
+	n := &notes{notice: opts.Notice}
 	cp, err := config.PlanCase(caseDir, opts.Config, "activity", true)
 	if err != nil {
 		return nil, fmt.Errorf("%w", err)
+	}
+	for _, note := range cp.Notes {
+		n.add(note)
 	}
 	cfg, err := config.Load(cp.ConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("%w", err)
 	}
-	config.PlaceCaseStore(cp.Case, cfg)
+	if note := config.PlaceCaseStore(cp.Case, cfg); note != "" {
+		n.add(note)
+	}
 	cfg.UseCase(cp.Case)
 	rt, err := cfg.Build(opts.Env)
 	if err != nil {
-		return nil, fmt.Errorf("build config: %w", err)
+		return nil, err
 	}
 	defer rt.Close()
 
 	var dets []core.Detector
+	var skipped []string
 	for _, d := range rt.Detectors {
 		if _, ok := d.(core.ActivityReporter); ok {
 			dets = append(dets, d)
+		} else {
+			skipped = append(skipped, d.Name())
 		}
 	}
+	disabled := app.DisabledNote(watchrun.Disabled(rt))
+	if disabled != "" {
+		n.add(disabled)
+	}
 	if len(dets) == 0 {
-		return nil, usagef("the config has no enabled fingerprint or behaviour detector, so it cannot say whether an actor is active")
+		if disabled != "" {
+			return nil, usagef("config %s has no enabled fingerprint or behaviour detector, so it cannot say whether an actor is active. %s", cp.ConfigPath, disabled)
+		}
+		return nil, usagef("config %s has no fingerprint or behaviour detector, so it cannot say whether an actor is active", cp.ConfigPath)
+	}
+	if len(skipped) > 0 {
+		n.add("note: not an activity detector, skipped: " + strings.Join(skipped, ", "))
 	}
 	st, err := config.OpenRunStore(ctx, cfg, opts.NoStore, cp.Case.Dir, cp.Case.EvidenceDir())
 	if err != nil {
@@ -103,5 +126,9 @@ func Activity(ctx context.Context, caseDir string, opts ActivityOptions) (*Activ
 	defer st.Close() // removes the scratch store of NoStore
 	res, aerr := app.Activity(ctx, watchrun.RunDeps(rt, dets, st), run, w)
 	res.Until = opts.Until
+	if advice := app.OverlapAdvice(ctx, st, core.Window{From: w.Previous().From, To: w.To}, app.RenameScope(caseDir, opts.Config)); advice != "" {
+		n.add(strings.TrimSuffix(advice, "\n"))
+	}
+	res.Notes = n.lines
 	return &res, aerr
 }

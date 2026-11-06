@@ -1,0 +1,66 @@
+exit 0
+--- stdout
+{
+  "run": "hunt-until-20261001T120000Z-w3600s",
+  "until": "2026-10-01T12:00:00Z",
+  "window": [
+    "2026-10-01T11:00:00Z",
+    "2026-10-01T12:00:00Z"
+  ],
+  "baseline": [
+    "2026-10-01T10:00:00Z",
+    "2026-10-01T11:00:00Z"
+  ],
+  "complete": true,
+  "stored": true,
+  "sources": [
+    {
+      "name": "kibana:logs-http-*",
+      "status": "ok",
+      "events": 3,
+      "outcome": "matched"
+    }
+  ],
+  "detectors": [
+    {
+      "name": "fingerprint",
+      "status": "ok",
+      "findings": 1
+    }
+  ],
+  "findings": [
+    {
+      "detector": "fingerprint",
+      "tag": "fingerprint:actor-a",
+      "severity": "activity",
+      "summary": "actor \"actor-a\": 2 genuine events against 1 in the preceding window; last genuine activity 2026-10-01T11:30:00Z (window)",
+      "window": [
+        "2026-10-01T11:00:00Z",
+        "2026-10-01T12:00:00Z"
+      ],
+      "baseline": [
+        "2026-10-01T10:00:00Z",
+        "2026-10-01T11:00:00Z"
+      ],
+      "detail": {
+        "actor": "actor-a",
+        "actor_label": "Example sprayer A",
+        "baseline_empty": false,
+        "cur_filtered": 0,
+        "cur_genuine": 2,
+        "cur_ignored": 0,
+        "cur_parsable": 2,
+        "last_genuine": "2026-10-01T11:30:00Z",
+        "last_genuine_in": "window",
+        "prev_filtered": 0,
+        "prev_genuine": 1,
+        "prev_ignored": 0,
+        "prev_parsable": 1,
+        "unparsable_cur": 0,
+        "unparsable_prev": 0
+      }
+    }
+  ]
+}
+--- stderr
+hunting hunt-until-20261001T120000Z-w3600s [2026-10-01T11:00:00Z, 2026-10-01T12:00:00Z) with 1 source(s), 1 detector(s)
