@@ -17,7 +17,7 @@ One limit stays. The usual sources of host facts, such as port and vulnerability
 
 ## Motivation
 
-An operator who investigates an attack keeps a graph of the attacker's and the victim's infrastructure. In the graphs we have seen, each host carries more than `jb.estate/v1` allows: open ports, operating system, certificate common name, known vulnerabilities, a role, and a classification such as malicious or suspicious. Edges differ in how much evidence they give: a DNS record is strong, shared hosting is weak.
+An operator who investigates an attack keeps a graph of the attacker's and the victim's infrastructure. In the graphs we have seen, each host carries more than `jb.estate/v1` allows: open ports, operating system, certificate common name, known vulnerabilities, a role, and a classification such as malicious or suspicious. Edges differ in how much evidence they give: one that several independent sources claim, and that was observed recently, deserves more trust than one claim from one old source.
 
 Today that graph cannot live in a `jb` case. The operator has to keep it in another tool, so the one place where `jb` draws the estate shows less than the operator knows. The graph in `jb serve` is also static data: it does not show which addresses the evidence store has seen or which a reputation feed has flagged, although `jb` holds both.
 
@@ -251,7 +251,7 @@ Proposed:
 
 1. **Details of the neutral import file.** Decided on 2026-11-06 by the maintainer: `jb estate facts import FILE` reads one small documented JSON shape (node, key, values, source note, observed time, method), refuses unknown keys, and caps file size and fact count. The operator converts a vendor export with a script they control, and `jb` reads no vendor format. Still open: the exact key names and the caps. Decides: the author, with a test corpus.
 2. **Edges in `basis`.** Edges have no ids. Should an assessment be able to cite an edge, and by what address? Decides: the maintainer, with the author.
-3. **The strength table.** Are the values in the table right, and who may change them? Decides: the maintainer.
+3. **The corroboration and age thresholds.** Are three classes by distinct sources, and 90 days as the age cutoff, right for the real case? Decides: the maintainer, after using the map on it.
 4. **Set comparison for facts.** Is comparing the set of values per group right for keys where order or multiplicity matters? Decides: the author, after a test on a synthetic port history.
 5. **Free text in `by`.** Is a role or handle enough, or should the format limit it further? Decides: the maintainer.
 6. **A published format to compare with.** Which one should the next draft read? Decides: the reviewer.

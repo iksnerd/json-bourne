@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- The Estate page filters nodes by kind (an htmx fragment with a repeatable `kind` parameter) and draws edge weight from the number of distinct corroborating sources (line width) and the age of the newest claim (dashed after 90 days), computed at load with nothing stored in the file. The record of an `ip` node loads, on demand, its latest reputation per source and the last time the address appeared in stored events (30 days, 3 second limit, four distinct states, no verdict colour); loading the map never queries the store (RFC 0001). `core.DashboardStore` gains `LastSeen`; `estategraph.Build` takes an `Options` struct.
+
 ### Changed
 - `jb hunt` and `jb activity` now run through `jb.Hunt`, `jb.HuntCase` and `jb.Activity`, so the command line and the Go package share one implementation. The results carry the operator advice as `Notes`, and `HuntOptions.Notice` and `ActivityOptions.Notice` stream it while the call runs. CLI flags, output and exit codes are unchanged, with one ordering exception: `jb hunt --case ... --until T` with `--window` over 31d now reports that usage error before any case note or case error (RFC 0013).
 
