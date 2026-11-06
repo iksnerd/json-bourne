@@ -330,3 +330,24 @@ func TestEstatePageHasTheSheetThatHTMXFills(t *testing.T) {
 		t.Errorf("script order must be sheet, d3, estate: %d %d %d", a, b, c)
 	}
 }
+
+// A browser asks for /favicon.ico on every first visit. The dashboard has no icon, so it
+// answers "no content" instead of a 404 page: the console stays clean, and the answer
+// still carries the security headers.
+func TestFaviconIsNoContentWithTheSecurityHeaders(t *testing.T) {
+	h := New(newDeps(hostileFake()), Options{Loopback: true})
+	code, hd, body := get(t, h, "/favicon.ico")
+	if code != 204 || body != "" {
+		t.Fatalf("favicon = %d with %d bytes, want 204 and none", code, len(body))
+	}
+	if !strings.Contains(hd.Get("Content-Security-Policy"), "default-src 'none'") || hd.Get("X-Content-Type-Options") != "nosniff" {
+		t.Error("the favicon answer lost the security headers")
+	}
+	req := httptest.NewRequest("POST", "/favicon.ico", nil)
+	req.Host = "127.0.0.1:8090"
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("POST /favicon.ico = %d, want 405: the dashboard is read-only", rec.Code)
+	}
+}

@@ -2,7 +2,7 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/). Before 1.0, the Go API (packages `jb` and `sdk`) and the CLI flags may change between minor versions.
 
-## [Unreleased]
+## [0.3.0] - 2026-11-06
 
 ### Changed
 - **The dashboard (`jb serve`) is rebuilt** with templ components, htmx partial updates and Tailwind, from design tokens (shadcn/ui names, a neo-industrial dark theme with sharp edges). The Estate page draws an interactive d3 graph with a label on every connection; selecting a node or a connection opens its record and its connections in a sheet. Findings can be filtered by text and severity; the Watch panel refreshes itself. New Go packages: `internal/estategraph` (built on `dominikbraun/graph`) and the dashboard's primitives (card, alert, badge, sheet).
@@ -10,6 +10,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - New dependencies: `github.com/a-h/templ` and `github.com/dominikbraun/graph`. The `jb` and `sdk` packages do not import them.
 
 ### Added
+- `GET /favicon.ico` answers 204 with the security headers, so a browser's first visit no longer logs a 404.
 - `jb.DefaultWindow`, `jb.DefaultActivityWindow` and `jb.DefaultWatchEvery`: the defaults of the Go functions, now constants. A test fails if they differ from the defaults of the CLI commands of the same name.
 - docs/adr/0001-relationship-to-other-plugin-specifications.md: `jb` is independent of the maintainer's draft plugin specifications, its mapper protocol is frozen at `v: 1` as its own, it has no action role, and what it would take to change that.
 
