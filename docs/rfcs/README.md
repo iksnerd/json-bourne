@@ -63,7 +63,7 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 
 | RFC | Title | Status |
 |---|---|---|
-| [0001](0001-estate-v2.md) | Estate v2 | draft |
+| [0001](0001-estate-v2.md) | Estate v2 | accepted |
 | [0002](0002-mapper-plugin-protocol-v1.md) | Mapper plugin protocol v1 | implemented |
 | [0003](0003-dashboard-security-model.md) | Dashboard security model | implemented |
 | [0004](0004-stability-policy.md) | Stability policy | withdrawn |
@@ -75,4 +75,4 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0011](0011-behaviour-severity-and-per-key.md) | Behaviour severity floor and per-key threshold | accepted |
 | [0012](0012-partial-findings.md) | Partial findings | accepted |
 | [0013](0013-library-surface.md) | Library surface | implemented |
-| [0010](0010-operations.md) | Operations | draft |
+| [0010](0010-operations.md) | Operations | accepted |

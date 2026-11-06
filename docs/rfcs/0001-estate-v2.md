@@ -1,6 +1,7 @@
 # RFC 0001: Estate v2
-Status: draft
+Status: accepted
 Scope: a `jb.estate/v2` file format that carries per-host facts and separate assessments, and a dashboard that shows them with live overlays from the evidence store.
+Accepted: 2026-11-06 by the maintainer
 
 ## Summary
 
@@ -249,7 +250,7 @@ Proposed:
 
 ## Open questions
 
-1. **The shape of `facts import`.** What does the import file look like, and does `jb` accept a vendor's export directly or only a small neutral JSON that the operator converts? Decides: the author, after reading one real export format for the shape only.
+1. **Details of the neutral import file.** Decided on 2026-11-06 by the maintainer: `jb estate facts import FILE` reads one small documented JSON shape (node, key, values, source note, observed time, method), refuses unknown keys, and caps file size and fact count. The operator converts a vendor export with a script they control, and `jb` reads no vendor format. Still open: the exact key names and the caps. Decides: the author, with a test corpus.
 2. **Edges in `basis`.** Edges have no ids. Should an assessment be able to cite an edge, and by what address? Decides: the maintainer, with the author.
 3. **The strength table.** Are the values in the table right, and who may change them? Decides: the maintainer.
 4. **Set comparison for facts.** Is comparing the set of values per group right for keys where order or multiplicity matters? Decides: the author, after a test on a synthetic port history.
@@ -264,3 +265,4 @@ Proposed:
 - 2026-11-06: first draft.
 - 2026-11-06: revised for one current format: v1 is removed, drift covers facts, and the compatibility section lists what the two users change. This follows the owner's decision that `jb` has no backward compatibility before a public release.
 - 2026-11-06: revised after a clean-room read: the loader rules that v1 already defines are stated, the contradictions in the wording are removed, and the proposal is separated from the present throughout.
+- 2026-11-06: accepted by the maintainer after three Hashimoto-rigor grills. Code may start; the status becomes `implemented` when the Reference implementations section is moved from proposed to shipped.

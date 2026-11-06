@@ -1,12 +1,13 @@
 # RFC 0010: Operations
-Status: draft
+Status: accepted
 Scope: define each `jb` operation once, from its Go option struct, so that the command line, the JSON output, the Go function and an MCP tool come from one definition and one check of the arguments.
+Accepted: 2026-11-06 by the maintainer
 
 ## Summary
 
 `jb` offers each operation more than once. A command such as `jb hunt` declares its flags by hand in cobra. The Go function `jb.Hunt` takes an options struct. The two keep separate copies of every name, default and rule, and a test is the only thing that holds them together. An MCP server would be a third copy.
 
-This RFC makes the option struct the single definition. A small reflector reads the struct tags (name, description, default, enum, range) and produces an operation: a name, an input schema in a deliberately small subset of JSON Schema, and an output schema. From that one operation `jb` gets:
+This RFC makes the option struct the single definition. A small reflector reads the struct tags (name, description, default, enum, range) and produces an operation: a name, a description and an input schema in a deliberately small subset of JSON Schema. From that one operation `jb` gets:
 
 - the cobra command and its flags, registered by a builder, with a test that fails when a command differs from its operation;
 - one check of the arguments, run on the parsed flags and on the JSON of a tool call;
@@ -52,7 +53,7 @@ An operation is a value that marshals to this JSON shape.
 | `title` | no | A non-empty string. |
 | `description` | yes | A non-empty string. It is also the first line of the command's help. |
 | `inputSchema` | yes | The subset below, derived from the option struct. |
-| `outputSchema` | yes | A JSON Schema whose root has `"type": "object"`. |
+| `outputSchema` | no | Not generated in the first cut. The result types already marshal to keys that parity tests pin (RFC 0013); a schema can be derived from those tests later if a client needs one. |
 | `readOnly` | yes | True when the operation changes nothing. Only these are exposed over MCP by default. |
 | `cli` | no | `command` (a list of words), `positional` (property names in order) and `only` (properties accepted only by the command line). |
 
@@ -106,13 +107,16 @@ The proposal for the operations that return one result:
 
 | Operation | Command | Read-only |
 |---|---|---|
-| `activity`, `hunt` | `jb activity`, `jb hunt` | yes over MCP (below) |
+| `activity`, `hunt` | `jb activity`, `jb hunt` | yes over MCP, with `store` forced to false (below) |
 | `actor_status`, `case_check`, `case_show`, `doctor` | `jb actor status`, `jb case check`, `jb case show`, `jb doctor` | yes |
-| `intel`, `estate_ip`, `estate_asn`, `estate_dns`, `estate_ct` | `jb intel`, `jb estate ...` | yes |
-| `estate_refresh`, `estate_diff` | `jb estate refresh`, `jb estate diff` | yes |
+| `db_reputation` | `jb db reputation` | yes |
+| `estate_diff` | `jb estate diff` | yes, without `--alert` |
 | `watch_status` | `jb watch status` | yes |
 | `db_status`, `db_usage` | `jb db status`, `jb db usage` | yes |
-| `estate_promote`, `db_prune`, `db_compact`, `db_rename_source` | the same commands | no |
+| `intel` | `jb intel` | no: it appends reputation rows to the store and asks a third-party feed |
+| `estate_ip`, `estate_asn`, `estate_dns`, `estate_ct` | `jb estate ...` | no: they write the estate file and contact third-party services |
+| `estate_refresh`, `estate_promote` | the same commands | no: a snapshot, and the baseline |
+| `db_prune`, `db_compact`, `db_rename_source` | the same commands | no |
 
 `jb watch` and `jb serve` run until stopped and are not operations.
 
@@ -162,7 +166,8 @@ There is no compatibility path, because `jb` and one other program are the only 
 - No operation takes a secret as an argument. Credentials come from the process environment. `jb mcp` runs with the environment of its process, so it holds whatever credentials that process holds. The launcher SHOULD give it only the credentials it needs.
 - Read-only is the default. A mutating operation needs `--allow NAME` and `apply=true`. A model that is tricked into calling a mutating tool still cannot reach one the operator did not name.
 - A tool call that supplies a `cli.only` property is refused as unknown, even if its value would pass the command's schema.
-- Tool results include data from the evidence store, which comes from third-party logs. A client MUST treat result text as untrusted data, never as instructions.
+- Tool results include data from the evidence store, which comes from third-party logs: paths, user agents and names that an attacker chose. In the MCP projection only, a string value that came from evidence is cut at 256 characters and stripped of control characters, and each description says that values taken from logs are untrusted data. The command line and the Go API are unchanged. This does not stop a short injected sentence. The control that matters is the client's: the MCP specification asks a client to keep a human able to deny tool calls, and a client MUST treat result text as data, never as instructions.
+- `intel` and the estate collectors contact third-party services and write local state, so they are listed as mutating and need `--allow NAME` like the other writers. The default tool list contains only operations that write nothing local and contact no third party.
 
 ## Conformance
 
@@ -171,7 +176,7 @@ Proposed. None of these exists yet.
 - **Load check.** A test that every operation passes the check, and that each rule fails on a planted fault.
 - **Reflector tests.** A struct with each of the four shapes maps to the expected schema. A field of another type, an untagged exported field and a bad name each fail.
 - **Command equals operation.** For every built command, the flags equal the operation's properties, with the same defaults.
-- **Round trip.** For every operation, a test calls the handler with a sample on synthetic data and checks the result against the output schema.
+- **Round trip.** For every operation, a test calls the handler with a sample on synthetic data and checks that the result marshals to the keys the parity tests pin.
 - **Read-only holds.** A test lists the tools of `jb mcp` and asserts that no mutating operation appears without `--allow`, and that a call to a mutating operation without `apply` changes nothing.
 - **Golden file.** `docs/operations.json` equals the output of `jb operations`.
 - **Defaults.** `TestLibraryDefaultsAreTheCLIDefaults` is deleted, because the defaults live in one place.
@@ -196,5 +201,7 @@ Proposed, in this order, each step ending in something that runs:
 ## Changes
 
 - 2026-11-06: first draft.
+- 2026-11-06: third grill, and a correction: `intel` and the estate collectors write local state and contact third parties, so they are mutating (the draft had listed them read-only); results from evidence are capped and stripped in the MCP projection; no output schema in the first cut.
 - 2026-11-06: second grill: separate struct tags; the last positional may be an array; `hunt` and `activity` are listed over MCP with `store` forced to false; MCP annotations come from `readOnly`.
 - 2026-11-06: revised after a Hashimoto-rigor grill with the owner. Cobra stays, the option struct is the source of truth, `jb mcp` is built in, and the default exposure is read-only.
+- 2026-11-06: accepted by the maintainer after three Hashimoto-rigor grills. Code may start; the status becomes `implemented` when the Reference implementations section is moved from proposed to shipped.
