@@ -87,7 +87,7 @@ for _, f := range res.Findings {
 
 To write a mapper plugin, import `github.com/iksnerd/json-bourne/sdk` (standard library only, none of the host code) and see [docs/PLUGINS.md](docs/PLUGINS.md). Not public yet: the host side of plugins, a protocol conformance corpus, and APIs for `activity`, `watch`, `estate` and `intel`.
 
-The API is v0 and may change between minor versions. It covers `Hunt`, `HuntCase` (`jb hunt --case`) and `Watch` (`jb watch`), `WatchStatus` (`jb watch status`) and `Activity` (`jb activity`), not `actor status`, `estate` or `intel`. For a case, use `HuntCase` and `Watch`; check `Result.Complete()`, `CycleReport.Status.Healthy()` and `ActivityResult.Verdict` before calling anything clean. `Config` and `Result` are aliases of internal types, so their exported fields are part of the API. Importing the package links DuckDB, so it needs cgo and a C compiler.
+The API is v0 and may change between minor versions. It covers `Hunt`, `HuntCase` (`jb hunt --case`) and `Watch` (`jb watch`), `WatchStatus` (`jb watch status`) and `Activity` (`jb activity`), `CaseCheck` (`jb case check`), `Doctor` (`jb doctor`) and `ActorStatus` (`jb actor status`), not `estate`, `intel` or `db`. `Doctor` is read-only and sends nothing unless `Online` is set; read `DoctorResult.OK()` and `DoctorResult.Complete()` before calling an environment ready. For a case, use `HuntCase` and `Watch`; check `Result.Complete()`, `CycleReport.Status.Healthy()` and `ActivityResult.Verdict` before calling anything clean. `Config` and `Result` are aliases of internal types, so their exported fields are part of the API. Importing the package links DuckDB, so it needs cgo and a C compiler.
 
 ### Commands
 

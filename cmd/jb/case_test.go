@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	jb "github.com/iksnerd/json-bourne"
 )
 
 const exampleCase = "../../examples/case"
@@ -95,7 +97,7 @@ func TestCaseCheckJSON(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	var got caseReport
+	var got jb.CaseCheckResult
 	if err := json.Unmarshal([]byte(stdout), &got); err != nil {
 		t.Fatalf("not JSON: %v\n%s", err, stdout)
 	}
@@ -116,7 +118,7 @@ func TestCaseCheckJSON(t *testing.T) {
 	if code != exitFailure {
 		t.Fatalf("exit = %d, want 1", code)
 	}
-	var fail caseReport
+	var fail jb.CaseCheckResult
 	if err := json.Unmarshal([]byte(stdout), &fail); err != nil || fail.OK || !strings.Contains(fail.Error, "passive_only") {
 		t.Errorf("failure report = %+v (%v)\n%s", fail, err, stdout)
 	}
@@ -557,7 +559,7 @@ func TestCaseCheckReportsEstate(t *testing.T) {
 		t.Fatalf("exit %d\nstdout: %s\nstderr: %s", code, stdout, stderr)
 	}
 	_, js, _ := run(t, testDeps(nil), "case", "check", "--case", exampleCase, "--output", "json")
-	var got caseReport
+	var got jb.CaseCheckResult
 	if err := json.Unmarshal([]byte(js), &got); err != nil {
 		t.Fatal(err)
 	}

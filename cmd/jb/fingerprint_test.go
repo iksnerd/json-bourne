@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	jb "github.com/iksnerd/json-bourne"
 )
 
 // The example case lists config/fingerprint.yaml after config/hunt.yaml; each declares
@@ -28,7 +30,7 @@ func TestCaseCheckReportsActors(t *testing.T) {
 	}
 
 	code, stdout, _ = run(t, testDeps(nil), "case", "check", "--case", exampleCase, "--output", "json")
-	var rep caseReport
+	var rep jb.CaseCheckResult
 	if err := json.Unmarshal([]byte(stdout), &rep); err != nil || code != 0 {
 		t.Fatalf("%v\n%s", err, stdout)
 	}
