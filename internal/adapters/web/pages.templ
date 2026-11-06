@@ -1,0 +1,303 @@
+package web
+
+import "strings"
+
+// ---- runs ----
+
+templ overviewView(p overviewPage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Runs</h1>
+		if p.Store.Bad() {
+			@noteView(p.Store)
+		} else {
+			if p.Stats != nil {
+				<p class="note">schema { str(p.Stats.SchemaVersion) }; { str(p.Stats.Runs) } run records, { str(p.Stats.Events) } stored event rows, { str(p.Stats.Findings) } findings, { str(p.Stats.Reputation) } reputation rows; events span { p.First } to { p.Last }.</p>
+			}
+			if p.RunsNote.Bad() {
+				@noteView(p.RunsNote)
+			} else if len(p.Runs) == 0 {
+				@alert("muted") {
+					no runs yet: the store is open and holds no run. Run `jb hunt` or `jb watch` first.
+				}
+			} else {
+				<p class="note">Newest first, at most { str(p.RunsLimit) }. A run is a hunt or a watch cycle; its event counts are stored rows. A run with no stored events is INCOMPLETE and is never a clean result.</p>
+				<table>
+					<tr><th>run</th><th>created</th><th>event runs</th><th>events</th><th>findings</th><th>state</th></tr>
+					for _, r := range p.Runs {
+						<tr>
+							<td class="mono"><a href={ templ.URL(runHref(r.ID)) }>{ r.ID }</a></td>
+							<td>{ r.Created }</td>
+							<td>{ str(r.EventRuns) }</td>
+							<td>{ str(r.Events) }</td>
+							<td>{ str(r.Findings) }</td>
+							<td>
+								if r.Incomplete {
+									@badge("destructive") {
+										INCOMPLETE: no events stored
+									}
+								} else {
+									@badge("success") {
+										events stored
+									}
+								}
+							</td>
+						</tr>
+					}
+				</table>
+			}
+		}
+	}
+}
+
+templ runView(p runPage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Run <span class="mono">{ p.ID }</span></h1>
+		if p.Store.Bad() {
+			@noteView(p.Store)
+		} else {
+			if p.Run != nil {
+				<p class="note">created { p.Run.Created }; { str(p.Run.EventRuns) } event run(s); { str(p.Run.Events) } stored event rows; { str(p.Run.Findings) } finding(s).</p>
+				if p.Run.Incomplete {
+					@alert("destructive") {
+						INCOMPLETE: no events stored for this run. A source may have failed or returned nothing; this is not a clean result. See the <a href="/watch">watch log</a>{ " for the cycle's verdict." }
+					}
+				}
+			}
+			<h2>Events</h2>
+			if p.SummaryNote.Bad() {
+				@noteView(p.SummaryNote)
+			} else if p.Summary == nil {
+				@alert("muted") {
+					no event summary
+				}
+			} else if p.Summary.Rows == 0 {
+				@alert("muted") {
+					no events stored for this run
+				}
+			} else {
+				<p class="note">{ str(p.Summary.Rows) } stored rows (not de-duplicated across runs). Fields: path={ p.Fields.Path }, status={ p.Fields.Status }, key={ p.Fields.Key }. Paths are grouped with the query string removed.</p>
+				<div class="cols">
+					<div>
+<h2>By source</h2>
+@countTable(p.BySource)
+</div>
+					<div>
+<h2>By kind</h2>
+@countTable(p.ByKind)
+</div>
+					<div>
+<h2>By status</h2>
+@countTable(p.ByStatus)
+</div>
+					<div>
+<h2>Top paths</h2>
+@countTable(p.TopPaths)
+</div>
+					<div>
+<h2>Top keys</h2>
+@countTable(p.TopKeys)
+</div>
+				</div>
+			}
+			<h2>Findings</h2>
+			if p.FindingsNote.Bad() {
+				@noteView(p.FindingsNote)
+			} else if len(p.Findings) == 0 {
+				@alert("muted") {
+					no findings stored for this run; with no events that is not a clean result
+				}
+			} else {
+				@findingTable(p.Findings)
+			}
+			<h2>Newest raw events</h2>
+			if p.EventsNote.Bad() {
+				@noteView(p.EventsNote)
+			} else if len(p.Events) == 0 {
+				@alert("muted") {
+					no events stored for this run
+				}
+			} else {
+				<p class="note">At most { str(p.EventsLimit) } rows, newest first, parsed fields only (the original document is not shown).</p>
+				<table>
+					<tr><th>time</th><th>source</th><th>kind</th><th>fields</th></tr>
+					for _, e := range p.Events {
+						<tr><td>{ e.Time }</td><td>{ e.Source }</td><td>{ e.Kind }</td><td class="mono">{ e.Fields }</td></tr>
+					}
+				</table>
+			}
+		}
+	}
+}
+
+// ---- findings: the page, and the results fragment htmx swaps in when a filter changes ----
+
+templ findingsView(p findingsPage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Findings</h1>
+		if !p.Store.Bad() && p.Total > 0 {
+			<form class="filters" role="search" action="/findings" method="get">
+				<label class="label">text
+					<input class="input" type="search" name="q" value={ p.Q } maxlength="100" placeholder="search findings"
+						hx-get="/findings" hx-trigger="input changed delay:250ms, search" hx-target="#findings-results" hx-swap="innerHTML" hx-include="[name='sev']" hx-push-url="false"/>
+				</label>
+				<label class="label">severity
+					<select class="input" name="sev" hx-get="/findings" hx-trigger="change" hx-target="#findings-results" hx-swap="innerHTML" hx-include="[name='q']" hx-push-url="false">
+						for _, o := range sevOptions {
+							<option value={ o } selected?={ o == p.Sev }>{ sevLabel(o) }</option>
+						}
+					</select>
+				</label>
+				<noscript><button class="btn btn-primary" type="submit">filter</button></noscript>
+			</form>
+		}
+		<div id="findings-results">
+			@findingsResults(p)
+		</div>
+	}
+}
+
+templ findingsResults(p findingsPage) {
+	if p.Store.Bad() {
+		@noteView(p.Store)
+	} else if p.Total == 0 {
+		@alert("muted") {
+			no findings stored: no hunt has produced one. This says nothing about whether a hunt was complete; check <a href="/">Runs</a>{ " for INCOMPLETE ones." }
+		}
+	} else if len(p.Rows) == 0 {
+		@alert("muted") {
+			no stored finding matches this filter ({ str(p.Total) } are stored). A filter that matches nothing says nothing about whether a hunt was complete.
+		}
+	} else {
+		<p class="note">{ p.Note() }</p>
+		@findingTable(p.Rows)
+	}
+}
+
+// ---- reputation ----
+
+templ reputationView(p reputationPage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Reputation snapshots</h1>
+		<p class="note ctx">These snapshots are context, not attribution. A reputation answer describes an address as a feed saw it; a CDN or proxy edge address carries the reputation of the edge, not of the visitor. It never moves a finding's severity.</p>
+		if p.Store.Bad() {
+			@noteView(p.Store)
+		} else if len(p.Rows) == 0 {
+			@alert("muted") {
+				no reputation snapshots stored: `jb intel` has not recorded any.
+			}
+		} else {
+			<p class="note">Newest first, at most { str(p.Limit) }.</p>
+			<table>
+				<tr><th>indicator</th><th>verdict</th><th>source</th><th>observed</th></tr>
+				for _, r := range p.Rows {
+					<tr><td class="mono">{ r.Indicator }</td><td>{ r.Verdict }</td><td>{ r.Source }</td><td>{ r.Observed }</td></tr>
+				}
+			</table>
+		}
+	}
+}
+
+// ---- watch: the page polls its own panel ----
+
+templ watchView(p watchPage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Watch</h1>
+		<div id="watch-panel" hx-get="/watch" hx-trigger="every 10s" hx-swap="innerHTML">
+			@watchPanel(p)
+		</div>
+	}
+}
+
+templ watchPanel(p watchPage) {
+	<h2>Health</h2>
+	if p.LogNote.Bad() {
+		@noteView(p.LogNote)
+		if p.LogNote.Absent != "" {
+			<p class="note">no watch has run for this evidence directory.</p>
+		}
+	} else if p.LogEmpty {
+		@alert("muted") {
+			watch.log is empty: nothing has been delivered yet, so the watcher's health is unknown.
+		}
+	} else if p.NoCycle {
+		@alert("destructive") {
+			no cycle line in the last { str(p.TailLines) } log lines: cannot tell whether a watch is running. Silence is not health.
+		}
+	} else {
+		<p>
+			last cycle:
+			if p.Healthy {
+				@badge("success") {
+					CYCLE { p.Cycle }
+				}
+			} else {
+				@badge("destructive") {
+					CYCLE { p.Cycle }
+				}
+			}
+			if p.CycleAge != "" {
+				({ p.CycleAge })
+			}
+			if !p.Healthy {
+				- not healthy: this is not a quiet result
+			}
+		</p>
+		<p class="mono">{ p.CycleLine }</p>
+	}
+	<h2>Open outages and remembered tags</h2>
+	if p.StateNote.Bad() {
+		@noteView(p.StateNote)
+		if p.StateNote.Absent != "" {
+			<p class="note">no watch has run here yet, so there is no dedupe memory.</p>
+		}
+	} else {
+		if len(p.Outages) > 0 {
+			<table>
+				<tr><th>open outage (component)</th><th>alerted at</th></tr>
+				for _, o := range p.Outages {
+					<tr><td class="mono">{ o.Component }</td><td>{ o.At }</td></tr>
+				}
+			</table>
+		} else {
+			@alert("muted") {
+				no open outage recorded in the state file
+			}
+		}
+		if len(p.Seen) > 0 {
+			<table>
+				<tr><th>tag</th><th>severity</th><th>last alerted</th></tr>
+				for _, s := range p.Seen {
+					<tr><td class="mono">{ s.Tag }</td><td>{ s.Severity }</td><td>{ s.At }</td></tr>
+				}
+			</table>
+		} else {
+			@alert("muted") {
+				no tag has been alerted yet
+			}
+		}
+	}
+	<h2>watch.log tail</h2>
+	if p.LogNote.Bad() {
+		@alert("muted") {
+			no log to show
+		}
+	} else if p.LogEmpty {
+		@alert("muted") {
+			watch.log is empty
+		}
+	} else {
+		<p class="note">Last { str(p.TailLines) } lines at most, as written.</p>
+		<pre class="mono">{ strings.Join(p.Lines, "\n") }</pre>
+	}
+}
+
+// ---- not found ----
+
+templ notFoundView(p notFoundPage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Not found</h1>
+		@alert("muted") {
+			{ p.Message }
+		}
+	}
+}

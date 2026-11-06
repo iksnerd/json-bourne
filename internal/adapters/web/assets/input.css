@@ -1,0 +1,202 @@
+@import "tailwindcss";
+/* The built file, static/tailwind.css, is committed: `go build` needs no UI toolchain.
+   Scan the components and the Go files that hold class names. */
+@source "../";
+
+/* ---- Design tokens ------------------------------------------------------------------
+   The same names shadcn/ui uses (--background, --card, --primary, --border, --ring,
+   --radius ...), so components read like the ones in that system. Neo-industrial values:
+   near-black surfaces, one amber signal colour, hairline borders and no radius at all.
+   Dark only: this is an operations console, not a document. */
+:root {
+  --radius: 0px;
+  --background: #0a0c0e;
+  --foreground: #d7dde3;
+  --card: #0f1215;
+  --card-foreground: #d7dde3;
+  --popover: #0f1215;
+  --popover-foreground: #d7dde3;
+  --primary: #f5a300;
+  --primary-foreground: #0a0c0e;
+  --secondary: #171b20;
+  --secondary-foreground: #d7dde3;
+  --muted: #12161a;
+  --muted-foreground: #8b95a0;
+  --accent: #1c2228;
+  --accent-foreground: #f5f7fa;
+  --destructive: #ff5c5c;
+  --destructive-foreground: #0a0c0e;
+  --success: #3ddc84;
+  --success-foreground: #0a0c0e;
+  --warning: #f5a300;
+  --warning-foreground: #0a0c0e;
+  --border: #2a3138;
+  --input: #2a3138;
+  --ring: #f5a300;
+  /* estate graph: one colour per node kind */
+  --graph-asn: #b392f0;
+  --graph-org: #f5a300;
+  --graph-network: #58a6ff;
+  --graph-ip: #3ddc84;
+  --graph-host: #ff7b72;
+  --graph-domain: #9aa4af;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius);
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@layer base {
+  * { @apply border-border; border-radius: 0; }
+  html { color-scheme: dark; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.65;
+    /* a faint survey grid */
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--border) 28%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in oklab, var(--border) 28%, transparent) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: -1px -1px;
+  }
+  header, main { @apply mx-auto max-w-[1240px] px-8; }
+  header { @apply border-b pt-6 pb-0; }
+  header p { @apply mt-1 mb-0; }
+  main { @apply pt-2 pb-24; }
+  main p { @apply my-4; }
+  a { @apply text-foreground underline decoration-border underline-offset-4 hover:text-primary hover:decoration-primary; }
+  :focus-visible { @apply outline-2 outline-offset-2 outline-ring; }
+  h1 { @apply mt-10 mb-5 flex items-center gap-3 text-base font-semibold tracking-[0.14em] uppercase; }
+  h1::before { content: ""; @apply inline-block h-3 w-1 bg-primary; }
+  h2 { @apply mt-12 mb-4 border-b pb-2.5 text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase; }
+  h3 { @apply mt-9 mb-3 text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase; }
+  table { @apply my-5 w-full border-collapse border text-left; font-variant-numeric: tabular-nums; }
+  th, td { @apply border-b px-4 py-2.5 text-left align-top break-words; }
+  th { @apply bg-muted text-[11px] whitespace-nowrap font-semibold tracking-[0.14em] text-muted-foreground uppercase; }
+  tr:hover td { @apply bg-accent/40; }
+  pre { @apply my-5 overflow-x-auto border bg-card p-5 text-[12px] leading-relaxed; font-family: var(--font-mono); }
+  code { font-family: var(--font-mono); }
+}
+
+/* ---- Primitives (the classes the templ components in primitives.templ compose) ---- */
+@layer components {
+  .mono { font-family: var(--font-mono); @apply text-[12px]; }
+  .note { @apply text-muted-foreground; }
+  .ctx { @apply italic; }
+  .hidden { display: none; }
+
+  /* Card: a panel with corner ticks */
+  .card { @apply relative my-6 border bg-card p-6 text-card-foreground; }
+  .card::before, .card::after { content: ""; @apply pointer-events-none absolute h-2 w-2 border-primary; }
+  .card::before { @apply -top-px -left-px border-t-2 border-l-2; }
+  .card::after { @apply -right-px -bottom-px border-r-2 border-b-2; }
+
+  /* Alert */
+  .alert { @apply my-5 border border-l-4 px-5 py-3.5; }
+  .alert-destructive { @apply border-destructive bg-destructive/10 font-semibold text-destructive; }
+  .alert-muted { @apply border-dashed border-border bg-muted/50 text-muted-foreground; }
+
+  /* Badge */
+  .badge { @apply inline-block border px-2.5 py-0.5 text-[11px] font-semibold tracking-[0.12em] whitespace-nowrap uppercase; }
+  .badge-outline { @apply border-border text-muted-foreground; }
+  .badge-destructive { @apply border-destructive bg-destructive text-destructive-foreground; }
+  .badge-warning { @apply border-warning bg-warning text-warning-foreground; }
+  .badge-success { @apply border-success bg-success text-success-foreground; }
+
+  /* Button, Input, Select, Label */
+  .btn { @apply inline-flex cursor-pointer items-center border border-border bg-secondary px-4 py-2 text-[12px] font-semibold tracking-[0.1em] text-secondary-foreground uppercase hover:border-primary hover:text-primary; }
+  .btn-primary { @apply border-primary bg-primary text-primary-foreground hover:bg-primary/85 hover:text-primary-foreground; }
+  .input { @apply min-w-56 border border-input bg-background px-3 py-2 text-foreground placeholder:text-muted-foreground; font-family: var(--font-mono); }
+  .label { @apply flex items-center gap-3 text-[11px] tracking-[0.14em] text-muted-foreground uppercase; }
+  .filters { @apply my-6 flex flex-wrap items-end gap-8 border bg-card px-5 py-4; }
+
+  /* Tabs (the navigation) */
+  .tabs { @apply mt-6 flex flex-wrap gap-1; }
+  .tab { @apply -mb-px border border-transparent px-6 py-2.5 text-[12px] tracking-[0.14em] text-muted-foreground uppercase no-underline hover:border-border hover:border-b-transparent hover:bg-card hover:text-foreground; }
+  .tab[aria-current="page"] { @apply border-border border-b-background bg-background text-primary; }
+
+  .brand { @apply text-sm font-bold tracking-[0.22em] uppercase; }
+  .brand b { @apply text-primary; }
+  .status { @apply ml-5 inline-flex items-center gap-1.5 text-[11px] tracking-[0.12em] text-muted-foreground uppercase; }
+  .status::before { content: ""; @apply inline-block size-1.5 bg-success; }
+
+  /* Sheet (primitives.templ, behaviour in static/sheet.js). Variants by data-side;
+     state by data-state, as in Radix and shadcn/ui. Closed means hidden and inert. */
+  .sheet-root { display: contents; }
+  .sheet { @apply fixed z-40 flex flex-col border-border bg-card text-card-foreground outline-none; --sheet-w: min(520px, 100vw); --sheet-h: min(70vh, 560px); visibility: hidden; overscroll-behavior: contain; padding-bottom: env(safe-area-inset-bottom); }
+  .sheet[data-side="right"] { @apply top-0 right-0 bottom-0 border-l border-t-2 border-t-primary; width: var(--sheet-w); transform: translateX(100%); box-shadow: -12px 0 32px rgba(0,0,0,.55); }
+  .sheet[data-side="left"] { @apply top-0 bottom-0 left-0 border-r border-t-2 border-t-primary; width: var(--sheet-w); transform: translateX(-100%); box-shadow: 12px 0 32px rgba(0,0,0,.55); }
+  .sheet[data-side="bottom"] { @apply right-0 bottom-0 left-0 border-t-2 border-t-primary; max-height: var(--sheet-h); transform: translateY(100%); box-shadow: 0 -12px 32px rgba(0,0,0,.55); }
+  .sheet[data-state="open"] { visibility: visible; transform: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .sheet { transition: transform 180ms cubic-bezier(.2,.8,.2,1), visibility 0s linear 180ms; }
+    .sheet[data-state="open"] { transition: transform 180ms cubic-bezier(.2,.8,.2,1), visibility 0s; }
+    .sheet-overlay { transition: opacity 180ms ease, visibility 0s linear 180ms; }
+    .sheet-overlay[data-state="open"] { transition: opacity 180ms ease, visibility 0s; }
+  }
+  .sheet-overlay { @apply fixed inset-0 z-30 bg-black/60; opacity: 0; visibility: hidden; }
+  .sheet-overlay[data-state="open"] { opacity: 1; visibility: visible; }
+  .sheet-head { @apply flex items-center justify-between gap-4 border-b px-7 py-4; }
+  h2.sheet-title { @apply m-0 border-0 p-0 text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase; }
+  .sheet-desc { @apply px-7 pt-4 text-[12px] text-muted-foreground; }
+  .sheet-body { @apply flex-1 overflow-y-auto px-7 pb-12; }
+  .sheet-body h2:first-child { @apply mt-8; }
+  .sheet-body table { @apply my-4; }
+  .sheet-body th, .sheet-body td { @apply px-3 py-2; overflow-wrap: anywhere; }
+  html.sheet-scroll-lock { overflow: hidden; }
+
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 48px; }
+
+  /* Estate: the drawing without script, and the interactive one */
+  figure.static-graph { @apply my-6 border bg-card p-5; }
+  figure.static-graph svg { @apply h-auto max-w-full; }
+  figure.static-graph line { stroke: var(--muted-foreground); stroke-width: 1; }
+  figure.static-graph circle { fill: var(--background); stroke: var(--foreground); stroke-width: 1.5; }
+  figure.static-graph text { fill: var(--foreground); font-size: 10px; font-family: var(--font-mono); }
+  .graph .legend { @apply my-4 flex flex-wrap gap-x-7 gap-y-2; }
+  .graph .key { @apply text-[11px] tracking-[0.12em] uppercase; }
+  .graph .key::before { content: ""; @apply mr-1.5 inline-block size-2.5 border-2 bg-background; border-color: var(--kc, var(--foreground)); }
+  .graph .detail { @apply my-3 min-h-7 text-[12px] text-muted-foreground; }
+  svg.estate-d3 { @apply h-auto max-h-[72vh] w-full max-w-full cursor-grab border bg-card; }
+  svg.estate-d3 .edge { stroke: var(--muted-foreground); stroke-width: 1.25; }
+  svg.estate-d3 .edge.inferred { stroke-dasharray: 4 3; }
+  svg.estate-d3 .edge-label text { fill: var(--muted-foreground); font-size: 9.5px; font-family: var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; paint-order: stroke; stroke: var(--card); stroke-width: 3px; text-anchor: middle; }
+  svg.estate-d3 .edge-label:hover text, svg.estate-d3 .edge-label:focus text { fill: var(--primary); }
+  svg.estate-d3.sparse-labels .edge-label { opacity: 0; }
+  svg.estate-d3.sparse-labels .edge-g:hover .edge-label, svg.estate-d3.sparse-labels .edge-label:focus { opacity: 1; }
+  svg.estate-d3 .node circle { fill: var(--background); stroke: var(--kc, var(--foreground)); stroke-width: 2; }
+  svg.estate-d3 .node:hover circle, svg.estate-d3 .node:focus circle { fill: var(--kc, var(--foreground)); }
+  svg.estate-d3 .node text { fill: var(--foreground); font-size: 11px; font-family: var(--font-mono); paint-order: stroke; stroke: var(--background); stroke-width: 3px; }
+  .k-asn { --kc: var(--graph-asn); } .k-org { --kc: var(--graph-org); } .k-network { --kc: var(--graph-network); }
+  .k-ip { --kc: var(--graph-ip); } .k-host { --kc: var(--graph-host); } .k-domain { --kc: var(--graph-domain); }
+  .k-other { --kc: var(--muted-foreground); }
+}

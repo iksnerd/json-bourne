@@ -163,16 +163,20 @@ var allPages = []string{
 
 func TestEveryPageSetsSecurityHeadersAndNoCORS(t *testing.T) {
 	h := New(newDeps(hostileFake()), Options{Loopback: true})
-	for _, p := range append(allPages, "/static/style.css", "/no-such-page") {
+	for _, p := range append(allPages, "/static/tailwind.css", "/estate/graph.json?g=e1", "/no-such-page") {
 		_, hd, _ := get(t, h, p)
 		csp := hd.Get("Content-Security-Policy")
-		for _, want := range []string{"default-src 'none'", "style-src 'self'", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'none'"} {
+		for _, want := range []string{"default-src 'none'", "script-src 'self'", "connect-src 'self'", "style-src 'self'", "img-src 'self'", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'self'"} {
 			if !strings.Contains(csp, want) {
 				t.Errorf("%s: CSP %q lacks %q", p, csp, want)
 			}
 		}
-		if strings.Contains(csp, "unsafe-inline") || strings.Contains(csp, "script-src") || strings.Contains(csp, "http") {
-			t.Errorf("%s: CSP %q must allow no script, no inline and no remote origin", p, csp)
+		// Script is allowed from this origin only: no inline, no eval, no remote origin,
+		// no data: URL, no wildcard.
+		for _, bad := range []string{"unsafe-inline", "unsafe-eval", "http", "data:", "*", "blob:", "strict-dynamic"} {
+			if strings.Contains(csp, bad) {
+				t.Errorf("%s: CSP %q must not contain %q", p, csp, bad)
+			}
 		}
 		if hd.Get("X-Content-Type-Options") != "nosniff" {
 			t.Errorf("%s: no nosniff", p)
@@ -240,6 +244,7 @@ func TestHostileStoredTextIsEscapedOnEveryPage(t *testing.T) {
 		if code != 200 {
 			t.Fatalf("%s = %d: %s", p, code, body)
 		}
+		body = ownScript.ReplaceAllString(body, "") // the vendored scripts the page loads are the only ones
 		for _, bad := range rawAttack {
 			if strings.Contains(body, bad) {
 				t.Errorf("%s contains raw %q:\n%s", p, bad, body)
@@ -254,13 +259,36 @@ func TestHostileStoredTextIsEscapedOnEveryPage(t *testing.T) {
 	}
 }
 
-func TestPagesHaveNoScriptOrRemoteReference(t *testing.T) {
+// ownScript matches exactly the script tags a page may carry: a vendored file of this
+// dashboard, loaded from this origin, deferred, with no inline body.
+var ownScript = regexp.MustCompile(`<script src="/static/(htmx\.min|d3\.min|estate|sheet)\.js" defer></script>`)
+
+func TestPagesCarryOnlyTheVendoredScriptsAndNoInlineCode(t *testing.T) {
 	h := New(newDeps(hostileFake()), Options{Loopback: true})
 	ref := regexp.MustCompile(`(?i)(src|href|action)\s*=\s*"(https?:)?//`)
+	handler := regexp.MustCompile(`(?i)\son[a-z]+\s*=`) // onclick= and friends
 	for _, p := range allPages {
 		_, _, body := get(t, h, p)
-		if strings.Contains(strings.ToLower(body), "<script") || strings.Contains(body, "@import") || ref.MatchString(body) {
-			t.Errorf("%s has a script or an external reference", p)
+		rest := ownScript.ReplaceAllString(body, "")
+		if strings.Contains(strings.ToLower(rest), "<script") {
+			t.Errorf("%s has a script that is not one of the vendored files, or has an inline body", p)
+		}
+		if strings.Contains(body, "@import") || ref.MatchString(body) {
+			t.Errorf("%s has an external reference", p)
+		}
+		if handler.MatchString(rest) || strings.Contains(strings.ToLower(rest), " style=") || strings.Contains(strings.ToLower(rest), "javascript:") {
+			t.Errorf("%s has an inline event handler, an inline style or a javascript: URL", p)
+		}
+		if !strings.Contains(body, `<script src="/static/htmx.min.js" defer></script>`) {
+			t.Errorf("%s does not load htmx", p)
+		}
+		wantD3 := strings.HasPrefix(p, "/estate") && !strings.Contains(p, "/node") && !strings.Contains(p, "/edge")
+		if got := strings.Contains(body, "/static/d3.min.js"); got != wantD3 {
+			t.Errorf("%s loads d3 = %v, want %v: only the estate page draws a graph", p, got, wantD3)
+		}
+		// sheet.js comes with the sheet and before the script that fills it.
+		if got := strings.Contains(body, "/static/sheet.js"); got != wantD3 {
+			t.Errorf("%s loads sheet.js = %v, want %v", p, got, wantD3)
 		}
 	}
 }
@@ -307,22 +335,22 @@ func TestEmptyAndFailedPanelsSayWhy(t *testing.T) {
 			d.Open = func(context.Context) (core.DashboardStore, error) {
 				return nil, fmt.Errorf("%w: no evidence database at x yet", core.ErrAbsent)
 			}
-		}, "/", []string{"no evidence database"}, []string{"class=\"error\""}},
-		{"query fails", func(d *Deps, f *fake) { f.failWith = errors.New("boom: io") }, "/", []string{`class="error"`, "boom: io"}, []string{"no runs yet"}},
-		{"query fails findings", func(d *Deps, f *fake) { f.failWith = errors.New("boom: io") }, "/findings", []string{`class="error"`}, []string{"no findings stored"}},
+		}, "/", []string{"no evidence database"}, []string{"alert-destructive"}},
+		{"query fails", func(d *Deps, f *fake) { f.failWith = errors.New("boom: io") }, "/", []string{`alert-destructive`, "boom: io"}, []string{"no runs yet"}},
+		{"query fails findings", func(d *Deps, f *fake) { f.failWith = errors.New("boom: io") }, "/findings", []string{`alert-destructive`}, []string{"no findings stored"}},
 		{"open fails", func(d *Deps, f *fake) {
 			d.Open = func(context.Context) (core.DashboardStore, error) { return nil, errors.New("database is locked") }
-		}, "/reputation", []string{`class="error"`, "database is locked"}, []string{"no reputation snapshots"}},
+		}, "/reputation", []string{`alert-destructive`, "database is locked"}, []string{"no reputation snapshots"}},
 		{"estate nil", func(d *Deps, f *fake) { d.Estate = nil }, "/estate", []string{"estate is not available", "--case"}, nil},
 		{"estate dir absent", func(d *Deps, f *fake) {
 			d.Estate = fakeEstate{err: fmt.Errorf("%w: estate dir absent: x", core.ErrAbsent)}
-		}, "/estate", []string{"estate dir absent"}, []string{`class="error"`}},
-		{"estate broken", func(d *Deps, f *fake) { d.Estate = fakeEstate{err: errors.New("estate file bad.yaml: unknown key")} }, "/estate", []string{`class="error"`, "unknown key"}, nil},
+		}, "/estate", []string{"estate dir absent"}, []string{`alert-destructive`}},
+		{"estate broken", func(d *Deps, f *fake) { d.Estate = fakeEstate{err: errors.New("estate file bad.yaml: unknown key")} }, "/estate", []string{`alert-destructive`, "unknown key"}, nil},
 		{"log absent", func(d *Deps, f *fake) {
 			d.Log = fakeLog{err: fmt.Errorf("%w: no alert log", core.ErrAbsent)}
 			d.State = fakeState{err: fmt.Errorf("%w: no watch state", core.ErrAbsent)}
 		}, "/watch", []string{"no alert log", "no watch has run"}, nil},
-		{"state corrupt", func(d *Deps, f *fake) { d.State = fakeState{err: fmt.Errorf("%w: bad", core.ErrStateCorrupt)} }, "/watch", []string{`class="error"`, "corrupt"}, nil},
+		{"state corrupt", func(d *Deps, f *fake) { d.State = fakeState{err: fmt.Errorf("%w: bad", core.ErrStateCorrupt)} }, "/watch", []string{`alert-destructive`, "corrupt"}, nil},
 		{"log empty", func(d *Deps, f *fake) { d.Log = fakeLog{} }, "/watch", []string{"watch.log is empty"}, nil},
 	}
 	for _, c := range cases {
@@ -376,7 +404,7 @@ func TestUnknownRunIs404AndStoreErrorsAreNot(t *testing.T) {
 	f := hostileFake()
 	f.failWith = errors.New("disk on fire")
 	code, _, body := get(t, New(newDeps(f), Options{Loopback: true}), "/run?id=watch-1")
-	if code != 200 || !strings.Contains(body, "disk on fire") || !strings.Contains(body, `class="error"`) {
+	if code != 200 || !strings.Contains(body, "disk on fire") || !strings.Contains(body, `alert-destructive`) {
 		t.Errorf("a failing store must show a banner, got %d:\n%s", code, body)
 	}
 }
@@ -464,13 +492,15 @@ func TestEstatePagesShowProvenanceAndCaveatOnEveryNodeAndEdge(t *testing.T) {
 	}
 }
 
-func TestStaticServesOnlyTheStylesheet(t *testing.T) {
+func TestStaticServesOnlyTheNamedFiles(t *testing.T) {
 	h := New(newDeps(hostileFake()), Options{Loopback: true})
-	code, hd, _ := get(t, h, "/static/style.css")
-	if code != 200 || !strings.HasPrefix(hd.Get("Content-Type"), "text/css") {
-		t.Errorf("css: %d %q", code, hd.Get("Content-Type"))
+	for name, prefix := range map[string]string{"tailwind.css": "text/css", "htmx.min.js": "text/javascript", "d3.min.js": "text/javascript", "estate.js": "text/javascript", "d3.LICENSE.txt": "text/plain", "htmx.LICENSE.txt": "text/plain"} {
+		code, hd, body := get(t, h, "/static/"+name)
+		if code != 200 || !strings.HasPrefix(hd.Get("Content-Type"), prefix) || len(body) == 0 {
+			t.Errorf("%s: %d %q (%d bytes)", name, code, hd.Get("Content-Type"), len(body))
+		}
 	}
-	for _, p := range []string{"/static/", "/static/../web.go", "/static/nope.js", "/static/%2e%2e/web.go"} {
+	for _, p := range []string{"/static/", "/static", "/static/../web.go", "/static/nope.js", "/static/%2e%2e/web.go", "/static/style.css", "/static/templates/layout.templ", "/static/assets/input.css"} {
 		if code, _, _ := get(t, h, p); code == 200 {
 			t.Errorf("%s served", p)
 		}

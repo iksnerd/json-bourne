@@ -8,9 +8,12 @@
 //
 // Everything that comes from the evidence is untrusted text: log lines carry
 // attacker-controlled strings (paths, user agents, host names). It is rendered only
-// through html/template's contextual escaping, never as template.HTML, and capped in
-// length first. The page has no script, loads nothing from another origin and is
-// served with a Content-Security-Policy that would block both anyway.
+// by templ components, which escape every value for the place it lands in (there is no
+// raw-HTML escape hatch in use), and capped in length first. The only scripts are the
+// two vendored libraries (htmx, d3) and the estate graph's own file, all served from
+// this origin; no page has an inline script, and the Content-Security-Policy allows
+// nothing else, no eval and no other origin. htmx is configured (see htmxConfig) not
+// to evaluate text, run script tags or keep a copy of a page in the browser.
 //
 // There is no authentication. The default is to bind loopback and to refuse a
 // request whose Host header is not a loopback name (DNS rebinding); a non-loopback
@@ -22,7 +25,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"html/template"
 	"net"
 	"net/http"
 	"net/netip"
@@ -33,11 +35,12 @@ import (
 	"github.com/iksnerd/json-bourne/internal/core"
 )
 
-//go:embed templates/*.html
-var templateFS embed.FS
-
-//go:embed static/style.css
-var styleCSS []byte
+// The static files are embedded: the built Tailwind stylesheet and the two vendored,
+// version-pinned libraries (htmx and d3, see static/*.LICENSE.txt) with the page script
+// of the estate graph. Nothing is fetched from anywhere at run time.
+//
+//go:embed static
+var staticFS embed.FS
 
 // Row limits. Every query the dashboard makes is bounded by one of these.
 const (
@@ -73,12 +76,26 @@ type Options struct {
 	Loopback bool
 }
 
-const csp = "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+// csp lets a page load script, style and image from this origin only, and fetch from
+// this origin (htmx partials, the graph's JSON). A form may only submit to this origin
+// (the findings filter's no-script fallback, a GET).
+const csp = "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+
+// staticFiles are the only files served under /static/, by name. There is no directory
+// listing and no way to ask for another embedded file.
+var staticFiles = map[string]string{
+	"tailwind.css":     "text/css; charset=utf-8",
+	"htmx.min.js":      "text/javascript; charset=utf-8",
+	"d3.min.js":        "text/javascript; charset=utf-8",
+	"estate.js":        "text/javascript; charset=utf-8",
+	"sheet.js":         "text/javascript; charset=utf-8",
+	"htmx.LICENSE.txt": "text/plain; charset=utf-8",
+	"d3.LICENSE.txt":   "text/plain; charset=utf-8",
+}
 
 type server struct {
-	d     Deps
-	o     Options
-	pages map[string]*template.Template
+	d Deps
+	o Options
 }
 
 // New returns the dashboard handler.
@@ -86,12 +103,7 @@ func New(d Deps, o Options) http.Handler {
 	if d.Now == nil {
 		d.Now = time.Now
 	}
-	s := &server{d: d, o: o, pages: map[string]*template.Template{}}
-	for _, name := range []string{"overview", "run", "findings", "reputation", "watch", "estate", "node", "edge", "notfound"} {
-		s.pages[name] = template.Must(template.New("layout").Funcs(template.FuncMap{
-			"sev": core.SeverityName,
-		}).ParseFS(templateFS, "templates/layout.html", "templates/"+name+".html"))
-	}
+	s := &server{d: d, o: o}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/{$}", s.overview)
 	mux.HandleFunc("/run", s.run)
@@ -101,7 +113,17 @@ func New(d Deps, o Options) http.Handler {
 	mux.HandleFunc("/estate", s.estate)
 	mux.HandleFunc("/estate/node", s.estateNode)
 	mux.HandleFunc("/estate/edge", s.estateEdge)
-	mux.HandleFunc("/static/style.css", s.style)
+	mux.HandleFunc("/estate/graph.json", s.estateGraphJSON)
+	for name, ctype := range staticFiles {
+		body, err := staticFS.ReadFile("static/" + name)
+		if err != nil {
+			panic("web: embedded static file missing: " + name)
+		}
+		mux.HandleFunc("/static/"+name, func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", ctype)
+			_, _ = w.Write(body)
+		})
+	}
 	mux.HandleFunc("/", s.notFound)
 	inner := http.TimeoutHandler(mux, requestBudget, "the request took too long and was stopped")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -196,26 +218,10 @@ func Serve(ctx context.Context, srv *http.Server, ln net.Listener) error {
 	}
 }
 
-func (s *server) style(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/css; charset=utf-8")
-	_, _ = w.Write(styleCSS)
-}
-
-func (s *server) render(w http.ResponseWriter, status int, page string, data any) {
-	var b strings.Builder
-	if err := s.pages[page].ExecuteTemplate(&b, "layout", data); err != nil {
-		http.Error(w, "the page could not be rendered", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	_, _ = w.Write([]byte(b.String()))
-}
-
 func (s *server) notFound(w http.ResponseWriter, r *http.Request) {
-	s.render(w, http.StatusNotFound, "notfound", struct{ Nav, Title, Message string }{"", "Not found", "no such page"})
+	s.send(w, r, http.StatusNotFound, notFoundView(notFoundPage{Title: "Not found", Message: "no such page"}))
 }
 
-func (s *server) missing(w http.ResponseWriter, what string) {
-	s.render(w, http.StatusNotFound, "notfound", struct{ Nav, Title, Message string }{"", "Not found", what})
+func (s *server) missing(w http.ResponseWriter, r *http.Request, what string) {
+	s.send(w, r, http.StatusNotFound, notFoundView(notFoundPage{Title: "Not found", Message: what}))
 }

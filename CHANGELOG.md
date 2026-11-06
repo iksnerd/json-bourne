@@ -2,6 +2,13 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/). Before 1.0, the Go API (packages `jb` and `sdk`) and the CLI flags may change between minor versions.
 
+## [Unreleased]
+
+### Changed
+- **The dashboard (`jb serve`) is rebuilt** with templ components, htmx partial updates and Tailwind, from design tokens (shadcn/ui names, a neo-industrial dark theme with sharp edges). The Estate page draws an interactive d3 graph with a label on every connection; selecting a node or a connection opens its record and its connections in a sheet. Findings can be filtered by text and severity; the Watch panel refreshes itself. New Go packages: `internal/estategraph` (built on `dominikbraun/graph`) and the dashboard's primitives (card, alert, badge, sheet).
+- **The Content-Security-Policy changes** from `default-src 'none'` (no script at all) to `script-src 'self'; connect-src 'self'; form-action 'self'`. Scripts are the vendored, hash-pinned htmx and d3 and two small files of this project; there is still no inline script, no eval and no other origin, and the dashboard stays GET-only and read-only. See docs/ARCHITECTURE.md and docs/THIRD-PARTY.md.
+- New dependencies: `github.com/a-h/templ` and `github.com/dominikbraun/graph`. The `jb` and `sdk` packages do not import them.
+
 ## [0.2.1] - 2026-11-06
 
 ### Security

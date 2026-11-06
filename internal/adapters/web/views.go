@@ -2,9 +2,9 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 	"regexp"
 	"sort"
@@ -12,7 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/a-h/templ"
+
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/estategraph"
 )
 
 // textCap is how many characters of one stored string a page shows.
@@ -152,7 +155,7 @@ func (s *server) overview(w http.ResponseWriter, r *http.Request) {
 			p.Runs = append(p.Runs, runRowOf(g))
 		}
 	}
-	s.render(w, http.StatusOK, "overview", p)
+	s.send(w, r, http.StatusOK, overviewView(p))
 }
 
 type runPage struct {
@@ -198,7 +201,7 @@ func eventRows(es []core.StoredEvent) []eventRow {
 func (s *server) run(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	if id == "" || len(id) > 200 {
-		s.missing(w, "no run id given, or it is too long")
+		s.missing(w, r, "no run id given, or it is too long")
 		return
 	}
 	p := runPage{Nav: "runs", Title: "Run " + c(id), ID: c(id), Fields: s.d.Fields, EventsLimit: eventsLimit, FindLimit: findingsLimit}
@@ -209,7 +212,7 @@ func (s *server) run(w http.ResponseWriter, r *http.Request) {
 		g, err := st.Run(s.ctx(r), id)
 		switch {
 		case errors.Is(err, core.ErrNotFound):
-			s.missing(w, "no run with that id")
+			s.missing(w, r, "no run with that id")
 			return
 		case err != nil:
 			p.Store = noteOf(err)
@@ -231,19 +234,67 @@ func (s *server) run(w http.ResponseWriter, r *http.Request) {
 		es, err := st.RecentEvents(s.ctx(r), id, eventsLimit)
 		p.EventsNote, p.Events = noteOf(err), eventRows(es)
 	}
-	s.render(w, http.StatusOK, "run", p)
+	s.send(w, r, http.StatusOK, runView(p))
 }
 
 type findingsPage struct {
 	Nav, Title string
 	Store      note
-	Rows       []findingRow
+	Rows       []findingRow // after the filter
+	Total      int          // stored rows before the filter
 	Cut        bool
 	Limit      int
+	Q, Sev     string // the filter, as the form shows it
+	Filtered   bool
+}
+
+// Note is the sentence above the table: how the rows are ordered and what was cut or
+// filtered away, so a shorter list is never mistaken for the whole.
+func (p findingsPage) Note() string {
+	n := "Newest runs first, most severe first within a run"
+	if p.Cut {
+		n += "; showing the first " + strconv.Itoa(p.Limit) + ", more may exist"
+	}
+	if p.Filtered {
+		n += "; " + strconv.Itoa(len(p.Rows)) + " of " + strconv.Itoa(p.Total) + " match the filter"
+	}
+	return n + "."
+}
+
+// sevOptions are the severity names the filter offers; "" is any.
+var sevOptions = []string{"", "info", "check", "activity", "high", "critical"}
+
+func sevLabel(o string) string {
+	if o == "" {
+		return "any"
+	}
+	return o
+}
+
+func validSev(v string) bool {
+	for _, o := range sevOptions {
+		if o == v {
+			return true
+		}
+	}
+	return false
+}
+
+// cut keeps at most n runes of s.
+func cut(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n])
+	}
+	return s
 }
 
 func (s *server) findings(w http.ResponseWriter, r *http.Request) {
 	p := findingsPage{Nav: "findings", Title: "Findings", Limit: findingsLimit}
+	p.Q = cut(strings.TrimSpace(r.URL.Query().Get("q")), 100)
+	if sev := r.URL.Query().Get("sev"); validSev(sev) {
+		p.Sev = sev
+	}
+	p.Filtered = p.Q != "" || p.Sev != ""
 	st, n := s.open(s.ctx(r))
 	p.Store = n
 	if st != nil {
@@ -253,10 +304,25 @@ func (s *server) findings(w http.ResponseWriter, r *http.Request) {
 		if len(fs) > findingsLimit {
 			fs, p.Cut = fs[:findingsLimit], true
 		}
-		p.Rows = findingRows(fs)
+		all := findingRows(fs)
+		p.Total = len(all)
 		p.Cut = p.Cut || len(fs) == findingsLimit
+		needle := strings.ToLower(p.Q)
+		for _, f := range all {
+			if p.Sev != "" && f.Severity != p.Sev {
+				continue
+			}
+			if needle != "" && !strings.Contains(strings.ToLower(f.Detector+" "+f.Tag+" "+f.Summary+" "+f.Run), needle) {
+				continue
+			}
+			p.Rows = append(p.Rows, f)
+		}
 	}
-	s.render(w, http.StatusOK, "findings", p)
+	if isHX(r) {
+		s.send(w, r, http.StatusOK, findingsResults(p))
+		return
+	}
+	s.send(w, r, http.StatusOK, findingsView(p))
 }
 
 type repRow struct{ Indicator, Verdict, Source, Observed string }
@@ -280,7 +346,7 @@ func (s *server) reputation(w http.ResponseWriter, r *http.Request) {
 			p.Rows = append(p.Rows, repRow{c(x.Indicator), c(x.Verdict), c(x.Source), tm(x.Observed)})
 		}
 	}
-	s.render(w, http.StatusOK, "reputation", p)
+	s.send(w, r, http.StatusOK, reputationView(p))
 }
 
 var cycleRE = regexp.MustCompile(`CYCLE (QUIET|FINDINGS|INCOMPLETE|FAILED)\b`)
@@ -357,7 +423,11 @@ func (s *server) watch(w http.ResponseWriter, r *http.Request) {
 			sort.Slice(p.Outages, func(i, j int) bool { return p.Outages[i].Component < p.Outages[j].Component })
 		}
 	}
-	s.render(w, http.StatusOK, "watch", p)
+	if isHX(r) {
+		s.send(w, r, http.StatusOK, watchPanel(p))
+		return
+	}
+	s.send(w, r, http.StatusOK, watchView(p))
 }
 
 // ---- estate ----
@@ -388,6 +458,7 @@ type graphView struct {
 	NodeTotal, EdgeTotal int
 	SVGNodes             []svgNode
 	SVGEdges             []svgEdge
+	SVGW, SVGH           int
 	SVG                  bool
 	SVGCut               bool
 }
@@ -419,27 +490,20 @@ func buildGraph(g core.EstateGraph) graphView {
 		}
 		v.Absences = append(v.Absences, absenceRow{c(a.Subject), c(a.Source), c(a.Method), c(a.Observed), c(a.Answer)})
 	}
-	// A circle of at most graphNodes nodes; edges between drawn nodes only.
-	nodes := g.Nodes
-	if len(nodes) > graphNodes {
-		nodes, v.SVGCut = nodes[:graphNodes], true
-	}
-	if len(nodes) > 0 {
-		v.SVG = true
-		pos := map[string][2]int{}
-		for i, n := range nodes {
-			ang := 2 * math.Pi * float64(i) / float64(len(nodes))
-			x, y := 320+int(220*math.Cos(ang)), 320+int(220*math.Sin(ang))
-			pos[n.ID] = [2]int{x, y}
-			lx := x + 8
-			v.SVGNodes = append(v.SVGNodes, svgNode{X: x, Y: y, LX: lx, Label: clip(n.Label, 24), G: c(g.ID), ID: c(n.ID)})
+	// The drawing that needs no script: the most connected nodes in columns by kind.
+	l := estategraph.Build(g, graphNodes)
+	if len(l.Nodes) > 0 {
+		v.SVG, v.SVGCut, v.SVGW, v.SVGH = true, l.Cut, l.Width, l.Height
+		for _, n := range l.Nodes {
+			v.SVGNodes = append(v.SVGNodes, svgNode{X: n.X, Y: n.Y, LX: n.X + 8, Label: clip(n.Label, 22), G: c(g.ID), ID: c(n.ID)})
 		}
-		for _, e := range g.Edges {
-			a, aok := pos[e.From]
-			b, bok := pos[e.To]
-			if aok && bok {
-				v.SVGEdges = append(v.SVGEdges, svgEdge{a[0], a[1], b[0], b[1]})
-			}
+		xy := map[string][2]int{}
+		for _, n := range l.Nodes {
+			xy[n.ID] = [2]int{n.X, n.Y}
+		}
+		for _, e := range l.Edges {
+			a, b := xy[e.From], xy[e.To]
+			v.SVGEdges = append(v.SVGEdges, svgEdge{a[0], a[1], b[0], b[1]})
 		}
 	}
 	return v
@@ -471,7 +535,7 @@ func (s *server) estate(w http.ResponseWriter, r *http.Request) {
 	for _, g := range gs {
 		p.Graphs = append(p.Graphs, buildGraph(g))
 	}
-	s.render(w, http.StatusOK, "estate", p)
+	s.send(w, r, http.StatusOK, estateView(p))
 }
 
 func findGraph(gs []core.EstateGraph, id string) (core.EstateGraph, bool) {
@@ -496,7 +560,7 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 	gs, n, _ := s.loadEstates(s.ctx(r))
 	g, ok := findGraph(gs, r.URL.Query().Get("g"))
 	if !ok || n.Bad() {
-		s.missing(w, "no such estate map")
+		s.missing(w, r, "no such estate map")
 		return
 	}
 	id := r.URL.Query().Get("id")
@@ -518,10 +582,10 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 				p.Absences = append(p.Absences, absenceRow{c(a.Subject), c(a.Source), c(a.Method), c(a.Observed), c(a.Answer)})
 			}
 		}
-		s.render(w, http.StatusOK, "node", p)
+		s.sendNode(w, r, p)
 		return
 	}
-	s.missing(w, "no such node in that estate map")
+	s.missing(w, r, "no such node in that estate map")
 }
 
 type edgePage struct {
@@ -536,12 +600,12 @@ func (s *server) estateEdge(w http.ResponseWriter, r *http.Request) {
 	gs, n, _ := s.loadEstates(s.ctx(r))
 	g, ok := findGraph(gs, r.URL.Query().Get("g"))
 	if !ok || n.Bad() {
-		s.missing(w, "no such estate map")
+		s.missing(w, r, "no such estate map")
 		return
 	}
 	i, err := strconv.Atoi(r.URL.Query().Get("i"))
 	if err != nil || i < 0 || i >= len(g.Edges) {
-		s.missing(w, "no such edge in that estate map")
+		s.missing(w, r, "no such edge in that estate map")
 		return
 	}
 	e := g.Edges[i]
@@ -556,5 +620,97 @@ func (s *server) estateEdge(w http.ResponseWriter, r *http.Request) {
 			p.To = &p2
 		}
 	}
-	s.render(w, http.StatusOK, "edge", p)
+	s.sendEdge(w, r, p)
+}
+
+type notFoundPage struct{ Nav, Title, Message string }
+
+// isHX reports whether htmx asked for this page: it then wants the fragment, not the page.
+func isHX(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }
+
+// send renders a component into a buffer first, so a render error is a clean 500 and
+// never half a page, and then writes it. Every page varies on HX-Request.
+func (s *server) send(w http.ResponseWriter, r *http.Request, status int, c templ.Component) {
+	var b strings.Builder
+	if err := c.Render(r.Context(), &b); err != nil {
+		http.Error(w, "the page could not be rendered", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Add("Vary", "HX-Request")
+	w.WriteHeader(status)
+	_, _ = w.Write([]byte(b.String()))
+}
+
+func (s *server) sendNode(w http.ResponseWriter, r *http.Request, p nodePage) {
+	if isHX(r) {
+		s.send(w, r, http.StatusOK, nodeRecord(p, true))
+		return
+	}
+	s.send(w, r, http.StatusOK, nodeView(p))
+}
+
+func (s *server) sendEdge(w http.ResponseWriter, r *http.Request, p edgePage) {
+	if isHX(r) {
+		s.send(w, r, http.StatusOK, edgeRecord(p, true))
+		return
+	}
+	s.send(w, r, http.StatusOK, edgeView(p))
+}
+
+// ---- the data of the interactive graph ----
+
+// graphJSONNodes bounds what the browser is asked to lay out.
+const graphJSONNodes = 300
+
+type jsonNode struct {
+	ID        string `json:"id"`
+	Kind      string `json:"kind"`
+	Label     string `json:"label"`
+	Degree    int    `json:"degree"`
+	Component int    `json:"component"`
+	Href      string `json:"href"`
+}
+
+type jsonEdge struct {
+	Source     string `json:"source"`
+	Target     string `json:"target"`
+	Relation   string `json:"relation"`
+	SourceName string `json:"sourceName"`
+	Confidence string `json:"confidence"`
+	Href       string `json:"href"`
+}
+
+type jsonGraph struct {
+	ID         string     `json:"id"`
+	NodeTotal  int        `json:"nodeTotal"`
+	EdgeTotal  int        `json:"edgeTotal"`
+	Components int        `json:"components"`
+	Cut        bool       `json:"cut"`
+	Nodes      []jsonNode `json:"nodes"`
+	Edges      []jsonEdge `json:"edges"`
+}
+
+// estateGraphJSON serves one estate map as JSON for the browser to draw. Every string is
+// cleaned like the page's text, and encoding/json escapes <, > and & so the document is
+// inert even if it were ever served as HTML. The links are built here, never taken from
+// the file.
+func (s *server) estateGraphJSON(w http.ResponseWriter, r *http.Request) {
+	gs, n, _ := s.loadEstates(s.ctx(r))
+	g, ok := findGraph(gs, r.URL.Query().Get("g"))
+	if !ok || n.Bad() {
+		http.Error(w, "no such estate map", http.StatusNotFound)
+		return
+	}
+	l := estategraph.Build(g, graphJSONNodes)
+	out := jsonGraph{ID: c(g.ID), NodeTotal: l.NodeTotal, EdgeTotal: len(g.Edges), Components: l.Components, Cut: l.Cut,
+		Nodes: []jsonNode{}, Edges: []jsonEdge{}}
+	for _, x := range l.Nodes {
+		out.Nodes = append(out.Nodes, jsonNode{ID: c(x.ID), Kind: c(x.Kind), Label: c(x.Label), Degree: x.Degree, Component: x.Component, Href: nodeHref(g.ID, x.ID)})
+	}
+	for _, e := range l.Edges {
+		out.Edges = append(out.Edges, jsonEdge{Source: c(e.From), Target: c(e.To), Relation: c(e.Relation), SourceName: c(e.Source), Confidence: c(e.Confidence), Href: edgeHref(g.ID, e.Index)})
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(out)
 }

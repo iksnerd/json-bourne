@@ -48,6 +48,7 @@ var rules = []rule{
 	{pkg: "internal/adapters/rdap", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters/kibana", mod + "/internal/adapters/duckdb", mod + "/internal/adapters/greynoise", mod + "/internal/adapters/alertlog", mod + "/internal/adapters/webhook", mod + "/internal/adapters/watchstate", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "os/exec", "os", mod + "/internal/adapters/dnsptr"}, why: "the RDAP adapter depends on core and the standard library only; net/http is allowed here and in the other remote adapters only"},
 	{pkg: "internal/adapters/dnsptr", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters/kibana", mod + "/internal/adapters/duckdb", mod + "/internal/adapters/greynoise", mod + "/internal/adapters/alertlog", mod + "/internal/adapters/webhook", mod + "/internal/adapters/watchstate", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "os/exec", "os", mod + "/internal/adapters/rdap", "net/http"}, why: "the PTR adapter depends on core and the standard library only and asks a DNS resolver through an injected net.Resolver; it has no HTTP"},
 	{pkg: "internal/adapters/web", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "database/sql", "os", "os/exec", "path/filepath", "io/ioutil", "log", "crypto/tls", "net/http/httputil", "net/http/httptest", "net/rpc", "net/smtp", "net/url"}, why: "the dashboard is a serving adapter: core and the standard library only; it reads the evidence through core ports, so it has no SQL, no file and no process access, and it never calls out (net/http client symbols are banned by TestWebAdapterIsServingOnly)"},
+	{pkg: "internal/estategraph", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", mod + "/internal/watchrun", "github.com/spf13/cobra", "github.com/duckdb", "github.com/a-h/templ", "gopkg.in/yaml", "net", "net/http", "net/url", "os", "os/exec", "io/ioutil", "log", "unsafe", "reflect", "html/template"}, why: "the estate graph model is a pure function of core.EstateGraph (core, the standard library and the graph library only): it reads no file, store or request and never prints, so the page that prints a label keeps the escaping"},
 	{pkg: "internal/adapters/bgp", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "os/exec", "os"}, why: "the BGP adapter depends on core and the standard library only; net/http is allowed here and in the other remote adapters only"},
 	{pkg: "internal/adapters/crtsh", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "os/exec", "os"}, why: "the certificate transparency adapter depends on core and the standard library only; net/http is allowed here and in the other remote adapters only"},
 	{pkg: "internal/adapters/dnsfwd", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "os/exec", "os", "net/http"}, why: "the forward-DNS adapter depends on core and the standard library only and asks a DNS resolver through an injected net.Resolver; it has no HTTP"},
@@ -258,6 +259,47 @@ func f() { _, _ = http.Get("http://192.0.2.1"); _ = &http.Client{}; _, _ = net.D
 	}
 	if strings.Contains(got, "http.Handler") || strings.Contains(got, "net.Listener") {
 		t.Errorf("scanner flagged a serving symbol: %q", got)
+	}
+}
+
+// The dashboard shows attacker-controlled text. templ escapes every { value } for the
+// place it lands in; these are the ways to turn that off or to run text as code, and none
+// of them may appear in the adapter's own sources (generated files are the compiler's
+// output of those sources, so they are covered by the .templ scan).
+func TestWebAdapterHasNoRawHTMLOrScriptEscapeHatch(t *testing.T) {
+	dir := filepath.Join("..", "adapters", "web")
+	banned := []string{"templ.Raw", "templ.SafeURL", "templ.ComponentScript", "templ.JSFuncCall", "templ.JSONScript", "templ.Script", "templ.SafeScript", "templ.SafeCSS", "template.HTML", "template.JS", "template.URL", "unsafe.", "@templ."}
+	n := 0
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		name := d.Name()
+		if strings.HasSuffix(name, "_templ.go") || strings.HasSuffix(name, "_test.go") || !(strings.HasSuffix(name, ".go") || strings.HasSuffix(name, ".templ")) {
+			return nil
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		n++
+		for _, bad := range banned {
+			for i, line := range strings.Split(string(b), "\n") {
+				if t := strings.TrimSpace(line); strings.HasPrefix(t, "//") {
+					continue
+				}
+				if strings.Contains(line, bad) {
+					t.Errorf("%s:%d uses %s: text from the evidence would reach the page unescaped or as code", p, i+1, bad)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n < 6 {
+		t.Fatalf("only %d web sources scanned: the guard is looking at the wrong place", n)
 	}
 }
 

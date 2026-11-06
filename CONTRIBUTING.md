@@ -14,6 +14,17 @@ go test -race -count=1 ./...
 
 CI and release run only when a version tag (`v1.2.3`) is pushed: the workflow tests on Linux and macOS, builds `jb` for `linux-amd64` and `darwin-arm64`, and publishes a GitHub release (`.github/workflows/ci.yml`). Nothing runs on branch pushes or pull requests, so run the three commands above before you tag.
 
+### Changing the dashboard
+
+The dashboard (`internal/adapters/web`) is templ components, htmx, d3 and Tailwind. The generated `*_templ.go` files and the built `static/tailwind.css` are committed, so none of the tools below are needed to build or test `jb`. They are needed when you change a `.templ` file, a class name or `assets/input.css`:
+
+```sh
+make ui         # installs the pinned templ CLI and Tailwind standalone CLI (checksum-verified), then regenerates
+make ui-check   # fails if the committed generated files are stale
+```
+
+Rules that tests enforce: no script except the vendored files, no inline script or style, no `templ.Raw` or other raw-HTML escape hatch, GET only. Vendored libraries are the exact files published to npm, pinned by hash in `internal/adapters/web/web_ui_test.go`; to update one, verify the npm tarball's integrity, replace the file and its licence, and change the pin in the same commit. See [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md).
+
 ### The archtest trap
 
 `internal/archtest` enforces the dependency rules by running `go list`. Go's test cache cannot see what that subprocess reads, so a cached run passes after you break a rule. Always use `-count=1`:

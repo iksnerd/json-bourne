@@ -16,6 +16,8 @@ Evidence-first incident response for when you are being attacked. Go, DuckDB, co
 - `internal/adapters/*`: Elasticsearch, nginx, DuckDB, feeds. Implement `core` ports.
 - `cmd/jb` + `internal/config`: the only place that knows every adapter.
 - `internal/adapters/plugin`: the host for out-of-process mapper plugins. The only package besides the case git guard that may import `os/exec`. Protocol, limits and trust model: `docs/PLUGINS.md`.
+- `internal/estategraph`: the estate graph model (degree, components, layered layout) over `core` and `dominikbraun/graph`; no I/O.
+- `internal/adapters/web`: the dashboard. templ components (`*.templ`; generated `*_templ.go` and `static/tailwind.css` are committed, rebuild with `make ui`), htmx fragments, vendored d3/htmx. Strict CSP (`script-src 'self'` only); `TestWebAdapterHasNoRawHTMLOrScriptEscapeHatch` bans `templ.Raw` and friends. See CONTRIBUTING.md.
 - `sdk/` (package `sdk`): the plugin side, public. Standard library only; it must never import `internal/` (the archtest scans it like a plugin).
 - `plugins/`: example mapper plugins (separate programs, standard library only; nothing in `jb` imports them). `internal/conformance` runs one corpus through them and the built-in mapper.
 - `internal/archtest` enforces these rules. A rule is not done until you have seen it fail.

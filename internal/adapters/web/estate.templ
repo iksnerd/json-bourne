@@ -1,0 +1,235 @@
+package web
+
+// ---- estate ----
+
+templ estateView(p estatePage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Estate</h1>
+		if p.NotWired {
+			@alert("muted") {
+				estate is not available: start with `jb serve --case DIR` so the case's estate directory is known.
+			}
+		} else if p.Note.Bad() {
+			@noteView(p.Note)
+		} else {
+			for _, g := range p.Graphs {
+				@graphBlock(g)
+			}
+			@sheet(sheetProps{ID: "estate-sheet", Title: "Record", Description: "The record of the selected node or connection: where it came from, how it was observed, and what it connects to."}) {
+				<div id="estate-detail" aria-live="polite">
+					<p class="note">Select a node or a connection to see its record here.</p>
+				</div>
+			}
+			<p class="note">Tables show at most { str(p.Cap) } rows each. An estate map shows who owns and runs infrastructure, not who typed the commands.</p>
+			<script src="/static/sheet.js" defer></script>
+			<script src="/static/d3.min.js" defer></script>
+			<script src="/static/estate.js" defer></script>
+		}
+	}
+}
+
+templ graphBlock(g graphView) {
+	<h2>{ g.ID }</h2>
+	<p class="note">Caveat: { g.Caveat }</p>
+	if g.SVG {
+		<div class="graph" data-src={ graphHref(g.ID) }></div>
+		<figure class="static-graph">
+			<svg viewBox={ "0 0 " + str(g.SVGW) + " " + str(g.SVGH) } role="img" aria-label={ "estate graph " + g.ID }>
+				for _, e := range g.SVGEdges {
+					<line x1={ str(e.X1) } y1={ str(e.Y1) } x2={ str(e.X2) } y2={ str(e.Y2) }></line>
+				}
+				for _, n := range g.SVGNodes {
+					<a href={ templ.URL(nodeHref(n.G, n.ID)) }>
+						<circle cx={ str(n.X) } cy={ str(n.Y) } r="5"></circle>
+						<text x={ str(n.LX) } y={ str(n.Y + 4) }>{ n.Label }</text>
+					</a>
+				}
+			</svg>
+			if g.SVGCut {
+				<p class="note">the drawing shows the { str(len(g.SVGNodes)) } most connected nodes only; the tables list every one.</p>
+			}
+		</figure>
+	}
+	<h3>Nodes ({ str(g.NodeTotal) })</h3>
+	<table>
+		<tr><th>kind</th><th>label</th><th>source</th><th>method</th><th>observed</th></tr>
+		for _, n := range g.Nodes {
+			<tr>
+				<td>{ n.Kind }</td>
+				<td>
+@nodeLink(n.G, n.ID, n.Label, true)
+</td>
+				<td>{ n.Source }</td>
+				<td class="mono">{ n.Method }</td>
+				<td>{ n.Observed }</td>
+			</tr>
+		}
+	</table>
+	<h3>Edges ({ str(g.EdgeTotal) })</h3>
+	if len(g.Edges) > 0 {
+		<table>
+			<tr><th>from</th><th>relation</th><th>to</th><th>source</th><th>method</th><th>observed</th><th>confidence</th></tr>
+			for _, e := range g.Edges {
+				<tr>
+					<td class="mono">{ e.From }</td>
+					<td>
+@edgeLink(e.G, e.I, e.Relation, true)
+</td>
+					<td class="mono">{ e.To }</td>
+					<td>{ e.Source }</td>
+					<td class="mono">{ e.Method }</td>
+					<td>{ e.Observed }</td>
+					<td>{ e.Confidence }</td>
+				</tr>
+			}
+		</table>
+	} else {
+		@alert("muted") {
+			no edges in this map
+		}
+	}
+	<h3>Absences</h3>
+	if len(g.Absences) > 0 {
+		<table>
+			<tr><th>subject</th><th>source</th><th>method</th><th>observed</th><th>answer</th></tr>
+			for _, a := range g.Absences {
+				<tr><td class="mono">{ a.Subject }</td><td>{ a.Source }</td><td class="mono">{ a.Method }</td><td>{ a.Observed }</td><td>{ a.Answer }</td></tr>
+			}
+		</table>
+	} else {
+		@alert("muted") {
+			no recorded absences
+		}
+	}
+}
+
+// nodeLink and edgeLink are plain links. With panel set they also ask htmx to load the
+// record into #estate-detail without leaving the page; without script the link works as
+// a link. They are used only where that panel exists.
+templ nodeLink(g, id, text string, panel bool) {
+	if panel {
+		<a href={ templ.URL(nodeHref(g, id)) } hx-get={ nodeHref(g, id) } hx-target="#estate-detail" hx-swap="innerHTML" hx-push-url="false">{ text }</a>
+	} else {
+		<a href={ templ.URL(nodeHref(g, id)) }>{ text }</a>
+	}
+}
+
+templ edgeLink(g string, i int, text string, panel bool) {
+	if panel {
+		<a href={ templ.URL(edgeHref(g, i)) } hx-get={ edgeHref(g, i) } hx-target="#estate-detail" hx-swap="innerHTML" hx-push-url="false">{ text }</a>
+	} else {
+		<a href={ templ.URL(edgeHref(g, i)) }>{ text }</a>
+	}
+}
+
+// nodeView is the node record as a page; nodeRecord is the same record as the fragment
+// that htmx puts into the panel on the estate page.
+templ nodeView(p nodePage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Node <span class="mono">{ p.Node.Label }</span></h1>
+		@nodeRecord(p, false)
+	}
+}
+
+templ nodeRecord(p nodePage, panel bool) {
+	<p class="note">Caveat: { p.Caveat }</p>
+	<table>
+		<tr><th>id</th><td class="mono">{ p.Node.ID }</td></tr>
+		<tr><th>kind</th><td>{ p.Node.Kind }</td></tr>
+		<tr><th>source</th><td>{ p.Node.Source }</td></tr>
+		<tr><th>method</th><td class="mono">{ p.Node.Method }</td></tr>
+		<tr><th>observed</th><td>{ p.Node.Observed }</td></tr>
+		<tr><th>map</th><td>{ p.GraphID }</td></tr>
+	</table>
+	<h2>Connections out</h2>
+	if len(p.Out) > 0 {
+		<table>
+			<tr><th>relation</th><th>to</th><th>source</th><th>method</th></tr>
+			for _, e := range p.Out {
+				<tr>
+					<td>
+@edgeLink(e.G, e.I, e.Relation, panel)
+</td>
+					<td class="mono">
+@nodeLink(e.G, e.To, e.To, panel)
+</td>
+					<td>{ e.Source }</td>
+					<td class="mono">{ e.Method }</td>
+				</tr>
+			}
+		</table>
+	} else {
+		@alert("muted") {
+			no edge leaves this node
+		}
+	}
+	<h2>Connections in</h2>
+	if len(p.In) > 0 {
+		<table>
+			<tr><th>from</th><th>relation</th><th>source</th><th>method</th></tr>
+			for _, e := range p.In {
+				<tr>
+					<td class="mono">
+@nodeLink(e.G, e.From, e.From, panel)
+</td>
+					<td>
+@edgeLink(e.G, e.I, e.Relation, panel)
+</td>
+					<td>{ e.Source }</td>
+					<td class="mono">{ e.Method }</td>
+				</tr>
+			}
+		</table>
+	} else {
+		@alert("muted") {
+			no edge arrives at this node
+		}
+	}
+	<h2>Absences</h2>
+	if len(p.Absences) > 0 {
+		<table>
+			<tr><th>source</th><th>method</th><th>observed</th><th>answer</th></tr>
+			for _, a := range p.Absences {
+				<tr><td>{ a.Source }</td><td class="mono">{ a.Method }</td><td>{ a.Observed }</td><td>{ a.Answer }</td></tr>
+			}
+		</table>
+	} else {
+		@alert("muted") {
+			no recorded absence about this node
+		}
+	}
+	if panel {
+		<p class="note"><a href={ templ.URL(nodeHref(p.Node.G, p.Node.ID)) }>open this record as a page</a></p>
+	}
+}
+
+templ edgeView(p edgePage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Edge <span class="mono">{ p.Edge.Relation }</span></h1>
+		@edgeRecord(p, false)
+	}
+}
+
+templ edgeRecord(p edgePage, panel bool) {
+	<p class="note">Caveat: { p.Caveat }</p>
+	<table>
+		<tr><th>from</th><td class="mono">
+@nodeLink(p.Edge.G, p.Edge.From, p.Edge.From, panel)
+</td></tr>
+		<tr><th>to</th><td class="mono">
+@nodeLink(p.Edge.G, p.Edge.To, p.Edge.To, panel)
+</td></tr>
+		<tr><th>relation</th><td>{ p.Edge.Relation }</td></tr>
+		<tr><th>source</th><td>{ p.Edge.Source }</td></tr>
+		<tr><th>method</th><td class="mono">{ p.Edge.Method }</td></tr>
+		<tr><th>observed</th><td>{ p.Edge.Observed }</td></tr>
+		<tr><th>confidence</th><td>{ p.Edge.Confidence }</td></tr>
+		if p.Edge.InferredFrom != "" {
+			<tr><th>inferred from</th><td>{ p.Edge.InferredFrom }</td></tr>
+		}
+		<tr><th>map</th><td>{ p.GraphID }</td></tr>
+	</table>
+	if panel {
+		<p class="note"><a href={ templ.URL(edgeHref(p.Edge.G, p.Edge.I)) }>open this record as a page</a></p>
+	}
+}

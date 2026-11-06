@@ -1,0 +1,89 @@
+package web
+
+// layout is the page chrome. nav names the current page for aria-current.
+templ layout(title, nav string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="htmx-config" content={ htmxConfig }/>
+			<title>{ title } - jb serve</title>
+			<link rel="stylesheet" href="/static/tailwind.css"/>
+			<script src="/static/htmx.min.js" defer></script>
+		</head>
+		<body>
+			<header>
+				<span class="brand">JB <b>{ "//" }</b> SERVE</span>
+				<span class="status">read-only</span>
+				<p class="note">read-only view of the evidence; no authentication; everything shown is untrusted log content</p>
+				<nav class="tabs">
+					@navLink("/", "Runs", nav == "runs")
+					@navLink("/findings", "Findings", nav == "findings")
+					@navLink("/reputation", "Reputation", nav == "reputation")
+					@navLink("/watch", "Watch", nav == "watch")
+					@navLink("/estate", "Estate", nav == "estate")
+				</nav>
+			</header>
+			<main>
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
+templ navLink(href, label string, current bool) {
+	if current {
+		<a class="tab" href={ templ.URL(href) } aria-current="page">{ label }</a>
+	} else {
+		<a class="tab" href={ templ.URL(href) }>{ label }</a>
+	}
+}
+
+// noteView shows why a panel has nothing to show: a failure as an alert, an answer as
+// a quiet line. A panel with either set never renders a table.
+templ noteView(n note) {
+	if n.Err != "" {
+		@alert("destructive") {
+			{ n.Err }
+		}
+	} else if n.Absent != "" {
+		@alert("muted") {
+			{ n.Absent }
+		}
+	}
+}
+
+templ countTable(cs []count) {
+	if len(cs) > 0 {
+		<table>
+			<tr><th>value</th><th>rows</th></tr>
+			for _, x := range cs {
+				<tr><td>{ x.Label }</td><td>{ str(x.N) }</td></tr>
+			}
+		</table>
+	} else {
+		@alert("muted") {
+			nothing to count
+		}
+	}
+}
+
+templ findingTable(rows []findingRow) {
+	<table>
+		<tr><th>severity</th><th>detector</th><th>tag</th><th>summary</th><th>run</th></tr>
+		for _, f := range rows {
+			<tr>
+				<td>
+					@badge(sevVariant(f.SevClass)) {
+						{ f.Severity }
+					}
+				</td>
+				<td>{ f.Detector }</td>
+				<td class="mono">{ f.Tag }</td>
+				<td>{ f.Summary }</td>
+				<td class="mono"><a href={ templ.URL(runHref(f.Run)) }>{ f.Run }</a></td>
+			</tr>
+		}
+	</table>
+}

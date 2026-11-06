@@ -84,6 +84,8 @@ func fetch(t *testing.T, url string) (int, string) {
 
 const hostilePath = `/x"onmouseover="alert(1)<script>alert(1)</script>?token=1`
 
+var ownScriptTag = regexp.MustCompile(`<script src="/static/(htmx\.min|d3\.min|estate|sheet)\.js" defer></script>`)
+
 func seedStore(t *testing.T, dir string) {
 	t.Helper()
 	st, err := duckdb.Open(filepath.Join(dir, "evidence", "jb.duckdb"), false)
@@ -176,8 +178,10 @@ func TestServeCaseEndToEnd(t *testing.T) {
 			t.Fatalf("%s = %d\n%s", p, code, b)
 		}
 		bodies[p] = b
+		// The pages load the dashboard's own vendored scripts and nothing else.
+		own := ownScriptTag.ReplaceAllString(b, "")
 		for _, bad := range []string{"<script", `"onmouseover=`, secretKey, "JB_KIBANA_API_KEY", "api_key"} {
-			if strings.Contains(b, bad) {
+			if strings.Contains(own, bad) {
 				t.Errorf("%s contains %q", p, bad)
 			}
 		}
