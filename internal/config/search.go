@@ -15,6 +15,38 @@ const (
 	MaxSearchBytes = 256
 )
 
+// UseSearch is how a command or the Go API applies the ad-hoc search options of one run:
+// no terms means no search, and a field without terms is refused, so the field is never
+// silently ignored. Otherwise it is [File.WithSearch]. It is the one place `jb hunt` and
+// jb.Hunt share, so the two cannot differ in what they refuse.
+func (f *File) UseSearch(terms []string, field string) error {
+	if err := CheckSearch(terms, field); err != nil {
+		return err
+	}
+	if len(terms) == 0 {
+		return nil
+	}
+	return f.WithSearch(terms, field)
+}
+
+// CheckSearch refuses a search that is malformed on its own, before any config is read:
+// bad terms, a bad field, or a field without terms. No terms and no field is no search.
+func CheckSearch(terms []string, field string) error {
+	if len(terms) == 0 {
+		if field != "" {
+			return errors.New("search field needs search terms")
+		}
+		return nil
+	}
+	if err := ValidateSearch(terms); err != nil {
+		return err
+	}
+	if field != "" && !filterField.MatchString(field) {
+		return errors.New("search field must be 1-128 characters of letters, digits, _ @ . -")
+	}
+	return nil
+}
+
 // ValidateSearch checks the ad-hoc search terms of one run. A term is data, not query
 // text: it is length-capped, must be valid UTF-8, must carry no control or format
 // character (a newline, a NUL, an ANSI escape, a bidirectional override) and must not be

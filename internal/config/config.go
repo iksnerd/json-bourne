@@ -252,11 +252,11 @@ type searchable interface {
 // refuses a config with a source that cannot search, and one whose combined filter would
 // pass the clause cap.
 func (f *File) WithSearch(terms []string, field string) error {
-	if err := ValidateSearch(terms); err != nil {
-		return err
+	if len(terms) == 0 {
+		return errors.New("search: no term")
 	}
-	if field != "" && !filterField.MatchString(field) {
-		return errors.New("search field must be 1-128 characters of letters, digits, _ @ . -")
+	if err := CheckSearch(terms, field); err != nil {
+		return err
 	}
 	for i, e := range f.Sources {
 		if e.Disabled {
