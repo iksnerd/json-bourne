@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
-	"github.com/iksnerd/json-bourne/internal/config"
+	jb "github.com/iksnerd/json-bourne"
 )
 
 func newDBCmdWith(d deps) *cobra.Command {
@@ -35,32 +35,24 @@ func newDBStatusCmd() *cobra.Command {
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			// Load only: status needs the store path, never a credential.
-			cfg, err := config.Load(cfgPath)
+			// The library loads the config only: status needs the store path, never a
+			// credential. Read-only is enforced by the engine, not by this code.
+			s, err := jb.DBStatus(cmd.Context(), "", jb.DBOptions{Config: cfgPath})
 			if err != nil {
 				return err
 			}
-			// Read-only is enforced by the engine (access_mode=READ_ONLY), not by this code.
-			st, err := duckdb.OpenContext(cmd.Context(), cfg.StorePath(), true, duckdb.OpenOptions{})
-			if err != nil {
-				return fmt.Errorf("open database read-only: %w", err)
-			}
-			defer st.Close()
-			s, err := st.Stats()
-			if err != nil {
-				return fmt.Errorf("read database stats: %w", err)
-			}
+			printNotes(cmd.ErrOrStderr(), s.Notes)
 			if output == "json" {
-				return writeIndentedJSON(cmd.OutOrStdout(), dbStatusJSONOf(s))
+				return writeIndentedJSON(cmd.OutOrStdout(), s)
 			}
 			tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
 			fmt.Fprintf(tw, "path\t%s\n", s.Path)
-			fmt.Fprintf(tw, "schema\t%d (this build: %d)\n", s.Version, duckdb.Version)
+			fmt.Fprintf(tw, "schema\t%d (this build: %d)\n", s.Schema, s.BuildSchema)
 			fmt.Fprintf(tw, "runs\t%d\n", s.Runs)
 			fmt.Fprintf(tw, "events\t%d\n", s.Events)
 			fmt.Fprintf(tw, "findings\t%d\n", s.Findings)
 			fmt.Fprintf(tw, "reputation\t%d\n", s.Reputation)
-			if s.FirstSeen.IsZero() {
+			if s.FirstSeen == nil || s.LastSeen == nil {
 				fmt.Fprintf(tw, "event span\tnone\n")
 			} else {
 				fmt.Fprintf(tw, "event span\t%s to %s\n", s.FirstSeen.Format(time.RFC3339), s.LastSeen.Format(time.RFC3339))
@@ -73,21 +65,10 @@ func newDBStatusCmd() *cobra.Command {
 	return cmd
 }
 
-// dbStatusJSON is the JSON form of `jb db status`. first_seen and last_seen are null
-// when the store holds no events.
-type dbStatusJSON struct {
-	Path        string     `json:"path"`
-	Schema      int        `json:"schema_version"`
-	BuildSchema int        `json:"build_schema_version"`
-	Runs        int64      `json:"runs"`
-	Events      int64      `json:"events"`
-	Findings    int64      `json:"findings"`
-	Reputation  int64      `json:"reputation"`
-	FirstSeen   *time.Time `json:"first_seen"`
-	LastSeen    *time.Time `json:"last_seen"`
-}
-
-func dbStatusJSONOf(s duckdb.Stats) dbStatusJSON {
-	return dbStatusJSON{Path: s.Path, Schema: s.Version, BuildSchema: duckdb.Version, Runs: s.Runs, Events: s.Events,
-		Findings: s.Findings, Reputation: s.Reputation, FirstSeen: tptr(s.FirstSeen), LastSeen: tptr(s.LastSeen)}
+// printNotes writes the advice a library call returned (a store outside the evidence
+// directory, a case outside git) to w, one line each.
+func printNotes(w io.Writer, notes []string) {
+	for _, n := range notes {
+		fmt.Fprintln(w, n)
+	}
 }

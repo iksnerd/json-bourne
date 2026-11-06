@@ -170,7 +170,7 @@ func TestHuntWarnsOfDuplicateLabelsWithoutChangingTheExitCode(t *testing.T) {
 	}
 
 	// Store the same documents again under an explicit name, as an earlier config did.
-	store, err := storePathFor(nopWriter{}, dir, fpConfigRel)
+	store, err := caseStorePath(dir, fpConfigRel)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,10 +209,6 @@ func TestHuntWarnsOfDuplicateLabelsWithoutChangingTheExitCode(t *testing.T) {
 		t.Errorf("activity stderr lacks the warning:\n%s", errAct)
 	}
 }
-
-type nopWriter struct{}
-
-func (nopWriter) Write(p []byte) (int, error) { return len(p), nil }
 
 // TestHolderProcessCmd is the child half of the lock tests: it holds the store read-write.
 func TestHolderProcessCmd(t *testing.T) {
@@ -334,7 +330,7 @@ func TestWatchCycleWarnsOfDuplicateLabelsWithoutChangingTheOutcome(t *testing.T)
 	if code1 != 0 || strings.Contains(err1, "WARNING") {
 		t.Fatalf("first cycle: exit %d\n%s", code1, err1)
 	}
-	store, err := storePathFor(nopWriter{}, dir, "")
+	store, err := caseStorePath(dir, "")
 	if err != nil {
 		t.Fatal(err)
 	}

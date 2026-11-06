@@ -1,13 +1,9 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -15,45 +11,15 @@ import (
 
 	"github.com/spf13/cobra"
 
+	jb "github.com/iksnerd/json-bourne"
+
 	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/app"
-	"github.com/iksnerd/json-bourne/internal/casefile"
 	"github.com/iksnerd/json-bourne/internal/core"
 )
 
 // Store maintenance: `jb db usage`, `jb db prune`, `jb db compact`. They print counts,
 // sizes and run ids, never a stored document or an address from one.
-
-// maintStore is the store a maintenance command works on and the directory its output
-// may be placed in: the case's evidence directory with --case, the store's own
-// directory with --config alone.
-type maintStore struct {
-	path string
-	root string
-}
-
-func resolveMaintStore(stderr io.Writer, caseDir, cfgPath string) (maintStore, error) {
-	if caseDir == "" && cfgPath == "" {
-		return maintStore{}, usageErrorf("one of --case DIR or --config FILE is required (it names the store)")
-	}
-	path, err := storePathFor(stderr, caseDir, cfgPath)
-	if err != nil {
-		return maintStore{}, err
-	}
-	root := filepath.Dir(path)
-	if caseDir != "" {
-		c, _, err := inspectCase(caseDir)
-		if err != nil {
-			return maintStore{}, fmt.Errorf("case %s: %w", caseDir, err)
-		}
-		root = c.EvidenceDir()
-	}
-	// A maintenance command never creates a store: a missing one is a wrong path.
-	if _, err := os.Stat(path); err != nil {
-		return maintStore{}, fmt.Errorf("no evidence database at %s: %w", path, err)
-	}
-	return maintStore{path: path, root: root}, nil
-}
 
 func humanBytes(n int64) string {
 	const k = 1024.0
@@ -74,21 +40,6 @@ func fmtTime(t time.Time) string {
 		return "-"
 	}
 	return t.UTC().Format("2006-01-02 15:04Z")
-}
-
-// openMaint opens the store for a maintenance command. A store that needs migrating
-// is refused read-only with the way out named.
-func openMaint(ctx context.Context, path string, readOnly bool) (*duckdb.Store, error) {
-	st, err := duckdb.OpenContext(ctx, path, readOnly, duckdb.OpenOptions{})
-	switch {
-	case errors.Is(err, duckdb.ErrLocked):
-		return nil, fmt.Errorf("refusing: %w", err)
-	case errors.Is(err, duckdb.ErrSchemaBehind):
-		return nil, fmt.Errorf("open database: %w; any `jb hunt` or `jb watch` cycle migrates it, and so does `jb db prune --apply`", err)
-	case err != nil:
-		return nil, fmt.Errorf("open database: %w", err)
-	}
-	return st, nil
 }
 
 func checkOutput(o string) error {
@@ -126,18 +77,6 @@ func parseAge(s string) (time.Duration, error) {
 
 // ---- usage ----
 
-type usageOverlap struct {
-	Pairs     int    `json:"label_pairs"`
-	Documents int64  `json:"documents"`
-	AtLeast   bool   `json:"at_least"`
-	Error     string `json:"error,omitempty"`
-}
-
-type usageReport struct {
-	core.StoreUsage
-	Overlap usageOverlap `json:"documents_under_two_labels"`
-}
-
 func newDBUsageCmd() *cobra.Command {
 	var cfgPath, caseDir, output string
 	cmd := &cobra.Command{
@@ -157,34 +96,11 @@ func newDBUsageCmd() *cobra.Command {
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			ms, err := resolveMaintStore(cmd.ErrOrStderr(), caseDir, cfgPath)
+			rep, err := jb.DBUsage(cmd.Context(), caseDir, jb.DBOptions{Config: cfgPath})
 			if err != nil {
 				return err
 			}
-			st, err := openMaint(cmd.Context(), ms.path, true)
-			if err != nil {
-				return err
-			}
-			defer st.Close()
-			u, err := st.StoreUsage(cmd.Context())
-			if err != nil {
-				return fmt.Errorf("measure database: %w", err)
-			}
-			rep := usageReport{StoreUsage: u}
-			if u.Events > 0 {
-				stt, err := st.Stats()
-				if err == nil && !stt.FirstSeen.IsZero() {
-					ov, oerr := app.SourceOverlaps(cmd.Context(), st, core.Window{From: stt.FirstSeen, To: stt.LastSeen.Add(time.Second)})
-					if oerr != nil {
-						rep.Overlap.Error = oerr.Error()
-					}
-					for _, o := range ov {
-						rep.Overlap.Pairs++
-						rep.Overlap.Documents += o.Docs
-					}
-					rep.Overlap.AtLeast = rep.Overlap.Pairs >= 5
-				}
-			}
+			printNotes(cmd.ErrOrStderr(), rep.Notes)
 			if output == "json" {
 				return writeIndentedJSON(cmd.OutOrStdout(), rep)
 			}
@@ -198,7 +114,7 @@ func newDBUsageCmd() *cobra.Command {
 	return cmd
 }
 
-func writeUsage(w io.Writer, r usageReport) error {
+func writeUsage(w io.Writer, r *jb.DBUsageResult) error {
 	fmt.Fprintf(w, "evidence database %s (schema %d)\n", r.Path, r.SchemaVersion)
 	fmt.Fprintf(w, "file on disk: %s", humanBytes(r.FileBytes))
 	if r.UsedBytes > 0 || r.FreeBytes > 0 {
@@ -252,11 +168,6 @@ func writeUsage(w io.Writer, r usageReport) error {
 
 // ---- prune ----
 
-type pruneOut struct {
-	Store string `json:"store"`
-	core.EventPruneResult
-}
-
 func newDBPruneCmd(d deps) *cobra.Command {
 	var (
 		cfgPath, caseDir, kinds, olderThan, output string
@@ -294,30 +205,24 @@ func newDBPruneCmd(d deps) *cobra.Command {
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			var (
-				ks     []core.RunKind
-				ids    []string
-				cutoff time.Time
-			)
-			if cmd.Flags().Changed("run") {
-				for _, f := range []string{"kind", "older-than", "keep-latest"} {
-					if cmd.Flags().Changed(f) {
-						return usageErrorf("--run selects exact runs and cannot be combined with --%s (--kind, --older-than and --keep-latest are the other way to choose)", f)
-					}
+			fl := cmd.Flags()
+			opts := jb.DBPruneOptions{Config: cfgPath, DropFindings: dropFindings, Apply: apply, Now: d.now}
+			var ks []core.RunKind
+			if fl.Changed("run") {
+				opts.RunIDs = runIDs
+				if len(opts.RunIDs) == 0 {
+					opts.RunIDs = []string{""} // an empty --run is refused by name, not read as "no --run"
 				}
-				var err error
-				if ids, err = core.ParseRunIDs(runIDs); err != nil {
-					return usageErrorf("%v", err)
-				}
-				keepLatest = 0 // the default of 1 is the by-age rule; named runs are not ranked
-			} else {
+			}
+			// Flags are text; the library takes typed values and validates them.
+			if fl.Changed("kind") {
 				var err error
 				if ks, err = core.ParsePrunableKinds(kinds); err != nil {
 					return usageErrorf("%v", err)
 				}
-				if olderThan == "" {
-					return usageErrorf("--older-than is required (for example 14d or 72h)")
-				}
+				opts.Kinds = ks
+			}
+			if fl.Changed("older-than") {
 				age, err := parseAge(olderThan)
 				if err != nil {
 					return usageErrorf("--older-than: %v", err)
@@ -325,36 +230,20 @@ func newDBPruneCmd(d deps) *cobra.Command {
 				if age <= 0 {
 					return usageErrorf("--older-than must be positive")
 				}
-				if keepLatest < 0 {
-					return usageErrorf("--keep-latest must be 0 or more")
-				}
-				cutoff = d.now().Add(-age)
+				opts.OlderThan = age
 			}
-			ms, err := resolveMaintStore(cmd.ErrOrStderr(), caseDir, cfgPath)
+			if fl.Changed("keep-latest") {
+				opts.KeepLatest = &keepLatest
+			}
+			res, err := jb.DBPrune(cmd.Context(), caseDir, opts)
 			if err != nil {
 				return err
 			}
-			// A dry run opens read-only, so the engine itself guarantees it changes nothing.
-			st, err := openMaint(cmd.Context(), ms.path, !apply)
-			if err != nil {
-				return err
-			}
-			defer st.Close()
-			if apply {
-				if _, err := st.Migrate(); err != nil {
-					return fmt.Errorf("migrate database: %w", err)
-				}
-			}
-			res, err := st.PruneRunEvents(cmd.Context(), core.EventPruneRequest{
-				RunIDs: ids, Kinds: ks, Before: cutoff, KeepLatest: keepLatest, DropFindings: dropFindings, DryRun: !apply,
-			})
-			if err != nil {
-				return fmt.Errorf("prune: %w", err)
-			}
+			printNotes(cmd.ErrOrStderr(), res.Notes)
 			if output == "json" {
-				return writeIndentedJSON(cmd.OutOrStdout(), pruneOut{Store: ms.path, EventPruneResult: res})
+				return writeIndentedJSON(cmd.OutOrStdout(), res)
 			}
-			return writePrune(cmd.OutOrStdout(), ms.path, olderThan, ks, res, apply)
+			return writePrune(cmd.OutOrStdout(), res.Store, olderThan, ks, res.EventPruneResult, apply)
 		},
 	}
 	f := cmd.Flags()
@@ -506,33 +395,20 @@ func newDBCompactCmd() *cobra.Command {
 			"open) and only then puts it at --to; a copy that fails is deleted.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if to == "" {
-				return usageErrorf("--to FILE is required")
-			}
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			ms, err := resolveMaintStore(cmd.ErrOrStderr(), caseDir, cfgPath)
+			res, err := jb.DBCompact(cmd.Context(), caseDir, jb.DBCompactOptions{
+				Config: cfgPath, To: to, AllowOutsideEvidence: outside, Apply: apply,
+			})
 			if err != nil {
 				return err
 			}
-			target, err := checkCompactTarget(ms, to, outside)
-			if err != nil {
-				return err
-			}
-			st, err := openMaint(cmd.Context(), ms.path, !apply)
-			if err != nil {
-				return err
-			}
-			defer st.Close()
-			res, err := st.Compact(cmd.Context(), core.CompactRequest{Target: target, DryRun: !apply})
-			if err != nil {
-				return fmt.Errorf("compact: %w", err)
-			}
+			printNotes(cmd.ErrOrStderr(), res.Notes)
 			if output == "json" {
 				return writeIndentedJSON(cmd.OutOrStdout(), res)
 			}
-			return writeCompact(cmd.OutOrStdout(), ms.path, caseDir, cfgPath, res)
+			return writeCompact(cmd.OutOrStdout(), res.Store, caseDir, cfgPath, res.CompactResult)
 		},
 	}
 	f := cmd.Flags()
@@ -543,49 +419,6 @@ func newDBCompactCmd() *cobra.Command {
 	f.BoolVar(&apply, "apply", false, "write the copy (default: dry run)")
 	f.BoolVar(&outside, "allow-outside-evidence", false, "allow --to outside the evidence directory (its directory must still pass the git-ignore guard)")
 	return cmd
-}
-
-// checkCompactTarget applies the rules that need no open store: absent, in a directory
-// that exists, inside the evidence root unless allowed, and a directory the evidence
-// guard accepts. It returns the absolute target.
-func checkCompactTarget(ms maintStore, to string, outside bool) (string, error) {
-	abs, err := filepath.Abs(to)
-	if err != nil {
-		return "", err
-	}
-	if _, err := os.Lstat(abs); err == nil {
-		return "", fmt.Errorf("refusing: %s already exists; compact never overwrites a file", abs)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("target %s: %w", abs, err)
-	}
-	dir := filepath.Dir(abs)
-	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
-		return "", fmt.Errorf("refusing: the directory %s does not exist; compact does not create directories", dir)
-	}
-	if same, _ := sameFile(abs, ms.path); same {
-		return "", fmt.Errorf("refusing: the target is the store itself")
-	}
-	if !insideDir(ms.root, abs) {
-		if !outside {
-			return "", fmt.Errorf("refusing: %s is outside the evidence directory %s, which git ignores; pass --allow-outside-evidence if you mean it", abs, ms.root)
-		}
-	}
-	if _, err := casefile.Guard(dir); err != nil {
-		return "", fmt.Errorf("refusing: %w", err)
-	}
-	return abs, nil
-}
-
-func sameFile(a, b string) (bool, error) {
-	fa, err := os.Stat(a)
-	if err != nil {
-		return false, err
-	}
-	fb, err := os.Stat(b)
-	if err != nil {
-		return false, err
-	}
-	return os.SameFile(fa, fb), nil
 }
 
 func writeCompact(w io.Writer, store, caseDir, cfgPath string, r core.CompactResult) error {
