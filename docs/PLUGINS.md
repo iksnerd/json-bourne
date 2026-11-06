@@ -127,26 +127,7 @@ An error names the plugin, what went wrong, and the last of its stderr with cont
 
 ## Writing a plugin
 
-Any language. The shortest correct one:
-
-```python
-#!/usr/bin/env python3
-import json, sys
-
-print(json.dumps({"v": 1, "role": "mapper", "name": "minimal", "version": "0.1.0"}), flush=True)
-
-for line in sys.stdin:
-    req = json.loads(line)
-    events, unparsable = [], []
-    for i, doc in enumerate(req["docs"]):
-        try:
-            ip, status = doc["message"].split()
-            events.append({"ts": doc["@timestamp"], "fields": {"client_ip": ip, "status": int(status)}})
-        except (KeyError, ValueError, AttributeError):
-            events.append(None)
-            unparsable.append(i)
-    print(json.dumps({"id": req["id"], "events": events, "unparsable": unparsable}), flush=True)
-```
+A plugin is any program that speaks the protocol above on standard input and output. In Go, use [`sdk`](../sdk), which is the stdio loop and the mapping code; the three plugins under `plugins/` are complete examples.
 
 Rules for a plugin you write:
 

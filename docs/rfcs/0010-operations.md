@@ -1,25 +1,25 @@
 # RFC 0010: Operations
 Status: draft
-Scope: define each `jb` operation once, as data, so that the command line, the JSON output, the Go functions and a later MCP tool all come from one definition and one check of the arguments.
+Scope: define each `jb` operation once, from its Go option struct, so that the command line, the JSON output, the Go function and an MCP tool come from one definition and one check of the arguments.
 
 ## Summary
 
-`jb` offers each operation twice. A command such as `jb hunt` declares its flags by hand in cobra. The Go function `jb.Hunt` takes an options struct. The two keep separate copies of every name, default and rule, and a test is the only thing that holds them together. A third surface, an MCP server, would be a third copy.
+`jb` offers each operation more than once. A command such as `jb hunt` declares its flags by hand in cobra. The Go function `jb.Hunt` takes an options struct. The two keep separate copies of every name, default and rule, and a test is the only thing that holds them together. An MCP server would be a third copy.
 
-This RFC defines an operation once, as a JSON object with a name, a description, an input schema, an output schema and a command line form. The shape is the one in the maintainer's draft RFC for operations (RFC 0013 of that draft). From that one definition `jb` gets:
+This RFC makes the option struct the single definition. A small reflector reads the struct tags (name, description, default, enum, range) and produces an operation: a name, an input schema in a deliberately small subset of JSON Schema, and an output schema. From that one operation `jb` gets:
 
-- the command and its flags, parsed by one small parser with fixed rules;
-- one check of the arguments, run the same way for a command line and for a tool call;
-- the JSON output, which is the object the operation returns;
-- the tool entry an MCP server lists.
+- the cobra command and its flags, registered by a builder, with a test that fails when a command differs from its operation;
+- one check of the arguments, run on the parsed flags and on the JSON of a tool call;
+- the JSON result, which is the object the operation returns;
+- the entry an MCP server lists, served by a new `jb mcp` command that exposes only read-only operations unless told otherwise.
 
-`jb` stops using cobra. The operations are the contract, and `jb operations` prints them as JSON. The MCP server itself is a later RFC. This RFC makes it a small one.
+The shape of an operation follows the maintainer's draft RFC for operations. `jb` keeps cobra, and adopts the schema subset and the single argument check, not that draft's command-line grammar.
 
 ## Motivation
 
-A caller that drives `jb` sees every inconsistency. In blind tests the other user of `jb` found that only some commands take `--output json`, that `jb case check DIR` takes a positional directory where every other command takes `--case DIR`, that a window is a string in one tool and a duration in another, and that the library lacks options the CLI has. RFC 0005 and RFC 0007 fix three of these one at a time. The cause is that nothing holds the surfaces to one definition.
+A caller that drives `jb` sees every inconsistency. In blind tests the other user of `jb` found that only some commands took `--output json`, that `jb case check DIR` took a positional directory where every other command took `--case DIR`, and that the library lacked options the CLI had. RFC 0005 and RFC 0007 fixed three of these one at a time. The cause is that nothing holds the surfaces to one definition.
 
-Counted on 2026-11-06 in `cmd/jb`: about a hundred flags declared one by one, twelve separate JSON encoders, and a test (`TestLibraryDefaultsAreTheCLIDefaults`) that exists only because the CLI and the library keep separate defaults.
+Counted on 2026-11-06 in `cmd/jb`: about a hundred flags declared one by one and twelve separate JSON encoders. A test, `TestLibraryDefaultsAreTheCLIDefaults`, exists only because the CLI and the library keep separate defaults.
 
 An agent that calls `jb` through MCP needs the same operations with typed arguments and a typed result. Writing those tool definitions by hand would copy every flag a third time.
 
@@ -27,41 +27,40 @@ An agent that calls `jb` through MCP needs the same operations with typed argume
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in BCP 14 [RFC 2119] [RFC 8174] when, and only when, they appear in all capitals, as shown here.
 
-"Operation" means a request that takes arguments and returns one result. "Surface" means a way to call an operation: the command line, the Go function, an MCP tool. "The spec" means the maintainer's draft RFC for operations, which is private and not approved. `jb` follows its model as `jb`'s own design (see ADR 0001, point 8, revised) and claims no conformance to it.
+"Operation" means a request that takes arguments and returns one result. "Surface" means a way to call an operation: the command line, the Go function, an MCP tool. "The spec" means the maintainer's draft RFC for operations, which is private and not approved. `jb` follows its model as `jb`'s own design (ADR 0001, point 8) and claims no conformance to it.
 
 ## How this design was made
 
-1. **The workflow first.** A person types `jb hunt --case DIR --window 2h`. An agent calls the tool `hunt` with `{"case": "DIR", "window": "2h"}`. Both mean the same, both get the same check, and both receive the same JSON object. Nothing in that workflow mentions cobra.
-2. **One definition, and the CLI is a client of it.** The command line has no private path. It parses argv into arguments and calls the operation, as an MCP server will. If the command needed something the operation lacks, the operation gains it.
-3. **A flat input schema.** The spec limits an operation's input to four shapes: a string, an integer, a boolean and an array of strings. Each has exactly one flag form, so two parsers agree. A window is a string that the handler parses, which is why `7d` works. A rule like "give `--case` or `--config`, not both" is a check in the handler, because a flat schema cannot say it.
-4. **Our own parser, not cobra.** Cobra reads `--x=false` for a boolean, splits a list on commas and accepts short flags. The spec reads none of those. Bending cobra to the spec's rules costs more than the 100 lines of the rules, and the rules are small enough to hold in one place.
-5. **The Go functions stay and become the handlers.** `jb.Hunt`, `jb.Watch` and the others already hold the logic. An operation's handler calls one. `jb.Call` is the one entry that a command line and an MCP server both use.
-6. **What is not an operation.** `jb watch` runs until stopped, `jb serve` runs a server and `jb version` prints a string. None returns one result. They stay as plain host commands, dispatched before the operation parser.
+The owner and the author went through the first draft with Hashimoto's tests on 2026-11-06. Four decisions changed it.
+
+1. **The workflow first.** A person types `jb hunt --case DIR --window 2h`. An agent calls the tool `hunt` with `{"case": "DIR", "window": "2h"}`. Both mean the same, both get the same check, and both receive the same JSON object.
+2. **MCP does not parse argv.** A tool call arrives as a JSON object. A grammar for argv matters only when two independent command-line implementations must agree, and `jb` has one. The first draft replaced cobra to adopt the spec's grammar. That paid for a benefit that does not exist here, and it broke `--x=false`, comma lists, variadic positionals and shell completion. The decision is to keep cobra and register its flags from the operation.
+3. **The option struct is the source of truth.** `HuntOptions`, `ActivityOptions` and the rest already exist and are what the Go caller uses. Tags on their fields carry the name, description, default, enum and range. A hand-written schema would duplicate every field, which is the drift this RFC removes. The reflector refuses a field outside the four allowed shapes at build time.
+4. **The MCP server is a surface, so it is built in and safe by default.** `jb mcp` lists tools from the registry and calls the same handler as the command. It exposes only operations marked read-only. A mutating operation needs an explicit allow flag naming it, and still takes `apply=true` to act.
 
 ## The design
 
-Everything in this section is a proposal. None of it is implemented. The spec describes its rules; this section states the rules `jb` adopts, so that `jb` can be read without the spec.
+Everything in this section is a proposal. None of it is implemented.
 
 ### An operation
 
-An operation is a JSON object. In Go it is a value that marshals to this shape.
+An operation is a value that marshals to this JSON shape.
 
 | Field | Required | Rules |
 |---|---|---|
-| `name` | yes | `^[a-z][a-z0-9_]{0,63}$`. Unique. This is the MCP tool name. |
+| `name` | yes | `^[a-z][a-z0-9_]{0,63}$`. Unique. It is the MCP tool name. |
 | `title` | no | A non-empty string. |
 | `description` | yes | A non-empty string. It is also the first line of the command's help. |
-| `inputSchema` | yes | The subset below. |
+| `inputSchema` | yes | The subset below, derived from the option struct. |
 | `outputSchema` | yes | A JSON Schema whose root has `"type": "object"`. |
+| `readOnly` | yes | True when the operation changes nothing. Only these are exposed over MCP by default. |
 | `cli` | no | `command` (a list of words), `positional` (property names in order) and `only` (properties accepted only by the command line). |
 
-`jb` checks its operations when it builds and when it starts, and refuses to run if a check fails. The check reports every problem with a code and a reference, as the spec does.
+`jb` checks its operations in a test and refuses to start if a check fails. The check reports every problem with a code and a reference.
 
 ### The input schema
 
-The input schema is an object with `type: "object"`, `additionalProperties: false`, `properties` and `required`, and no other keys.
-
-A property name matches `^[a-z][a-z0-9]*(_[a-z0-9]+)*$`, does not start with `no_`, and is not `help`. The flag for a property is its name with each `_` replaced by `-`.
+The input schema is an object with `type: "object"`, `additionalProperties: false`, `properties` and `required`, and no other keys. A property name matches `^[a-z][a-z0-9]*(_[a-z0-9]+)*$`, does not start with `no_`, and is not `help`. The flag for a property is its name with each `_` replaced by `-`.
 
 A property has one of four shapes:
 
@@ -72,162 +71,125 @@ A property has one of four shapes:
 | `boolean` | none |
 | `array` | `items`, exactly `{"type": "string"}` |
 
-Each property MAY carry `description` and `default`. A default is documentation: the check never fills it in, and the handler applies it. This is why the CLI and the library cannot disagree about a default.
+A property MAY carry `description` and `default`. The check never fills a default in. The handler applies it, so the CLI and the library cannot disagree about one. A window, a duration and a path are strings that the handler validates.
 
-### Parsing argv
+### The reflector
 
-The words after the program name pick the operation by its command words. The rest are read left to right:
+The reflector reads a Go option struct and its tags and returns the input schema. It maps `string`, `int`, `bool` and `[]string` to the four shapes. It refuses any other field type, an untagged exported field and a name that breaks the rules. A tag spells out what a field means, for example `jb:"window,default=1h,desc=Size of the window"`. The exact tag syntax is an open question.
 
-- `--` makes every later token positional.
-- A token that starts with `--` is a flag. The text up to the first `=` is the name.
-- A boolean `--x` is true and `--no-x` is false. A boolean given with `=` is an error.
-- A string or an integer takes the value after `=`, or else the next token, whatever it starts with.
-- An array appends one string per use. A value is never split on commas.
-- A repeated flag other than an array is an error.
-- Any other token is the next positional.
+### The flag builder
 
-An integer matches `^-?(0|[1-9][0-9]*)$` and is at most 2^53 - 1 in size. The first problem ends the parse.
+A builder registers one cobra flag per property, with the type, default and help text from the operation. A cobra command that is not built this way is an error in a test. The named exceptions are `serve`, `watch`, `version` and the generated `help` and `completion`. A second test compares every built command's flags with its operation's properties.
 
 ### One check
 
-The arguments, whether parsed from argv or received in a tool call, go through one function. It reports every problem, each with the property as reference: arguments not an object, an unknown argument, a missing required argument, a wrong type, a value outside an enum, an integer outside its range. A command line reports the problems as a usage error with exit code 2 and a tool call reports them as a tool error. RFC 0005 defines the typed error.
+The arguments, whether read from cobra flags or received as a tool call, go through one function. It reports every problem with the property as reference: arguments not an object, an unknown argument, a missing required argument, a wrong type, a value outside an enum, an integer outside its range. A command line reports the problems as a usage error (exit code 2, RFC 0005). A tool call reports them as a tool error.
 
 ### Handlers, results and exit codes
 
-An operation's handler is a function from checked arguments to a result object. The result is exactly what `--output json` prints and what a tool call returns as structured content. `--output table` renders the same object for a person.
+An operation's handler is a function from checked arguments to a result object. The result is what `--output json` prints and what a tool call returns as structured content. `--output table` renders the same object for a person.
 
-A result that says the work was incomplete (a source did not finish) is still a result. The command line exits 1, as today. A tool call returns it as a normal result with `"complete": false`, and reports a tool error only when the handler fails or the arguments are wrong. This keeps "the answer is unknown" from looking like "the call failed".
+A result that says the work was incomplete is still a result. The command line exits 1, as today. A tool call returns it as a normal result with `"complete": false`. A tool error means the handler failed or the arguments were wrong. That keeps "the answer is unknown" from looking like "the call failed".
 
-### Host flags
-
-Two flags are read on every command and belong to no operation: `--output` (a string, `table` or `json`) and `--help`. No operation may have a property of either name.
-
-### The registry
+### The registry and `jb mcp`
 
 The root package `jb` gets two functions:
 
 - `Operations() []Operation` returns every definition.
 - `Call(ctx context.Context, name string, arguments map[string]any, env Env) (Result, error)` checks the arguments and runs the handler.
 
-`jb operations [--tool]` prints the definitions as JSON. With `--tool` it prints each entry as an MCP `tools/list` entry, without `cli` and without the properties named in `cli.only`. A committed copy, `docs/operations.json`, is checked against the output by a test.
+`jb operations` prints the definitions as JSON, and a committed copy, `docs/operations.json`, is checked against the output by a test. `jb mcp` serves the Model Context Protocol over standard input and output. `tools/list` returns the read-only operations without `cli`. `tools/call` goes to `Call`. A mutating operation appears only when named by `--allow NAME`, and it still needs `apply=true` in the call.
 
 ### Operations
 
-The first table is the proposal for the commands that return one result. Names and command words are final only when the RFC is accepted.
+The proposal for the operations that return one result:
 
-| Operation | Command | Replaces |
+| Operation | Command | Read-only |
 |---|---|---|
-| `hunt` | `jb hunt` | `jb hunt`, with `--config` or `--case` |
-| `activity` | `jb activity` | `jb activity` |
-| `actor_status` | `jb actor status` | `jb actor status` |
-| `case_check` | `jb case check` | `jb case check` |
-| `case_show` | `jb case show` | RFC 0007 |
-| `doctor` | `jb doctor` | `jb doctor` |
-| `intel` | `jb intel` | `jb intel` |
-| `estate_ip`, `estate_asn`, `estate_dns`, `estate_ct` | `jb estate ip`, `jb estate asn`, `jb estate dns`, `jb estate ct` | `jb estate IP...` and the three collectors |
-| `estate_refresh`, `estate_diff`, `estate_promote` | `jb estate refresh`, `diff`, `promote` | the same commands |
-| `db_status`, `db_usage`, `db_prune`, `db_compact`, `db_rename_source` | `jb db ...` | the same commands |
-| `watch_status` | `jb watch status` | RFC 0006 |
-| `watch_cycle` | `jb watch cycle` | `jb watch --once` |
+| `activity`, `hunt` | `jb activity`, `jb hunt` | see open question 3 |
+| `actor_status`, `case_check`, `case_show`, `doctor` | `jb actor status`, `jb case check`, `jb case show`, `jb doctor` | yes |
+| `intel`, `estate_ip`, `estate_asn`, `estate_dns`, `estate_ct` | `jb intel`, `jb estate ...` | yes |
+| `estate_refresh`, `estate_diff` | `jb estate refresh`, `jb estate diff` | yes |
+| `watch_status` | `jb watch status` | yes |
+| `db_status`, `db_usage` | `jb db status`, `jb db usage` | yes |
+| `estate_promote`, `db_prune`, `db_compact`, `db_rename_source` | the same commands | no |
 
-Operations that change something take a boolean `apply` whose default is false, so a call without it is a dry run. This is already how `db prune`, `db compact`, `db rename-source` and `estate promote` work.
-
-### What moves out of cobra
-
-- The `--no-store` flag of RFC 0009 is the boolean property `store` with default true. `--no-store` is its false form and `--store` its true form, which the parser gives for free.
-- `db prune --kind` takes a comma list today. It becomes an array, repeated: `--kind hunt --kind search`.
-- `jb intel IP ...` and `jb estate ... IP ...` take a list of positionals today. An array cannot be positional, so they take repeated `--ip`.
-- Duration flags become strings that the handler parses, so `--window 7d` stays valid.
-
-### MCP, later
-
-An MCP server needs three things: `tools/list` (from `Operations()` with the tool projection), `tools/call` (a call to `Call`) and a rule about which operations it exposes. The first two follow from this RFC. The third is a security decision for the RFC that adds the server, see Security considerations.
+`jb watch` and `jb serve` run until stopped and are not operations. `hunt` and `activity` write a run to the evidence store unless `store` is false (RFC 0009), so their read-only status is an open question.
 
 ## Non-goals
 
-- This RFC does not add an MCP server.
 - It does not change what any operation computes.
 - It does not remove the typed Go functions, which stay as the handlers and as a direct API.
-- It does not add authorisation. Who may call an operation is the caller's concern.
-- It does not claim that `jb` conforms to the spec. The spec is a draft.
+- It does not replace cobra or change any flag spelling, default or exit code.
+- It does not add authorisation. Who may call an operation is the launcher's concern.
+- It does not claim that `jb` conforms to the spec.
 
 ## Drawbacks
 
-- It rewrites the flag declarations of every command. The risk of a behaviour change on a rarely used flag is real, and the tests that walk the commands are the defence.
-- Dropping cobra drops shell completion and its help formatting. The help text is generated from the definitions, and completion is lost.
+- The reflector and the tag syntax are new code that every option struct depends on. A mistake there is a mistake everywhere.
+- A flat schema forces some arguments to strings and moves their checks into the handlers.
+- Some commands do not fit the model. Variadic positionals (`jb intel IP IP`) cannot be an array property, so they keep a hand-written flag until a later change decides.
+- `jb mcp` is a new surface with a new protocol to keep current. A bug there is a bug in an agent-facing interface.
 - The spec is a draft. If it changes, `jb` has to follow or diverge on purpose.
-- A flat schema forces some arguments to strings and moves their checks into the handlers. A window, a duration and a path are strings that the handler validates.
-- Variadic positionals go. `jb intel 192.0.2.1 192.0.2.2` becomes `jb intel --ip 192.0.2.1 --ip 192.0.2.2`. It is longer to type and equal for a program.
-- `jb` would own a parser. Two other implementations of the same rules exist in the maintainer's private repository, and a bug fixed there has to be considered here.
 
 ## Alternatives and prior art
 
-- **Keep cobra and add a JSON entry.** A command `jb call NAME --args '{...}'` would be small. It leaves the flags declared twice and does not give the one check.
-- **Generate the MCP tools by hand.** It is the least work now and the most drift later, which is the problem this RFC exists to remove.
-- **Use the reference Go implementation of the spec as a module.** It lives in a private repository and a public repository cannot depend on it. `jb` ports the rules and, where the maintainer's corpus is on the machine, runs it.
-- **A different tool-definition standard.** This RFC does not compare `jb` with other formats for describing tools, because the author read none for this draft. The reviewer is asked to name one worth reading.
-- **Prior art in the spec.** The spec's own motivation section records the same failure in other tools: the CLI and the tool defined twice, and defaults that differ. This RFC takes its solution. It does not cite that section as proof, because the author read only the spec text.
+- **Replace cobra with a parser that follows the spec's grammar.** This was the first draft. It needs a second implementation of the grammar to be worth it, breaks `--x=false`, comma lists and completion, and was declined.
+- **Hand-written schemas as JSON-shaped literals.** Explicit, but they copy every field of the option structs and drift from them. Declined.
+- **A separate MCP program on the public Go API.** It keeps the protocol out of `jb`, but it cannot see the operation registry unless that is public, and it adds a second thing to version. Declined for now.
+- **Expose everything over MCP with a dry-run default.** Simpler, but one injected `apply: true` from deleting evidence. Declined.
+- **Write tool definitions by hand.** The least work now and the most drift later.
+- **Prior art.** The spec's own motivation records the same failure: a CLI and a tool defined twice, with defaults that differ. This RFC takes its solution and changes where the source of truth lives. The author read only the spec text and no MCP implementation. The reviewer is asked to name one worth reading.
 
 ## Compatibility
 
-There is no compatibility path, because `jb` and one other program are the only users and nothing is public. The breaking changes are:
+There is no compatibility path, because `jb` and one other program are the only users and nothing is public. The proposal is mostly additive:
 
-- Booleans no longer accept `=false`. Use `--no-x`.
-- Arrays append and are never split on commas.
-- Flags must come after the command words.
-- No short flags. None exist today.
-- `jb watch --once` becomes `jb watch cycle`.
-- Variadic positionals become repeated flags.
-- The help text changes.
-- Cobra and shell completion are removed.
-
-The other program changes its calls to `jb` accordingly. It pins an exact version, so it moves when it chooses. The changelog lists each item under "Breaking" with its replacement.
+- New: `jb operations`, `jb mcp`, `jb.Operations`, `jb.Call` and the `jb:` struct tags.
+- Changed only where the builder exposes an existing inconsistency, such as a command whose default differs from its option struct. Each such fix is listed under "Breaking" in the changelog with the old and the new value.
+- No flag is renamed or removed by this RFC.
 
 ## Security considerations
 
-- Arguments are untrusted on both surfaces. A person can type anything and a model chose what an MCP client sends. The one check is the only place the schema is enforced, and a handler still checks what the schema cannot say: a path stays inside its root, an id exists.
-- The parser never runs a shell and never expands a value. A value such as `$HOME` or `*` reaches the handler as written.
-- No operation takes a secret as an argument. Credentials come from the environment, as today. An MCP server runs with the environment of its process, so it holds whatever credentials that process holds. That is a reason to give the server only the credentials it needs.
-- Some operations change the evidence store or the estate. Over MCP, a model could call `db_prune` with `apply: true`. The MCP RFC MUST decide which operations a server exposes by default, and this RFC recommends that the default exposes only operations that do not change anything.
-- The tool entry for an operation omits `cli.only` properties. A tool call that supplies one is refused as unknown, even if its value would pass the command's schema.
+- Arguments are untrusted on both surfaces. A person can type anything and an MCP client passes what a model chose. The one check enforces the schema, and a handler still checks what the schema cannot say: a path stays inside its root, an id exists.
+- No operation takes a secret as an argument. Credentials come from the process environment. `jb mcp` runs with the environment of its process, so it holds whatever credentials that process holds. The launcher SHOULD give it only the credentials it needs.
+- Read-only is the default. A mutating operation needs `--allow NAME` and `apply=true`. A model that is tricked into calling a mutating tool still cannot reach one the operator did not name.
+- A tool call that supplies a `cli.only` property is refused as unknown, even if its value would pass the command's schema.
+- Tool results include data from the evidence store, which comes from third-party logs. A client MUST treat result text as untrusted data, never as instructions.
 
 ## Conformance
 
 Proposed. None of these exists yet.
 
-- **Load check.** A test that every operation passes the load check, and that each rule fails on a planted fault.
-- **Parser corpus.** A corpus of argv cases for each parsing rule, with the expected arguments or the expected problem. The corpus is `jb`'s own, kept in the repository. When the environment variable `JB_OPERATIONS_CORPUS` names a directory that holds the maintainer's operations corpus, a test also runs its load, argv, arguments and tool cases. The test is skipped otherwise.
-- **Round trip.** For every operation, a test parses a sample argv, runs the handler against synthetic data, and checks the result against the output schema.
+- **Load check.** A test that every operation passes the check, and that each rule fails on a planted fault.
+- **Reflector tests.** A struct with each of the four shapes maps to the expected schema. A field of another type, an untagged exported field and a bad name each fail.
+- **Command equals operation.** For every built command, the flags equal the operation's properties, with the same defaults.
+- **Round trip.** For every operation, a test calls the handler with a sample on synthetic data and checks the result against the output schema.
+- **Read-only holds.** A test lists the tools of `jb mcp` and asserts that no mutating operation appears without `--allow`, and that a call to a mutating operation without `apply` changes nothing.
 - **Golden file.** `docs/operations.json` equals the output of `jb operations`.
-- **No second surface.** A test fails if a package other than the registry imports cobra, and the module no longer depends on it.
 - **Defaults.** `TestLibraryDefaultsAreTheCLIDefaults` is deleted, because the defaults live in one place.
 
 ## Reference implementations
 
-Shipped:
-
-- The CLI as it is: cobra commands in `cmd/jb`, with JSON writers in `activity.go`, `actor.go`, `case.go`, `dbmaint.go`, `doctor.go`, `estate.go`, `estate_drift.go`, `estate_ext.go`, `hunt.go` and `intel.go`.
-- The Go functions `jb.Hunt`, `jb.HuntCase`, `jb.Watch` and `jb.Activity`, and the usage error of RFC 0005 once merged.
+Shipped: the cobra commands in `cmd/jb`, the option structs in the root package (`jb.go`, `activity.go`, `watch.go`), and the usage error of RFC 0005.
 
 Proposed, in this order, each step ending in something that runs:
 
-1. `internal/ops`: the types, the load check, the argv parser, the argument check and the tool projection. Standard library only.
-2. The registry in the root package, `Operations` and `Call`, with one operation (`case_show`) end to end.
-3. The main entry point: host commands first, then the operation parser, then `Call` and the renderer.
-4. The remaining operations, one group at a time.
-5. Removal of cobra from the module.
-6. `jb operations` and `docs/operations.json`.
+1. `internal/ops`: the types, the reflector, the check and the tool projection. Standard library only.
+2. The registry in the root package, with `case_show` end to end, and `jb operations`.
+3. The flag builder, applied to `case show` first, then to one command at a time.
+4. `jb mcp` with the read-only operations.
+5. The remaining operations, then the mutating ones behind `--allow`.
 
 ## Open questions
 
-1. **Does `jb` drop cobra?** The recommendation is yes, for one set of rules. Decides: the maintainer.
-2. **Variadic positionals.** Is repeated `--ip` acceptable for `intel` and `estate`? Decides: the maintainer, with the other user.
-3. **`watch --once` as `watch cycle`.** Is a separate operation better than a flag on a command that otherwise runs forever? Decides: the maintainer.
-4. **Annotations.** The spec lets a host add MCP annotations to a tool entry. Should `jb` mark the operations that change state (`destructiveHint`, `readOnlyHint`) now, so an MCP server can filter them? Decides: the maintainer.
-5. **How strictly to check output schemas.** A small checker for the four shapes in a test, or a JSON Schema library as a test dependency? Decides: the author.
-6. **The spec corpus.** Is a skipped-when-absent test the right way to use a private corpus? Decides: the maintainer.
-7. **A published tool-definition standard to compare with.** Which one should the next draft read? Decides: the reviewer.
+1. **The tag syntax.** One tag with comma-separated parts, or several tags (`jb`, `desc`, `default`)? Decides: the author, after trying it on `HuntOptions`.
+2. **Variadic positionals.** Is a hand-written flag for `intel` and `estate IP...` acceptable, or should they take repeated `--ip`? Decides: the maintainer, with the other user.
+3. **Read-only status of hunt and activity.** They write a run unless `store` is false. Are they listed over MCP by default, and with `store` forced to false? Decides: the maintainer.
+4. **Annotations.** Should a tool entry carry MCP's `readOnlyHint` and `destructiveHint` from `readOnly`? Decides: the author.
+5. **A published tool-definition standard to compare with.** Which one should the next draft read? Decides: the reviewer.
 
 ## Changes
 
 - 2026-11-06: first draft.
+- 2026-11-06: revised after a Hashimoto-rigor grill with the owner. Cobra stays, the option struct is the source of truth, `jb mcp` is built in, and the default exposure is read-only.
