@@ -2,6 +2,7 @@ package jb
 
 import (
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/iksnerd/json-bourne/internal/casefile"
@@ -162,7 +163,47 @@ func checkCase(dir string) (CaseCheckResult, *casefile.Case) {
 		}
 		rep.Configs = append(rep.Configs, cr)
 	}
+	noteAmbiguousCommands(c, rep.Configs)
 	return rep, c
+}
+
+// noteAmbiguousCommands adds a note to each config that declares a command another
+// config of the case also declares. `jb <command> --case` then cannot choose between
+// them and asks for --config. It is a note, not a failure: the case is valid, and a
+// caller who always passes --config is not affected. A config that cannot be read is
+// skipped here: its own check already failed.
+func noteAmbiguousCommands(c *casefile.Case, configs []CaseConfigCheck) {
+	declares := map[string][]int{}
+	for i := range configs {
+		if !configs[i].OK {
+			continue
+		}
+		cmds, err := config.LoadCommands(filepath.Join(c.Dir, filepath.FromSlash(configs[i].Path)))
+		if err != nil {
+			continue
+		}
+		for _, cmd := range cmds {
+			declares[cmd] = append(declares[cmd], i)
+		}
+	}
+	cmds := make([]string, 0, len(declares))
+	for cmd := range declares {
+		cmds = append(cmds, cmd)
+	}
+	sort.Strings(cmds)
+	for _, cmd := range cmds {
+		idx := declares[cmd]
+		if len(idx) < 2 {
+			continue
+		}
+		names := make([]string, len(idx))
+		for k, i := range idx {
+			names[k] = configs[i].Path
+		}
+		for _, i := range idx {
+			configs[i].Notes = append(configs[i].Notes, "AMBIGUOUS: command "+cmd+" is declared by "+strings.Join(names, ", ")+"; `jb "+cmd+" --case` will ask for --config")
+		}
+	}
 }
 
 // oneLine joins the lines of s with single spaces.

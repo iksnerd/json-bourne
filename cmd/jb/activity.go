@@ -141,7 +141,7 @@ func newActivityCmdWith(d deps) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); required")
-	f.StringVar(&cfgPath, "config", "", "one of the case's configs (default: the case's only config)")
+	f.StringVar(&cfgPath, "config", "", "one of the case's configs (default: the config whose `commands:` lists this command, else the case's only config)")
 	f.Var((*windowValue)(&window), "window", "length of the window, ending now (or at --until): 90m, 24h or 7d (default 24h, never the case's windows.default)")
 	f.StringVar(&untilS, "until", "", "ask about the past window ending at TIME (RFC 3339 with a zone, not after now) instead of the one ending now; not offered on watch, which always ends now")
 	f.StringVar(&output, "output", "table", "output format: table or json")

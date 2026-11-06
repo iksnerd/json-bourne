@@ -80,7 +80,7 @@ func newEstateRefreshCmd(d deps) *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md) (required)")
-	f.StringVar(&cfgPath, "config", "", "config with the `estate:` section (default: the case's only config)")
+	f.StringVar(&cfgPath, "config", "", "config with the `estate:` section (default: the config whose `commands:` lists this command, else the case's only config)")
 	f.StringVar(&file, "file", jb.EstateDefaultFile, "the baseline estate file whose targets are re-asked")
 	f.StringVar(&rdapURL, "rdap-url", rdap.DefaultBaseURL, "RDAP service base URL")
 	f.StringVar(&resolver, "resolver", "", "DNS resolver HOST:PORT for PTR and forward lookups (default: the system resolver)")
@@ -190,7 +190,7 @@ func newEstateDiffCmd(d deps) *cobra.Command {
 	f.StringVar(&to, "to", "", "the later state: snapshot id, or estate file name (default: the newest snapshot)")
 	f.StringVar(&output, "output", "table", "output format: table or json")
 	f.BoolVar(&alert, "alert", false, "send findings that are new to the case's alert sinks (log in the evidence directory, and any webhook)")
-	f.StringVar(&cfgPath, "config", "", "with --alert: the config whose `alerts:` apply (default: the case's only config)")
+	f.StringVar(&cfgPath, "config", "", "with --alert: the config whose `alerts:` apply (default: the config whose `commands:` lists this command, else the case's only config)")
 	f.Var((*windowValue)(&ttl), "ttl", "with --alert: how long an alerted tag stays quiet unless its severity rises")
 	return cmd
 }

@@ -78,7 +78,7 @@ func newActorStatusCmd() *cobra.Command {
 	}
 	f := cmd.Flags()
 	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); required")
-	f.StringVar(&cfgPath, "config", "", "one of the case's configs (default: the case's only config)")
+	f.StringVar(&cfgPath, "config", "", "one of the case's configs (default: the config whose `commands:` lists this command, else the case's only config)")
 	f.StringVar(&output, "output", "table", "output format: table or json")
 	return cmd
 }

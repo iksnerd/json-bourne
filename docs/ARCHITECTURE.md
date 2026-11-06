@@ -44,7 +44,7 @@ flowchart TD
 | `internal/config` | Reads YAML, builds adapters, reads credentials from the environment. | `core` and adapters. Not `app`, not cobra. |
 | `internal/adapters/runlock` | The single-instance lock of `jb watch`. | The standard library only: no internal package, no network, no process, no log. |
 | `internal/watchrun` | Builds the ports of `app.Watch` and `app.Hunt` from a loaded case config (file names, lock, store open/close per operation, alert sinks). Shared by `cmd/jb` and `jb`. | `core`, `app`, `config` and adapters. |
-| `jb` (repo root) | The public Go API: `Hunt`, `HuntCase`, `Watch`, `Activity`. | Like `cmd/jb`: it wires config, watchrun, app and the store. |
+| `jb` (repo root) | The public Go API: one function per command (`Hunt`, `Activity`, `Watch`, `Doctor`, `DB*`, `Estate*`, `Intel`, `DashboardHandler` and the rest; README has the table). | Like `cmd/jb`: it wires config, watchrun, app and the store. |
 | `sdk` | The plugin side of the mapper protocol, public. | Standard library only. |
 | `cmd/jb` | The cobra CLI. Wires config, the store, the watch adapters, the web dashboard and `app.Hunt` / `app.Watch`. | Everything. |
 

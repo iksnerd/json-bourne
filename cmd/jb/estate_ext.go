@@ -134,7 +134,7 @@ func newExtCmd(d deps, s extSpec) *cobra.Command {
 	defTimeout, defInterval := jb.EstateExternalDefaults(s.service)
 	f := cmd.Flags()
 	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md) (required)")
-	f.StringVar(&cfgPath, "config", "", "config with the `estate:` section (default: the case's only config)")
+	f.StringVar(&cfgPath, "config", "", "config with the `estate:` section (default: the config whose `commands:` lists this command, else the case's only config)")
 	f.StringVar(&file, "file", jb.EstateDefaultFile, "estate file name inside the case's estate directory (created if missing, merged into if present)")
 	f.DurationVar(&timeout, "timeout", defTimeout, "timeout for each request")
 	f.DurationVar(&interval, "min-interval", defInterval, "least time between two requests")

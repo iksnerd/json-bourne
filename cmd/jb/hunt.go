@@ -61,7 +61,7 @@ func newHuntCmdWith(d deps) *cobra.Command {
 			"With --case DIR the hunt runs inside a case (docs/CASE-SPEC.md). The case is loaded and\n" +
 			"checked as `jb case check` does, and the hunt is refused when the evidence directory is\n" +
 			"not safe from git. The config is --config (one of the case's `config:` entries, or a file\n" +
-			"inside the case) or the case's only config. --window defaults to the case's windows.default\n" +
+			"inside the case), else the config whose `commands:` lists hunt, else the case's only config. --window defaults to the case's windows.default\n" +
 			"when not given; an explicit --window wins. A relative store.path is relative to the case\n" +
 			"directory, and an empty one means <case>/<paths.evidence>/jb.duckdb.\n\n" +
 			"--search TERM narrows every source for this one run, on the server, by a phrase match of TERM\n" +

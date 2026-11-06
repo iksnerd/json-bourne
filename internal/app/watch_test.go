@@ -149,7 +149,7 @@ func TestWatchIncompleteHuntIsAnAlertNotSilence(t *testing.T) {
 	}
 }
 
-// wha's Cycle dropped the alerts of a detector that errored. Here the failing
+// An earlier Cycle dropped the alerts of a detector that errored. Here the failing
 // detector and a healthy one run together: the healthy one's finding still surfaces,
 // and the failure is still reported.
 func TestWatchFailingDetectorDoesNotHideOthersOrItself(t *testing.T) {

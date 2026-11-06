@@ -188,7 +188,7 @@ func newWatchCmdWith(d deps) *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&cfgPath, "config", "", "one of the case's configs (default: the case's only config)")
+	f.StringVar(&cfgPath, "config", "", "one of the case's configs (default: the config whose `commands:` lists this command, else the case's only config)")
 	f.StringVar(&caseDir, "case", "", "case directory to watch (docs/CASE-SPEC.md; required)")
 	f.Var((*windowValue)(&every), "every", "time between cycles: 90s, 5m or 1h")
 	f.Var((*windowValue)(&window), "window", "length of each cycle's hunt window, at least --every (default: the case's windows.default when it sets one, else 60m)")

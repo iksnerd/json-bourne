@@ -2,7 +2,7 @@
 
 [Back to the README](../README.md)
 
-`jb` reads one YAML file, passed as `--config`. Inside a case (`jb hunt --case DIR`, [CASE-SPEC](CASE-SPEC.md) section 9) the file is one of the case's `config` entries (or another file inside the case: a relative `--config` path is looked for in the case directory first, then in the working directory, and its real path, symlinks followed, must be inside the case), and `jb case check --case DIR` validates it, and `jb case show --case DIR` prints what it would run without reading any credential. [`examples/jb.example.yaml`](../examples/jb.example.yaml) is a complete starting point with placeholder values.
+`jb` reads one YAML file, passed as `--config`. Inside a case (`jb hunt --case DIR`, [CASE-SPEC](CASE-SPEC.md) section 9) the file is one of the case's `config` entries (or another file inside the case: a relative `--config` path is looked for in the case directory first, then in the working directory, and its real path, symlinks followed, must be inside the case), and `jb case check --case DIR` validates it, and `jb case show --case DIR` prints what it would run, reading no environment variable and no credential value. [`examples/jb.example.yaml`](../examples/jb.example.yaml) is a complete starting point with placeholder values.
 
 The loader is strict. An unknown key, an unknown `type`, a missing `type`, a file larger than 1 MiB, or an empty file is an error at load time, before any network call, so a typo cannot silently turn a safeguard off. At least one source and one detector are required.
 
@@ -917,17 +917,9 @@ res, err := jb.HuntCase(ctx, caseDir, jb.CaseHuntOptions{HuntOptions: jb.HuntOpt
 
 Rules that hold in every recipe: the YAML never holds the value, a value is never put on a command line (it shows in the process list), and `jb` never prints it.
 
-## Database path
+## Watch
 
-Resolved in this order:
-
-1. `store.path` in the config. A leading `~/` is expanded to your home directory.
-2. The `JB_DB` environment variable.
-3. `~/.jb/jb.duckdb`.
-
-In `jb hunt --case DIR` the order is different: an empty `store.path` means `<case>/<paths.evidence>/jb.duckdb` (`JB_DB` is ignored), a relative `store.path` is relative to the case directory, and an absolute or `~/` path is used as written. Without `--case`, a relative `store.path` is relative to the working directory.
-
-`hunt` creates the file and applies schema migrations. `db status` opens it read-only and fails if it does not exist.
+What `jb watch` prints and how several watchers share a case.
 
 ### Watch output
 
@@ -971,6 +963,18 @@ The name is on the `watching case ...` banner, on every alert (`[w:a]` after the
 - **One process per name and case.** A watcher takes an exclusive lock on its lock file before it builds anything; a second `jb watch` with the same name (or a second unnamed one) on the same case is refused at once and the message names the holder's PID. The lock is `flock(2)` on Unix, so it is released by the kernel when the holder exits however it dies; a lock file left behind by a killed process is not a held lock, and the next watcher takes it over. The file is never deleted.
 - **`jb serve` shows the unnamed watcher's log and state only** (it reads `watch.log` and `watch-state.json`); a named watcher's files are read with the log itself.
 - **They share only the DuckDB file.** Each opens it for one hunt at a time, and the one that arrives while the other is writing waits for it ([Locking](#locking-one-writer-or-many-readers); with `JB_DB_LOCK_WAIT=0` they would collide and a cycle would fail, which is why the default wait matters here). Keep the same `store.path` (or none) in the configs of one case, so that they share one store.
+
+## Database path
+
+Resolved in this order:
+
+1. `store.path` in the config. A leading `~/` is expanded to your home directory.
+2. The `JB_DB` environment variable.
+3. `~/.jb/jb.duckdb`.
+
+In `jb hunt --case DIR` the order is different: an empty `store.path` means `<case>/<paths.evidence>/jb.duckdb` (`JB_DB` is ignored), a relative `store.path` is relative to the case directory, and an absolute or `~/` path is used as written. Without `--case`, a relative `store.path` is relative to the working directory.
+
+`hunt` creates the file and applies schema migrations. `db status` opens it read-only and fails if it does not exist.
 
 ### Locking: one writer or many readers
 

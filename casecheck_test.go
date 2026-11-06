@@ -78,3 +78,58 @@ func TestCaseCheckRunsTheEvidenceGitGuard(t *testing.T) {
 		t.Fatalf("exposed: %+v", r)
 	}
 }
+
+// Two configs that declare the same command make `jb <command> --case` ask for --config.
+// case check says so, as a note: the case is still valid.
+func TestCaseCheckNotesACommandDeclaredByTwoConfigs(t *testing.T) {
+	dir := copyCase(t)
+	fp := filepath.Join(dir, "config", "fingerprint.yaml")
+	b, err := os.ReadFile(fp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "commands:") {
+		t.Fatalf("fixture lost its commands: line:\n%s", b)
+	}
+	// fingerprint.yaml declares activity and actor; add hunt, which hunt.yaml also declares.
+	out := strings.Replace(string(b), "commands: [activity, actor]", "commands: [hunt, activity, actor]", 1)
+	if out == string(b) {
+		t.Fatalf("fixture changed: no commands: [activity, actor] line")
+	}
+	if err := os.WriteFile(fp, []byte(out), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r, err := CaseCheck(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !r.OK {
+		t.Fatalf("an ambiguous command is a note, not a failure: %+v", r)
+	}
+	for _, c := range r.Configs {
+		if !hasNote(c.Notes, "AMBIGUOUS: command hunt") {
+			t.Errorf("%s: notes %q lack the ambiguity note", c.Path, c.Notes)
+		}
+	}
+}
+
+func TestCaseCheckHasNoAmbiguityNoteForTheExampleCase(t *testing.T) {
+	r, err := CaseCheck("examples/case")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range r.Configs {
+		if hasNote(c.Notes, "AMBIGUOUS") {
+			t.Errorf("%s: unexpected %q", c.Path, c.Notes)
+		}
+	}
+}
+
+func hasNote(notes []string, prefix string) bool {
+	for _, n := range notes {
+		if strings.HasPrefix(n, prefix) {
+			return true
+		}
+	}
+	return false
+}
