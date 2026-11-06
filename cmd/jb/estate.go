@@ -1,41 +1,53 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
-	"net"
-	"net/netip"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/iksnerd/json-bourne/internal/adapters/dnsptr"
+	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/adapters/rdap"
-	"github.com/iksnerd/json-bourne/internal/app"
-	"github.com/iksnerd/json-bourne/internal/casefile"
-	"github.com/iksnerd/json-bourne/internal/core"
 )
 
-// estateNote is printed with every result, in every format, next to the data so it
-// travels with a pasted table.
-const estateNote = "An estate map shows who holds and runs infrastructure, not who typed the commands. " +
-	"A CDN or proxy edge address's ownership says nothing about the visitor behind it. " +
-	"Lookups went to a DNS resolver and an RDAP service only; no address was contacted."
+const estateMaxFailsShow = 25
 
-const (
-	estateDefaultFile  = "estate.yaml"
-	estateDefaultMax   = 20
-	estateHardMax      = 100
-	estateDefaultTO    = 10 * time.Second
-	estateMaxFailsShow = 25
-)
+// libErr prints a library error as the CLI does: the "jb: " the package puts in front
+// of its errors is what the CLI adds itself, so it is dropped here. The error class (a
+// usage error exits 2) and the chain are kept.
+func libErr(err error) error {
+	if msg, ok := strings.CutPrefix(err.Error(), "jb: "); ok {
+		return &trimmedErr{msg: msg, err: err}
+	}
+	return err
+}
+
+type trimmedErr struct {
+	msg string
+	err error
+}
+
+func (e *trimmedErr) Error() string { return e.msg }
+func (e *trimmedErr) Unwrap() error { return e.err }
+
+// rejectZero refuses a limit or timeout given as 0. The library reads 0 as "the
+// default", which on the command line is what leaving the flag out means.
+func rejectZero[T ~int | ~int64](cmd *cobra.Command, flag string, v T) error {
+	if v == 0 && cmd.Flags().Changed(flag) {
+		return usageErrorf("--%s must not be 0", flag)
+	}
+	return nil
+}
+
+// estateOptions are the options every estate command shares, from the process-level inputs.
+func (d deps) estateOptions(file string) jb.EstateOptions {
+	return jb.EstateOptions{File: file, Env: d.env, Now: d.now, Ports: jb.EstatePorts{
+		PTR: d.ptr, RDAP: d.rdap, BGP: d.bgp, CT: d.ct, DNS: d.fwd, Sleep: d.sleep}}
+}
 
 func newEstateCmdWith(d deps) *cobra.Command {
 	var (
@@ -62,7 +74,7 @@ func newEstateCmdWith(d deps) *cobra.Command {
 			"not-found (HTTP 404, NXDOMAIN) is an answer and is recorded as an absence. A claim that\n" +
 			"disagrees with one already in the file is reported as a CONFLICT, the recorded one stays, and\n" +
 			"the run exits 1. Rewriting the file does not preserve comments.\n\n" +
-			estateNote,
+			jb.EstateNote,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if caseDir == "" {
 				return usageErrorf("--case is required")
@@ -73,153 +85,56 @@ func newEstateCmdWith(d deps) *cobra.Command {
 			if output != "table" && output != "json" {
 				return usageErrorf("--output must be table or json, got %q", output)
 			}
-			if maxIPs < 1 || maxIPs > estateHardMax {
-				return usageErrorf("--max-ips must be 1 to %d, got %d", estateHardMax, maxIPs)
+			if err := errors.Join(rejectZero(cmd, "max-ips", maxIPs), rejectZero(cmd, "timeout", timeout)); err != nil {
+				return usageErrorf("%v", err)
 			}
-			if timeout < time.Second || timeout > time.Minute {
-				return usageErrorf("--timeout must be 1s to 1m, got %s", timeout)
-			}
-			if err := casefile.ValidEstateName(file); err != nil {
-				return usageErrorf("--file: %v", err)
-			}
-			addrs := make([]netip.Addr, 0, len(args))
-			for _, a := range args {
-				ip, err := netip.ParseAddr(strings.TrimSpace(a))
-				if err != nil || ip.Zone() != "" {
-					return usageErrorf("%q is not an IP address", a)
-				}
-				addrs = append(addrs, ip.Unmap())
-			}
-
-			// The flags are checked even when a test replaces the adapters.
-			rc, err := rdap.New(rdapURL)
+			res, err := jb.EstateIP(cmd.Context(), caseDir, args, jb.EstateIPOptions{EstateOptions: d.estateOptions(file),
+				RDAPURL: rdapURL, Resolver: resolver, Timeout: timeout, MaxIPs: maxIPs})
 			if err != nil {
-				return usageErrorf("--rdap-url: %v", err)
+				return libErr(err)
 			}
-			rc.Timeout = timeout
-			pr, err := buildResolver(resolver, timeout, addrs)
-			if err != nil {
-				return usageErrorf("--resolver: %v", err)
-			}
-			var reg core.RDAPRegistry = rc
-			var ptr core.PTRResolver = pr
-			if d.rdap != nil {
-				reg = d.rdap
-			}
-			if d.ptr != nil {
-				ptr = d.ptr
-			}
-
-			c, err := casefile.Load(caseDir)
-			if err != nil {
-				return err
-			}
-			base := &casefile.Estate{APIVersion: casefile.EstateAPIVersion, ID: "estate", Caveat: casefile.DefaultEstateCaveat}
-			existing, err := casefile.LoadEstateFile(c, file)
-			switch {
-			case err == nil:
-				base = existing
-			case !errors.Is(err, fs.ErrNotExist):
-				// Never replace a file that could not be read: it may hold evidence.
-				return err
-			}
-
-			res, cerr := app.CollectEstate(cmd.Context(), app.EstateDeps{PTR: ptr, RDAP: reg, Now: d.now},
-				app.EstateRequest{IPs: args, MaxIPs: maxIPs})
-			if cerr != nil {
-				if errors.Is(cerr, app.ErrTooManyIPs) {
-					return usageErrorf("%v", cerr)
-				}
-				return cerr
-			}
-			merged, mr := casefile.MergeEstate(base, res.Estate)
-			wrote := mr.AddedNodes+mr.AddedEdges+mr.AddedAbsences > 0
-			if wrote {
-				if err := casefile.SaveEstateFile(c, file, merged); err != nil {
-					return err
-				}
-			}
-			rep := estateRun{File: c.Paths.Estate + "/" + file, Wrote: wrote, Merge: mr, Failures: res.Failures, Addresses: len(res.IPs)}
 			var perr error
 			if output == "json" {
-				perr = writeEstateJSON(cmd.OutOrStdout(), rep)
+				perr = writeIndentedJSON(cmd.OutOrStdout(), res)
 			} else {
-				perr = writeEstateTable(cmd.OutOrStdout(), rep)
+				perr = writeEstateTable(cmd.OutOrStdout(), res)
 			}
 			if perr != nil {
 				return fmt.Errorf("write output: %w", perr)
 			}
 			switch {
-			case len(res.Failures) > 0:
+			case !res.Complete():
 				return fmt.Errorf("estate incomplete, no clean result: %d lookup(s) did not get an answer", len(res.Failures))
-			case len(mr.Conflicts) > 0:
-				return fmt.Errorf("estate has %d conflict(s) with what is already recorded; nothing was overwritten", len(mr.Conflicts))
+			case len(res.Conflicts) > 0:
+				return fmt.Errorf("estate has %d conflict(s) with what is already recorded; nothing was overwritten", len(res.Conflicts))
 			}
 			return nil
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md) (required)")
-	f.StringVar(&file, "file", estateDefaultFile, "estate file name inside the case's estate directory (created if missing, merged into if present)")
+	f.StringVar(&file, "file", jb.EstateDefaultFile, "estate file name inside the case's estate directory (created if missing, merged into if present)")
 	f.StringVar(&rdapURL, "rdap-url", rdap.DefaultBaseURL, "RDAP service base URL (the rdap.org bootstrap redirects to the registry that holds the address)")
 	f.StringVar(&resolver, "resolver", "", "DNS resolver HOST:PORT for the PTR lookups (default: the system resolver)")
-	f.DurationVar(&timeout, "timeout", estateDefaultTO, "timeout for each lookup")
-	f.IntVar(&maxIPs, "max-ips", estateDefaultMax, fmt.Sprintf("most addresses in one run, at most %d; more is refused, not truncated", estateHardMax))
+	f.DurationVar(&timeout, "timeout", jb.EstateDefaultTimeout, "timeout for each lookup")
+	f.IntVar(&maxIPs, "max-ips", jb.EstateDefaultMax, fmt.Sprintf("most addresses in one run, at most %d; more is refused, not truncated", jb.EstateMax))
 	f.StringVar(&output, "output", "table", "output format: table or json")
 	cmd.AddCommand(newEstateExtCmds(d)...)
 	cmd.AddCommand(newEstateDriftCmds(d)...)
 	return cmd
 }
 
-// buildResolver returns the PTR adapter. A custom resolver is a host:port that is not
-// one of the addresses being looked up.
-func buildResolver(spec string, timeout time.Duration, targets []netip.Addr) (core.PTRResolver, error) {
-	r := dnsptr.New(nil, "system resolver")
-	r.Timeout = timeout
-	if spec == "" {
-		return r, nil
-	}
-	host, port, err := net.SplitHostPort(spec)
-	if err != nil {
-		return nil, fmt.Errorf("%q must be HOST:PORT", spec)
-	}
-	if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
-		return nil, fmt.Errorf("%q has no valid port", spec)
-	}
-	if a, err := netip.ParseAddr(host); err == nil {
-		for _, t := range targets {
-			if a.Unmap() == t {
-				return nil, fmt.Errorf("%s is one of the addresses being investigated; it cannot be the resolver", host)
-			}
-		}
-	}
-	r.R = &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
-		var d net.Dialer
-		return d.DialContext(ctx, network, spec)
-	}}
-	r.Label = "resolver " + spec
-	return r, nil
-}
-
-type estateRun struct {
-	File      string
-	Wrote     bool
-	Addresses int
-	Merge     casefile.MergeResult
-	Failures  []app.EstateFailure
-}
-
-func writeEstateTable(w io.Writer, r estateRun) error {
+func writeEstateTable(w io.Writer, r *jb.EstateIPResult) error {
 	fmt.Fprintf(w, "addresses   %d\n", r.Addresses)
 	fmt.Fprintf(w, "file        %s\n", r.File)
-	fmt.Fprintf(w, "recorded    +%d node(s), +%d edge(s), +%d absence(s); %d already recorded", r.Merge.AddedNodes, r.Merge.AddedEdges, r.Merge.AddedAbsences, r.Merge.Unchanged)
+	fmt.Fprintf(w, "recorded    +%d node(s), +%d edge(s), +%d absence(s); %d already recorded", r.Added.Nodes, r.Added.Edges, r.Added.Absences, r.Unchanged)
 	if !r.Wrote {
 		fmt.Fprint(w, " (file not changed)")
 	}
-	fmt.Fprintf(w, "\nnote        %s\n", estateNote)
-	if len(r.Merge.Conflicts) > 0 {
+	fmt.Fprintf(w, "\nnote        %s\n", r.Note)
+	if len(r.Conflicts) > 0 {
 		fmt.Fprintf(w, "\nCONFLICT (reported, nothing overwritten):\n")
-		for _, c := range r.Merge.Conflicts {
+		for _, c := range r.Conflicts {
 			fmt.Fprintf(w, "  %s\n", oneLine(c))
 		}
 	}
@@ -234,39 +149,11 @@ func writeEstateTable(w io.Writer, r estateRun) error {
 			fmt.Fprintf(tw, "...\t\t%d more (use --output json for all)\n", len(r.Failures)-i)
 			break
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", x.IP, x.Lookup, oneLine(errText(x.Err)))
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", x.IP, x.Lookup, oneLine(x.Error))
 	}
 	if err := tw.Flush(); err != nil {
 		return err
 	}
 	fmt.Fprintf(w, "\nINCOMPLETE: %d lookup(s) got no answer; this is not a clean result.\n", len(r.Failures))
 	return nil
-}
-
-func writeEstateJSON(w io.Writer, r estateRun) error {
-	type fail struct {
-		IP     string `json:"ip"`
-		Lookup string `json:"lookup"`
-		Error  string `json:"error"`
-	}
-	out := struct {
-		Note      string   `json:"note"`
-		File      string   `json:"file"`
-		Complete  bool     `json:"complete"`
-		Wrote     bool     `json:"wrote"`
-		Addresses int      `json:"addresses"`
-		Added     any      `json:"added"`
-		Unchanged int      `json:"unchanged"`
-		Failures  []fail   `json:"failures"`
-		Conflicts []string `json:"conflicts"`
-	}{Note: estateNote, File: r.File, Complete: len(r.Failures) == 0, Wrote: r.Wrote, Addresses: r.Addresses,
-		Added:     map[string]int{"nodes": r.Merge.AddedNodes, "edges": r.Merge.AddedEdges, "absences": r.Merge.AddedAbsences},
-		Unchanged: r.Merge.Unchanged, Failures: []fail{}, Conflicts: []string{}}
-	out.Conflicts = append(out.Conflicts, r.Merge.Conflicts...)
-	for _, x := range r.Failures {
-		out.Failures = append(out.Failures, fail{x.IP, x.Lookup, errText(x.Err)})
-	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
 }
