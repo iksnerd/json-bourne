@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Changed
+- `jb hunt` and `jb activity` now run through `jb.Hunt`, `jb.HuntCase` and `jb.Activity`, so the command line and the Go package share one implementation. The results carry the operator advice as `Notes`, and `HuntOptions.Notice` and `ActivityOptions.Notice` stream it while the call runs. CLI flags, output and exit codes are unchanged, with one ordering exception: `jb hunt --case ... --until T` with `--window` over 31d now reports that usage error before any case note or case error (RFC 0013).
+
 ## [0.5.0] - 2026-11-06
 
 ### Breaking
