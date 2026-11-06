@@ -6,6 +6,10 @@
 
 Apache-2.0. Go, DuckDB, cobra.
 
+![jb serve: one hunt on synthetic data, with two findings](docs/img/dashboard.png)
+
+*`jb serve`, the read-only dashboard, after one hunt over synthetic events (documentation-range addresses, a local stand-in for Kibana).*
+
 ## Why
 
 During an incident the failure mode that does the most damage is a wrong clean answer: a query that silently returned nothing, a detector that parsed zero records, a count with no baseline. Each looks like "nothing is happening".
