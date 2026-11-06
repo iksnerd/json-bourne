@@ -150,7 +150,7 @@ func hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 		now = opts.Now
 	}
 
-	w, run, err := plan(now(), opts)
+	w, run, err := plan(now(), opts, "hunt")
 	if err != nil {
 		return nil, err
 	}
@@ -193,10 +193,10 @@ func hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 }
 
 // plan returns the window and run id for opts, with the same rules as `jb hunt --until`.
-func plan(now time.Time, opts HuntOptions) (core.Window, string, error) {
+func plan(now time.Time, opts HuntOptions, prefix string) (core.Window, string, error) {
 	if opts.Until.IsZero() {
 		to := now.UTC().Truncate(time.Second)
-		return core.Window{From: to.Add(-opts.Window), To: to}, "hunt-" + to.Format("20060102T150405Z"), nil
+		return core.Window{From: to.Add(-opts.Window), To: to}, prefix + "-" + to.Format("20060102T150405Z"), nil
 	}
 	if opts.Until.Nanosecond() != 0 {
 		return core.Window{}, "", errors.New("jb: Until must be whole seconds; window edges are not rounded")
@@ -208,6 +208,6 @@ func plan(now time.Time, opts HuntOptions) (core.Window, string, error) {
 	if opts.Window > MaxHistoricalWindow {
 		return core.Window{}, "", fmt.Errorf("jb: Window %s is longer than the %s a historical hunt accepts", opts.Window, MaxHistoricalWindow)
 	}
-	run := fmt.Sprintf("hunt-until-%s-w%ds", until.Format("20060102T150405Z"), int64(opts.Window/time.Second))
+	run := fmt.Sprintf("%s-until-%s-w%ds", prefix, until.Format("20060102T150405Z"), int64(opts.Window/time.Second))
 	return core.Window{From: until.Add(-opts.Window), To: until}, run, nil
 }

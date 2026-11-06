@@ -15,13 +15,13 @@ import (
 func TestPlan(t *testing.T) {
 	now := time.Date(2026, 10, 2, 12, 0, 0, 500, time.UTC)
 
-	w, run, err := plan(now, HuntOptions{Window: time.Hour})
+	w, run, err := plan(now, HuntOptions{Window: time.Hour}, "hunt")
 	if err != nil || run != "hunt-20261002T120000Z" || w.Duration() != time.Hour || !w.To.Equal(now.Truncate(time.Second)) {
 		t.Fatalf("live: %v %q %v", w, run, err)
 	}
 
 	until := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	w, run, err = plan(now, HuntOptions{Window: 2 * time.Hour, Until: until})
+	w, run, err = plan(now, HuntOptions{Window: 2 * time.Hour, Until: until}, "hunt")
 	if err != nil || run != "hunt-until-20261001T000000Z-w7200s" || !w.To.Equal(until) {
 		t.Fatalf("past: %v %q %v", w, run, err)
 	}
@@ -31,7 +31,7 @@ func TestPlan(t *testing.T) {
 		"fractional": {Window: time.Hour, Until: until.Add(time.Nanosecond)},
 		"too long":   {Window: MaxHistoricalWindow + time.Second, Until: until},
 	} {
-		if _, _, err := plan(now, o); err == nil {
+		if _, _, err := plan(now, o, "hunt"); err == nil {
 			t.Errorf("%s: want an error", name)
 		}
 	}
@@ -132,5 +132,19 @@ func TestWatchRefusesASecondWatcherOfTheSameName(t *testing.T) {
 	_, err = Watch(t.Context(), dir, WatchOptions{Once: true, Name: "dup", Env: func(string) (string, bool) { return "k", true }})
 	if !errors.Is(err, ErrWatcherRunning) {
 		t.Fatalf("err = %v, want ErrWatcherRunning", err)
+	}
+}
+
+func TestActivityIsIncompleteNotQuietWhenTheSourceIsDown(t *testing.T) {
+	dir := copyCase(t)
+	res, err := Activity(t.Context(), dir, ActivityOptions{Config: filepath.Join(dir, "config", "fingerprint.yaml"), Env: func(string) (string, bool) { return "k", true }})
+	if res == nil {
+		t.Fatalf("no result, err = %v", err)
+	}
+	if res.Verdict == VerdictQuiet {
+		t.Fatal("a dead source must not read as QUIET")
+	}
+	if !strings.HasPrefix(res.Run, "activity-") {
+		t.Errorf("run = %q", res.Run)
 	}
 }
