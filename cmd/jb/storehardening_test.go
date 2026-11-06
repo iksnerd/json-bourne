@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	jb "github.com/iksnerd/json-bourne"
+
 	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/core"
 )
@@ -288,8 +290,8 @@ func TestDoctorReportsAHeldLockAsFailAfterTheShortBudgetAndNamesTheHolder(t *tes
 	if code != 1 || rep.OK {
 		t.Fatalf("exit %d, ok=%v\n%s\n%s", code, rep.OK, stdout, stderr)
 	}
-	if el < doctorLockWait-200*time.Millisecond || el > doctorLockWait+4*time.Second {
-		t.Errorf("doctor took %v, want about its %v budget", el, doctorLockWait)
+	if el < jb.DoctorLockWait-200*time.Millisecond || el > jb.DoctorLockWait+4*time.Second {
+		t.Errorf("doctor took %v, want about its %v budget", el, jb.DoctorLockWait)
 	}
 	var detail string
 	for _, c := range rep.Checks {

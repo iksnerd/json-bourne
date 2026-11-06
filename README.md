@@ -85,9 +85,25 @@ for _, f := range res.Findings {
 
 `Hunt` does what `jb hunt` does, with the same rules: a nil error means the hunt ran, not that it is clean. Check `Result.Complete()` before reporting that nothing was found.
 
-To write a mapper plugin, import `github.com/iksnerd/json-bourne/sdk` (standard library only, none of the host code) and see [docs/PLUGINS.md](docs/PLUGINS.md). Not public yet: the host side of plugins, a protocol conformance corpus, and APIs for `activity`, `watch`, `estate` and `intel`.
+To write a mapper plugin, import `github.com/iksnerd/json-bourne/sdk` (standard library only, none of the host code) and see [docs/PLUGINS.md](docs/PLUGINS.md). Not public yet: the host side of plugins and a protocol conformance corpus.
 
-The API is v0 and may change between minor versions. It covers `Hunt`, `HuntCase` (`jb hunt --case`) and `Watch` (`jb watch`), `WatchStatus` (`jb watch status`) and `Activity` (`jb activity`), and `DashboardHandler` and `Serve` (`jb serve`; the handler keeps the read-only, loopback and CSP rules of RFC 0003, see its doc comment before mounting it), not `actor status`, `estate` or `intel`. For a case, use `HuntCase` and `Watch`; check `Result.Complete()`, `CycleReport.Status.Healthy()` and `ActivityResult.Verdict` before calling anything clean. `Config` and `Result` are aliases of internal types, so their exported fields are part of the API. Importing the package links DuckDB, so it needs cgo and a C compiler.
+The API is v0 and may change between minor versions. Every command has a function, and the command prints the function's result:
+
+| Command | Function |
+|---|---|
+| `jb hunt` | `Hunt`, `HuntCase` (with `HuntOptions.Search` for `--search`) |
+| `jb activity` | `Activity` |
+| `jb watch`, `jb watch status` | `Watch`, `WatchStatus` |
+| `jb case check`, `jb case show` | `CaseCheck`, `CaseShow` |
+| `jb doctor` | `Doctor` (read-only; sends nothing unless `Online` is set) |
+| `jb actor status` | `ActorStatus` |
+| `jb db status`, `jb db usage` | `DBStatus`, `DBUsage` |
+| `jb db prune`, `compact`, `rename-source` | `DBPrune`, `DBCompact`, `DBRenameSource` (a dry run unless `Apply` is set) |
+| `jb intel` | `Intel` |
+| `jb estate ...` | `EstateIP`, `EstateASN`, `EstateDNS`, `EstateCT`, `EstateRefresh`, `EstateDiff`, `EstatePromote` |
+| `jb serve` | `DashboardHandler`, `Serve` (keeps the read-only, loopback and CSP rules of RFC 0003; read the doc comment before mounting the handler) |
+
+Check completeness before calling anything clean: `Result.Complete()` (and `SearchAbsent()` for a search), `CycleReport.Status.Healthy()`, `ActivityResult.Verdict`, `DoctorResult.OK()` and `Complete()`. A caller's mistake returns an error for which `IsUsage` is true. `Config` and `Result` are aliases of internal types, so their exported fields are part of the API. Importing the package links DuckDB, so it needs cgo and a C compiler.
 
 ### Commands
 

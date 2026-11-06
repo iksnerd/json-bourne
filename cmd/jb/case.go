@@ -4,14 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
+	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/casefile"
-	"github.com/iksnerd/json-bourne/internal/config"
 )
 
 func newCaseCmd() *cobra.Command {
@@ -43,8 +42,10 @@ func newCaseCheckCmd() *cobra.Command {
 			if output != "table" && output != "json" {
 				return usageErrorf("--output must be table or json, got %q", output)
 			}
-			rep := checkCase(caseDir)
-			var err error
+			rep, err := jb.CaseCheck(caseDir)
+			if err != nil {
+				return err
+			}
 			if output == "json" {
 				err = writeCaseJSON(cmd.OutOrStdout(), rep)
 			} else {
@@ -54,7 +55,7 @@ func newCaseCheckCmd() *cobra.Command {
 				return fmt.Errorf("write output: %w", err)
 			}
 			if !rep.OK {
-				return fmt.Errorf("case check failed: %s", rep.firstProblem())
+				return fmt.Errorf("case check failed: %s", rep.FirstProblem())
 			}
 			return nil
 		},
@@ -64,150 +65,19 @@ func newCaseCheckCmd() *cobra.Command {
 	return cmd
 }
 
-// caseReport is the result of checking one case. Nothing in it can hold a credential
-// value: it carries ids, paths and error text from loaders that never echo a value.
-type caseReport struct {
-	OK       bool           `json:"ok"`
-	Dir      string         `json:"dir"`
-	ID       string         `json:"id,omitempty"`
-	Title    string         `json:"title,omitempty"`
-	Status   string         `json:"status,omitempty"`
-	Opened   string         `json:"opened,omitempty"`
-	Error    string         `json:"error,omitempty"` // case.yaml did not load
-	Evidence string         `json:"evidence,omitempty"`
-	Guard    *guardReport   `json:"guard,omitempty"`
-	Actors   *actorsReport  `json:"actors,omitempty"`
-	Estate   *estateReport  `json:"estate,omitempty"`
-	Configs  []configReport `json:"configs"`
-}
-
-// actorsReport is the result of loading every actor file in the case's actors directory.
-type actorsReport struct {
-	OK    bool     `json:"ok"`
-	IDs   []string `json:"ids"`
-	Error string   `json:"error,omitempty"` // names every file that did not load
-}
-
-// estateReport is the result of loading every estate file in the case's estate directory.
-type estateReport struct {
-	OK    bool     `json:"ok"`
-	IDs   []string `json:"ids"`
-	Error string   `json:"error,omitempty"` // names every file that did not load
-}
-
-type guardReport struct {
-	OK     bool   `json:"ok"`
-	Result string `json:"result,omitempty"` // "ignored" or "not a git work tree"
-	Error  string `json:"error,omitempty"`
-}
-
-type configReport struct {
-	Path  string `json:"path"`
-	OK    bool   `json:"ok"`
-	Error string `json:"error,omitempty"`
-	// Notes are things worth knowing that do not fail the check: today, the sources
-	// and detectors the config switched off with `enabled: false`.
-	Notes []string `json:"notes,omitempty"`
-}
-
-func (r caseReport) firstProblem() string {
-	switch {
-	case r.Error != "":
-		return r.Error
-	case r.Guard != nil && !r.Guard.OK:
-		return r.Guard.Error
-	case r.Actors != nil && !r.Actors.OK:
-		return r.Actors.Error
-	case r.Estate != nil && !r.Estate.OK:
-		return r.Estate.Error
-	}
-	for _, c := range r.Configs {
-		if !c.OK {
-			return c.Path + ": " + c.Error
-		}
-	}
-	return "unknown problem"
-}
-
-// inspectCase loads the case and runs the evidence guard. It is the part of the
-// check that `jb hunt --case` repeats before touching anything.
-func inspectCase(dir string) (*casefile.Case, *guardReport, error) {
+// inspectCase loads the case. `jb db` needs only the case, not the checks of `case check`.
+func inspectCase(dir string) (*casefile.Case, *jb.CaseGuard, error) {
 	c, err := casefile.Load(dir)
-	if err != nil {
-		return nil, nil, err
-	}
-	g := &guardReport{}
-	st, err := casefile.Guard(c.EvidenceDir())
-	if err != nil {
-		g.Error = err.Error()
-		return c, g, nil
-	}
-	g.OK, g.Result = true, st.String()
-	return c, g, nil
+	return c, nil, err
 }
 
-// checkCase never returns an error: every problem is in the report.
-func checkCase(dir string) caseReport {
-	rep := caseReport{Dir: dir, Configs: []configReport{}}
-	c, g, err := inspectCase(dir)
-	if err != nil {
-		rep.Error = err.Error()
-		return rep
-	}
-	rep.ID, rep.Title, rep.Status, rep.Opened = c.ID, c.Title, c.Status, c.Opened
-	rep.Evidence, rep.Guard = c.Paths.Evidence, g
-	rep.OK = g.OK
-	rep.Actors = &actorsReport{OK: true, IDs: []string{}}
-	actors, err := casefile.LoadActors(c)
-	if err != nil {
-		rep.Actors.OK, rep.Actors.Error = false, err.Error()
-		rep.OK = false
-	}
-	for _, a := range actors {
-		rep.Actors.IDs = append(rep.Actors.IDs, a.ID)
-	}
-	rep.Estate = &estateReport{OK: true, IDs: []string{}}
-	estates, err := casefile.LoadEstates(c)
-	if err != nil {
-		rep.Estate.OK, rep.Estate.Error = false, err.Error()
-		rep.OK = false
-	}
-	for _, e := range estates {
-		rep.Estate.IDs = append(rep.Estate.IDs, e.ID)
-	}
-	for _, rel := range c.Config {
-		cr := configReport{Path: rel, OK: true}
-		// Load and BuildDetectors, not Build: the file is validated, the case files its
-		// detectors name are read, and no environment variable is.
-		f, err := config.Load(filepath.Join(c.Dir, filepath.FromSlash(rel)))
-		if err == nil {
-			f.UseCase(c)
-			_, err = f.BuildDetectors()
-		}
-		if err != nil {
-			cr.OK, cr.Error = false, err.Error()
-			rep.OK = false
-		}
-		if f != nil {
-			for _, n := range f.DisabledSources() {
-				cr.Notes = append(cr.Notes, "DISABLED: source "+n+" (enabled: false; not built, not read)")
-			}
-			for _, n := range f.DisabledDetectors() {
-				cr.Notes = append(cr.Notes, "DISABLED: detector "+n+" (enabled: false; not built, not run)")
-			}
-		}
-		rep.Configs = append(rep.Configs, cr)
-	}
-	return rep
-}
-
-func writeCaseJSON(w io.Writer, r caseReport) error {
+func writeCaseJSON(w io.Writer, r *jb.CaseCheckResult) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(r)
 }
 
-func writeCaseTable(w io.Writer, r caseReport) error {
+func writeCaseTable(w io.Writer, r *jb.CaseCheckResult) error {
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	if r.Error != "" {
 		fmt.Fprintf(tw, "case\t%s\n", r.Dir)

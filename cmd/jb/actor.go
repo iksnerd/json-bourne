@@ -10,9 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
-	"github.com/iksnerd/json-bourne/internal/app"
-	"github.com/iksnerd/json-bourne/internal/core"
+	jb "github.com/iksnerd/json-bourne"
 )
 
 func newActorCmd() *cobra.Command {
@@ -52,44 +50,25 @@ func newActorStatusCmd() *cobra.Command {
 			if output != "table" && output != "json" {
 				return usageErrorf("--output must be table or json, got %q", output)
 			}
-			plan, err := planCase(cmd.ErrOrStderr(), caseDir, cfgPath, "actor", true)
-			if err != nil {
-				return err
+			res, err := jb.ActorStatus(cmd.Context(), caseDir, jb.ActorStatusOptions{Config: cfgPath})
+			if res != nil {
+				for _, n := range res.Notes {
+					fmt.Fprintln(cmd.ErrOrStderr(), n)
+				}
 			}
-			cfg, err := loadCaseConfig(cmd.ErrOrStderr(), plan)
-			if err != nil {
-				return err
-			}
-			dets, err := cfg.BuildDetectors()
-			if err != nil {
-				return err
-			}
-			st, err := duckdb.OpenContext(cmd.Context(), cfg.StorePath(), true, duckdb.OpenOptions{})
-			if err != nil {
-				return fmt.Errorf("open database read-only: %w", err)
-			}
-			defer st.Close()
-			stats, err := st.Stats()
-			if err != nil {
-				return fmt.Errorf("read database stats: %w", err)
-			}
-			if stats.Events == 0 {
-				return fmt.Errorf("the evidence store %s holds no events, so \"never matched\" cannot be said; run `jb hunt --case` first", stats.Path)
-			}
-			hist, err := app.ActorStatus(cmd.Context(), app.ActorStatusDeps{Detectors: dets, Finder: st})
 			if err != nil {
 				return err
 			}
 			var werr error
 			if output == "json" {
-				werr = writeActorJSON(cmd.OutOrStdout(), stats, hist)
+				werr = writeActorJSON(cmd.OutOrStdout(), res)
 			} else {
-				werr = writeActorTable(cmd.OutOrStdout(), stats, hist)
+				werr = writeActorTable(cmd.OutOrStdout(), res)
 			}
 			if werr != nil {
 				return fmt.Errorf("write output: %w", werr)
 			}
-			for _, h := range hist {
+			for _, h := range res.Actors {
 				if h.Capped {
 					return fmt.Errorf("actor %q: the scan stopped at its cap before a genuine match, so no date can be given", h.Actor)
 				}
@@ -111,14 +90,14 @@ func clip(s string, n int) string {
 	return s
 }
 
-func actorNote(h core.ActorHistory) string {
+func actorNote(h jb.ActorMatch) string {
 	var parts []string
 	switch {
 	case h.Capped:
 		parts = append(parts, "INCOMPLETE: scan stopped at its cap")
-	case h.LastGenuine.IsZero() && h.Scanned == 0:
+	case h.LastGenuine == nil && h.Examined == 0:
 		parts = append(parts, "no stored event carries this user agent")
-	case h.LastGenuine.IsZero():
+	case h.LastGenuine == nil:
 		parts = append(parts, "matched only as noise or infrastructure")
 	}
 	if h.Noise > 0 {
@@ -133,47 +112,29 @@ func actorNote(h core.ActorHistory) string {
 	return strings.Join(parts, "; ")
 }
 
-func writeActorTable(w io.Writer, s duckdb.Stats, hist []core.ActorHistory) error {
-	fmt.Fprintf(w, "store  %s: %d events, %s to %s\n\n", s.Path, s.Events, stamp(s.FirstSeen), stamp(s.LastSeen))
+func writeActorTable(w io.Writer, r *jb.ActorStatusResult) error {
+	var from, to time.Time
+	if r.From != nil {
+		from = *r.From
+	}
+	if r.To != nil {
+		to = *r.To
+	}
+	fmt.Fprintf(w, "store  %s: %d events, %s to %s\n\n", r.Store, r.Events, stamp(from), stamp(to))
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(tw, "ACTOR\tUSER AGENT\tLAST GENUINE MATCH\tNOTE")
-	for _, h := range hist {
+	for _, h := range r.Actors {
 		last := "never"
-		if !h.LastGenuine.IsZero() {
-			last = stamp(h.LastGenuine)
+		if h.LastGenuine != nil {
+			last = stamp(*h.LastGenuine)
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", h.Actor, clip(h.Indicator, 60), last, actorNote(h))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", h.Actor, clip(h.UserAgent, 60), last, actorNote(h))
 	}
 	return tw.Flush()
 }
 
-type jsonActorRow struct {
-	Actor       string     `json:"actor"`
-	Label       string     `json:"label,omitempty"`
-	UserAgent   string     `json:"user_agent"`
-	LastGenuine *time.Time `json:"last_genuine,omitempty"`
-	Examined    int        `json:"examined"`
-	Noise       int        `json:"noise"`
-	Ignored     int        `json:"ignored"`
-	Unparsable  int        `json:"unparsable"`
-	Capped      bool       `json:"capped,omitempty"`
-}
-
-func writeActorJSON(w io.Writer, s duckdb.Stats, hist []core.ActorHistory) error {
-	out := struct {
-		Store  string         `json:"store"`
-		Events int64          `json:"store_events"`
-		From   *time.Time     `json:"store_from,omitempty"`
-		To     *time.Time     `json:"store_to,omitempty"`
-		Actors []jsonActorRow `json:"actors"`
-	}{Store: s.Path, Events: s.Events, From: tptr(s.FirstSeen), To: tptr(s.LastSeen), Actors: []jsonActorRow{}}
-	for _, h := range hist {
-		out.Actors = append(out.Actors, jsonActorRow{
-			Actor: h.Actor, Label: h.Label, UserAgent: h.Indicator, LastGenuine: tptr(h.LastGenuine),
-			Examined: h.Scanned, Noise: h.Noise, Ignored: h.Ignored, Unparsable: h.Unparsable, Capped: h.Capped,
-		})
-	}
+func writeActorJSON(w io.Writer, r *jb.ActorStatusResult) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	return enc.Encode(r)
 }
