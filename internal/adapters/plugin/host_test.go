@@ -322,7 +322,17 @@ func TestCancelledContextKillsTheChildAndIsNotABreak(t *testing.T) {
 	e := install(t, "slow")
 	h := newHost(t, e, Limits{Deadline: 30 * time.Second}, nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	go func() { time.Sleep(300 * time.Millisecond); cancel() }()
+	// Cancel once the child is running (it has written its pid), not after a fixed
+	// time: on a loaded machine the child may start later than any fixed delay, and
+	// then there is no pid file to check.
+	go func() {
+		for end := time.Now().Add(10 * time.Second); time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
+			if _, err := strconv.Atoi(strings.TrimSpace(readFile(filepath.Dir(e.Path), "pid"))); err == nil {
+				break
+			}
+		}
+		cancel()
+	}()
 	_, err := h.MapBatch(ctx, docs(1))
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
