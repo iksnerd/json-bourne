@@ -93,6 +93,27 @@ type DashboardStore interface {
 	Close() error
 }
 
+// ReputationFilter selects stored reputation rows. A zero field does not filter.
+type ReputationFilter struct {
+	// Indicators are canonical IP addresses.
+	Indicators []string
+	Source     string
+	// Since keeps rows observed at or after it.
+	Since time.Time
+	// Until keeps rows observed before it (exclusive).
+	Until time.Time
+	// Latest keeps the newest row of each indicator and source.
+	Latest bool
+	// Limit is the most rows returned; it must be positive.
+	Limit int
+}
+
+// ReputationReader reads stored reputation rows, ordered by indicator, then observed
+// time newest first, then source. Implementations must be read-only.
+type ReputationReader interface {
+	Reputation(ctx context.Context, f ReputationFilter) ([]Reputation, error)
+}
+
 // LogTailer returns the last n lines of the watch alert log. ErrAbsent when there is
 // no log.
 type LogTailer interface {

@@ -80,6 +80,12 @@ type dbStore struct {
 // resolveDBStore finds the store the way the `jb db` commands do. It never creates one:
 // a missing file is a wrong path, not an empty store.
 func resolveDBStore(caseDir, cfgPath string) (dbStore, error) {
+	return resolveStoreFor(caseDir, cfgPath, "rename-source")
+}
+
+// resolveStoreFor is resolveDBStore for a case whose config is chosen by the named
+// command (`commands: [command]`).
+func resolveStoreFor(caseDir, cfgPath, command string) (dbStore, error) {
 	if caseDir == "" && cfgPath == "" {
 		return dbStore{}, core.Usagef("one of --case DIR or --config FILE is required (it names the store)")
 	}
@@ -92,7 +98,7 @@ func resolveDBStore(caseDir, cfgPath string) (dbStore, error) {
 		s.path = cfg.StorePath()
 		s.root = filepath.Dir(s.path)
 	} else {
-		plan, err := config.PlanCase(caseDir, cfgPath, "rename-source", true)
+		plan, err := config.PlanCase(caseDir, cfgPath, command, true)
 		if err != nil {
 			return dbStore{}, err
 		}
