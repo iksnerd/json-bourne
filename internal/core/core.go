@@ -165,6 +165,12 @@ type EventReader interface {
 
 // Detector compares the current window with the same-length preceding one.
 // It returns ErrNoRecords when the current window holds nothing to judge.
+//
+// A detector that cannot finish returns the findings it can prove from the evidence it
+// read, together with the error. It never returns a finding that depends on the part it
+// failed to read, or that it could not support. The host keeps those findings and marks
+// the detector incomplete: an error with findings is incomplete-with-findings, never
+// quiet, and a detector that has nothing to prove returns no findings with its error.
 type Detector interface {
 	Name() string
 	Detect(ctx context.Context, cur, prev EventReader, w Window) ([]Finding, error)

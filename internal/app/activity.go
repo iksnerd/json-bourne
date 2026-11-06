@@ -31,6 +31,9 @@ type ActivityDetector struct {
 	Status Status
 	Err    error
 	Report core.ActivityReport // empty unless Status is StatusOK
+	// Findings is how many findings Detect proved. It can be non-zero when Status is not
+	// StatusOK: a detector that could not judge one rule still returns the others.
+	Findings int
 }
 
 // UnparsableShare is Unparsable / Seen for the detector, or 0 when it read nothing.
@@ -147,7 +150,7 @@ func Activity(ctx context.Context, d Deps, run string, w core.Window) (ActivityR
 	cur := boundedReader{inner: d.Reader, bound: w}
 	prev := boundedReader{inner: d.Reader, bound: res.Baseline}
 	for i, det := range d.Detectors {
-		ad := ActivityDetector{Name: det.Name(), Status: hr.Detectors[i].Status, Err: hr.Detectors[i].Err}
+		ad := ActivityDetector{Name: det.Name(), Status: hr.Detectors[i].Status, Err: hr.Detectors[i].Err, Findings: hr.Detectors[i].Findings}
 		if ad.Status == StatusOK {
 			dc, dp := d.readersFor(det.Name(), cur, prev)
 			rep, aerr := det.(core.ActivityReporter).Activity(ctx, dc, dp, w)
@@ -171,6 +174,9 @@ func Activity(ctx context.Context, d Deps, run string, w core.Window) (ActivityR
 func (r *ActivityResult) assess() {
 	active := false
 	for _, d := range r.Detectors {
+		if d.Status != StatusOK && d.Findings > 0 {
+			active = true // a finding proved before the detector gave up is a genuine event
+		}
 		c := d.Counts()
 		r.Current += c.Current
 		r.Previous += c.Previous
