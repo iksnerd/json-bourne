@@ -103,6 +103,21 @@ type HuntOptions struct {
 	// [Result.Stored] is false. Detectors then see only the events this run fetched,
 	// not those saved by earlier runs, so a result can differ from a stored run.
 	NoStore bool
+	// Search narrows every source for this one run, on the server, by a phrase match of
+	// each term against one field, ANDed with the configured filters (`jb hunt --search`).
+	// At most 4 terms; a term is data: 1 to 256 bytes, no control character, not blank, no
+	// padding. A refused search returns a [UsageError] before any request is sent. The run
+	// is stored as search-<time>, not hunt-<time>. The detectors still read the stored
+	// evidence of the window, including events saved by earlier runs, not only the
+	// matches.
+	//
+	// A term that matches nothing in a live index is an answer, not a failure: check
+	// [Result.SearchAbsent] before reading [Result.Complete], which is false for it
+	// because the detectors had nothing to judge. The CLI prints that case as complete.
+	Search []string
+	// SearchField is the field Search matches against. Empty means each source's
+	// search_field, else "message". It needs Search.
+	SearchField string
 }
 
 // Hunt fetches the window and its baseline, stores both as evidence, runs every enabled
@@ -167,9 +182,22 @@ func hunt(ctx context.Context, cfg *Config, opts HuntOptions, keepOut ...string)
 		now = opts.Now
 	}
 
-	w, run, err := plan(now(), opts, "hunt")
+	prefix := "hunt"
+	if len(opts.Search) > 0 {
+		prefix = "search" // a narrowed subset is not a hunt of the window
+	}
+	w, run, err := plan(now(), opts, prefix)
 	if err != nil {
 		return nil, err
+	}
+	if len(opts.Search) > 0 || opts.SearchField != "" {
+		// Narrow a copy: the caller's Config is theirs and may be reused for a plain
+		// hunt. The terms are checked here, before an adapter is built or a request sent.
+		narrowed := *cfg
+		if err := narrowed.UseSearch(opts.Search, opts.SearchField); err != nil {
+			return nil, usagef("%v", err)
+		}
+		cfg = &narrowed
 	}
 
 	rt, err := cfg.Build(opts.Env)
@@ -203,6 +231,7 @@ func hunt(ctx context.Context, cfg *Config, opts HuntOptions, keepOut ...string)
 		Sink: st, Reader: st, Disabled: disabled, Scratch: opts.NoStore,
 	}, run, w)
 	res.Until = opts.Until
+	res.Search = append([]string(nil), opts.Search...)
 	return &res, herr
 }
 

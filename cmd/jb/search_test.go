@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -239,6 +240,31 @@ func TestHuntSearchTermIsDataInTheRequest(t *testing.T) {
 	}
 	if !sawTerm {
 		t.Fatal("no search request was sent")
+	}
+}
+
+// The keys of the --output json document of a search run are a contract: the Go API
+// carries the same facts on jb.Result, and a script reads these.
+func TestHuntSearchJSONKeysAreStable(t *testing.T) {
+	idx := newFakeIndex(t, searchDocs())
+	dir := searchCase(t, idx)
+	_, _, stdout, _ := runSearchHunt(t, dir, "--search", "needle-token")
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(stdout), &top); err != nil {
+		t.Fatal(err)
+	}
+	keys := make([]string, 0, len(top))
+	for k := range top {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	if got, want := strings.Join(keys, ","), "baseline,complete,detectors,findings,run,search,sources,stored,window"; got != want {
+		t.Errorf("top-level keys = %s, want %s", got, want)
+	}
+	var search map[string]json.RawMessage
+	_ = json.Unmarshal(top["search"], &search)
+	if _, ok := search["terms"]; !ok || len(search) != 2 {
+		t.Errorf("search keys = %v, want terms and absent", search)
 	}
 }
 

@@ -194,6 +194,32 @@ type Result struct {
 	// Stored is false when the run went to a temporary store that was deleted afterwards
 	// (`--no-store`), so it left no evidence and no stored run to cite.
 	Stored bool
+	// Search is the ad-hoc search terms the run was narrowed by (`--search`); nil for a
+	// run without one. The sources fetched only the matches, so their counts are about
+	// the term, while the detectors still read the stored evidence of the window.
+	Search []string
+}
+
+// SearchAbsent reports whether a search matched nothing anywhere and every index was
+// shown alive: every source finished with no match, and no detector failed except by
+// having nothing to judge. That is the answer "the term is absent", which is not a
+// failure, and not a clean result about anything else either. False for a run without
+// a search.
+func (r Result) SearchAbsent() bool {
+	if len(r.Search) == 0 || len(r.Sources) == 0 {
+		return false
+	}
+	for _, s := range r.Sources {
+		if !s.NoMatch() {
+			return false
+		}
+	}
+	for _, d := range r.Detectors {
+		if d.Status != StatusOK && d.Status != StatusNoRecords {
+			return false
+		}
+	}
+	return true
 }
 
 // Failed returns the names of the components that did not finish with StatusOK.

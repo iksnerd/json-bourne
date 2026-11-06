@@ -83,13 +83,8 @@ func newHuntCmdWith(d deps) *cobra.Command {
 			if output != "table" && output != "json" {
 				return usageErrorf("--output must be table or json, got %q", output)
 			}
-			if sfield != "" && len(search) == 0 {
-				return usageErrorf("--search-field needs --search")
-			}
-			if len(search) > 0 {
-				if err := config.ValidateSearch(search); err != nil {
-					return usageErrorf("%v", err)
-				}
+			if err := config.CheckSearch(search, sfield); err != nil {
+				return usageErrorf("%v", err)
 			}
 
 			var untilT time.Time
@@ -147,6 +142,7 @@ func newHuntCmdWith(d deps) *cobra.Command {
 
 			res, huntErr := app.Hunt(cmd.Context(), runDeps(rt, rt.Detectors, st), run, w)
 			res.Until = wp.Until
+			res.Search = search
 			// Advice only: the detectors have just read the store, and if one set of documents
 			// sits under two labels they counted it twice. The verdict below is not touched.
 			warnSourceOverlap(cmd.Context(), cmd.ErrOrStderr(), st, core.Window{From: w.Previous().From, To: w.To}, scope)
@@ -155,9 +151,9 @@ func newHuntCmdWith(d deps) *cobra.Command {
 			if len(res.Sources) > 0 { // none means the hunt never started (bad input)
 				var perr error
 				if output == "json" {
-					perr = writeJSON(cmd.OutOrStdout(), res, search)
+					perr = writeJSON(cmd.OutOrStdout(), res)
 				} else {
-					perr = writeTable(cmd.OutOrStdout(), res, search)
+					perr = writeTable(cmd.OutOrStdout(), res)
 				}
 				if perr != nil && huntErr == nil {
 					huntErr = fmt.Errorf("write output: %w", perr)
@@ -166,7 +162,7 @@ func newHuntCmdWith(d deps) *cobra.Command {
 			if huntErr != nil {
 				return huntErr
 			}
-			if len(search) > 0 && searchAbsent(res) {
+			if res.SearchAbsent() {
 				return nil // the term is absent from a live index: an answer, not a failure
 			}
 			if failed := res.Failed(); len(failed) > 0 {
@@ -207,27 +203,6 @@ func searchFieldName(override string) string {
 	return "message (or each source's search_field)"
 }
 
-// searchAbsent reports whether a search matched nothing anywhere and every index was
-// shown alive: every source finished with no match, and no detector failed except by
-// having nothing to judge. That is the answer "the term is absent", which is not a
-// failure, and not a clean result about anything else either.
-func searchAbsent(r app.Result) bool {
-	if len(r.Sources) == 0 {
-		return false
-	}
-	for _, s := range r.Sources {
-		if !s.NoMatch() {
-			return false
-		}
-	}
-	for _, d := range r.Detectors {
-		if d.Status != app.StatusOK && d.Status != app.StatusNoRecords {
-			return false
-		}
-	}
-	return true
-}
-
 // sourceNote is the NOTE column of a source row: the error, or what a zero means.
 func sourceNote(s app.SourceResult) string {
 	if s.NoMatch() {
@@ -255,8 +230,8 @@ func errText(err error) string {
 	return err.Error()
 }
 
-func writeTable(w io.Writer, r app.Result, search []string) error {
-	absent := len(search) > 0 && searchAbsent(r)
+func writeTable(w io.Writer, r app.Result) error {
+	absent := r.SearchAbsent()
 	fmt.Fprintf(w, "run       %s\n", r.Run)
 	if !r.Stored {
 		fmt.Fprintln(w, notStoredLine)
@@ -295,8 +270,8 @@ func writeTable(w io.Writer, r app.Result, search []string) error {
 				src.Name, app.HighUnparsableShare*100)
 		}
 	}
-	if len(search) > 0 {
-		writeSearchSummary(w, r, search, absent)
+	if len(r.Search) > 0 {
+		writeSearchSummary(w, r, r.Search, absent)
 	}
 	if failed := r.Failed(); len(failed) > 0 && !absent {
 		fmt.Fprintf(w, "INCOMPLETE: %d component(s) did not finish; this is not a clean result.\n", len(failed))
@@ -388,8 +363,8 @@ func jsonDisabledOf(ds []app.Disabled) []jsonDisabled {
 	return out
 }
 
-func writeJSON(w io.Writer, r app.Result, search []string) error {
-	absent := len(search) > 0 && searchAbsent(r)
+func writeJSON(w io.Writer, r app.Result) error {
+	absent := r.SearchAbsent()
 	out := jsonResult{
 		Run: r.Run, Window: [2]time.Time{r.Window.From, r.Window.To},
 		Baseline: [2]time.Time{r.Baseline.From, r.Baseline.To}, Complete: r.Complete() || absent, Stored: r.Stored,
@@ -397,8 +372,8 @@ func writeJSON(w io.Writer, r app.Result, search []string) error {
 	}
 	out.Until = tptr(r.Until)
 	out.Disabled = jsonDisabledOf(r.Disabled)
-	if len(search) > 0 {
-		out.Search = &jsonSearch{Terms: search, Absent: absent}
+	if len(r.Search) > 0 {
+		out.Search = &jsonSearch{Terms: r.Search, Absent: absent}
 	}
 	for _, s := range r.Sources {
 		n := s.Events

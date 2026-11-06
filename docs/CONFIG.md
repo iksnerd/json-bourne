@@ -116,6 +116,8 @@ Rules, checked before any request is made (a violation is a usage error, exit 2,
 
 A search that matches nothing runs the liveness probe above, so the two zeros differ: `no match; index alive` (the probe counted documents without the term: the term is absent, exit 0) and `index empty or nothing readable` or `unreachable` (the index gave no documents or could not be asked: nothing can be said about the term, exit 1). The count printed is the probe's own answer, never a total minus anything. The detectors read the stored evidence for the window, which includes events saved by earlier runs, so their findings are not about the matches alone.
 
+From Go, set `Search` and `SearchField` in `jb.HuntOptions` (so also `CaseHuntOptions`). The same rules apply and a refusal is a `jb.UsageError` returned before any request is sent. `Result.Search` holds the terms, and `Result.SearchAbsent()` is true for the "term is absent" answer; `Result.Complete()` is false then, because the detectors had nothing to judge, so test `SearchAbsent` first.
+
 #### Past windows
 
 `jb hunt --until TIME` and `jb activity --until TIME` hunt `[TIME - window, TIME)` and the same-length window before it, through the same sources, filters, scopes and detectors. The source gets the past bounds as `gte` and `lt` on the time field and pages by timestamp cursor as for any window; nothing in the request is relative to the present. Put a `filter` on the source before a backfill: without one a day is every document of the index (see [Filter](#filter)). The rules and the day-by-day loop are in [BACKFILL.md](BACKFILL.md). `jb watch` has no `--until`.
