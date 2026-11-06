@@ -22,7 +22,10 @@
       });
   }
 
-  function kindClass(kind) { return /^[a-z]{1,12}$/.test(kind) ? "k-" + kind : "k-other"; }
+  // Only the kinds the stylesheet colours get their own class; a service node and any
+  // later kind take the neutral one.
+  var KNOWN_KINDS = ["asn", "org", "network", "ip", "host", "domain"];
+  function kindClass(kind) { return KNOWN_KINDS.indexOf(kind) >= 0 ? "k-" + kind : "k-other"; }
   function safeHref(h, prefix) { return typeof h === "string" && h.indexOf(prefix) === 0 ? h : null; }
   // Ask htmx to load a record into the sheet; without htmx or without the sheet the
   // element stays an ordinary link to the record's page.

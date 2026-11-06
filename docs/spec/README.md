@@ -12,8 +12,9 @@ The specs stay in the files where they already are. This page is the index.
 |---|---|---|---|---|
 | Case (`jb.case/v1`) | [CASE-SPEC.md](../CASE-SPEC.md) sections 3 to 9 | `internal/casefile` | `schemas/case.schema.json` | `TestSchemaMatchesStruct`, `TestSchemaMatchesLoaderRules` in `internal/casefile` |
 | Actor file (`jb.actor/v1`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.4 | `internal/casefile` | `schemas/actor.schema.json` | `TestActorSchemaMatchesStruct`, `TestActorSchemaMatchesLoaderRules` |
-| Estate file (`jb.estate/v1`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.5 | `internal/casefile/estate.go` | `schemas/estate.schema.json` | `TestEstateSchemaMatchesStruct`, `TestEstateSchemaMatchesLoaderRules`, `TestEstateAllowlistMatchesPolicyDoc` |
-| Estate snapshot (`jb.estate-snapshot/v1`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.5.1 | `internal/casefile/estate_snapshot.go` | none (the loader is the spec) | the snapshot tests in `internal/casefile` |
+| Estate file (`jb.estate/v2`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.5 | `internal/casefile/estate.go` | `schemas/estate.schema.json` | `TestEstateSchemaMatchesStruct`, `TestEstateSchemaMatchesLoaderRules`, `TestEstateAllowlistMatchesPolicyDoc`, and the corpus `TestEstateCorpus` over `internal/casefile/testdata/estate/` (valid files, and one invalid file per rule with the substring its error must contain) |
+| Estate snapshot (`jb.estate-snapshot/v2`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.5.1 | `internal/casefile/estate_snapshot.go` | none (the loader is the spec) | the snapshot tests in `internal/casefile` |
+| Facts import (`jb.estate-facts/v1`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.5.2 | `internal/casefile/estate_facts_import.go` | none (the loader is the spec) | `TestParseFactsImportRefusals`, `TestParseFactsImportCaps`, `TestApplyFactsImport` in `internal/casefile` |
 | Mapper plugin protocol (`v` 1) | [PLUGINS.md](../PLUGINS.md) | `internal/adapters/plugin`, `sdk` | none | `internal/conformance` |
 | Config file | [CONFIG.md](../CONFIG.md) | `internal/config` | none (the loader is the spec) | the tests in `internal/config` |
 | Passive-only policy | [POLICY.md](../POLICY.md) | the estate and source allowlists | none | `TestEstateAllowlistIsPassiveOnly`, `TestEstateAllowlistMatchesPolicyDoc` |

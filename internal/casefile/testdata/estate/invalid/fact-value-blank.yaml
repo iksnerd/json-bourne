@@ -1,0 +1,17 @@
+# want: value
+apiVersion: jb.estate/v2
+id: t
+caveat: "Ownership and relationships, not who typed the commands."
+nodes:
+  - id: ip:192.0.2.10
+    kind: ip
+    label: 192.0.2.10
+    source: dns
+    method: "synthetic example"
+    observed: 2026-11-06T10:00:00Z
+    facts:
+      - key: tls.cn
+        value: "  "
+        source: ct-log
+        method: m
+        observed: 2026-11-06T10:00:00Z

@@ -14,7 +14,7 @@ import (
 )
 
 // All data is synthetic: example.com and RFC 5737 / RFC 5398 documentation values.
-const validEstate = `apiVersion: jb.estate/v1
+const validEstate = `apiVersion: jb.estate/v2
 id: estate-a
 caveat: This map shows infrastructure ownership and relationships as public registries and DNS describe them. It does not show who typed the commands.
 nodes:
@@ -91,14 +91,15 @@ func mutate(t *testing.T, old, new string) string {
 func TestParseEstateRefusals(t *testing.T) {
 	cases := map[string]struct{ doc, want string }{
 		"empty":                {"", "empty"},
-		"no apiVersion":        {mutate(t, "apiVersion: jb.estate/v1\n", ""), "apiVersion is required"},
-		"wrong apiVersion":     {mutate(t, "jb.estate/v1", "jb.estate/v2"), "unsupported apiVersion"},
+		"no apiVersion":        {mutate(t, "apiVersion: jb.estate/v2\n", ""), "apiVersion is required"},
+		"wrong apiVersion":     {mutate(t, "jb.estate/v2", "jb.estate/v3"), "unsupported apiVersion"},
+		"v1 is refused":        {mutate(t, "jb.estate/v2", "jb.estate/v1"), "rewrite"},
 		"no caveat":            {mutate(t, "caveat:", "caveat_x:"), "caveat"},
 		"blank caveat":         {strings.Replace(validEstate, validEstate[strings.Index(validEstate, "caveat:"):strings.Index(validEstate, "nodes:")], "caveat: \"   \"\n", 1), "caveat"},
 		"empty caveat":         {strings.Replace(validEstate, validEstate[strings.Index(validEstate, "caveat:"):strings.Index(validEstate, "nodes:")], "caveat: \"\"\n", 1), "caveat"},
 		"unknown top key":      {validEstate + "extra: 1\n", "unknown key"},
 		"unknown node key":     {mutate(t, "    label: 192.0.2.10\n", "    label: 192.0.2.10\n    owner: x\n"), "unknown key"},
-		"two documents":        {validEstate + "---\napiVersion: jb.estate/v1\n", "more than one"},
+		"two documents":        {validEstate + "---\napiVersion: jb.estate/v2\n", "more than one"},
 		"node no source":       {mutate(t, "    source: rdns\n    method: \"PTR 10.2.0.192.in-addr.arpa via system resolver\"\n    observed: 2026-11-06T10:00:00Z\n  - id: host", "    method: \"x\"\n    observed: 2026-11-06T10:00:00Z\n  - id: host"), "source"},
 		"node no method":       {mutate(t, "    source: rdns\n    method: \"PTR 10.2.0.192.in-addr.arpa via system resolver\"\n    observed: 2026-11-06T10:00:00Z\n  - id: host", "    source: rdns\n    observed: 2026-11-06T10:00:00Z\n  - id: host"), "method"},
 		"node no observed":     {mutate(t, "    observed: 2026-11-06T10:00:01Z\nedges:", "edges:"), "observed"},
@@ -307,7 +308,7 @@ func TestLoadEstateFileAndDirectory(t *testing.T) {
 	if err != nil || len(es) != 2 {
 		t.Fatalf("%v %v", es, err)
 	}
-	writeEstate(t, c.Dir, "c.yaml", "apiVersion: jb.estate/v1\n")
+	writeEstate(t, c.Dir, "c.yaml", "apiVersion: jb.estate/v2\n")
 	if _, err := LoadEstates(c); err == nil || !strings.Contains(err.Error(), "c.yaml") {
 		t.Fatalf("a broken file must be named, got %v", err)
 	}
@@ -426,6 +427,28 @@ func TestEstateSchemaMatchesLoaderRules(t *testing.T) {
 	}
 	if !slices.Equal(sorted(ed.Required), sorted(EdgeRequiredKeys)) {
 		t.Errorf("edge required: schema %v, loader %v", ed.Required, EdgeRequiredKeys)
+	}
+	fa := n.Properties["facts"].Items
+	if got := asStrings(t, fa.Properties["source"].Enum); !slices.Equal(sorted(got), sorted(EstateSources)) {
+		t.Errorf("fact source enum: schema %v, loader %v", got, EstateSources)
+	}
+	if !slices.Equal(sorted(fa.Required), sorted(FactRequiredKeys)) {
+		t.Errorf("fact required: schema %v, loader %v", fa.Required, FactRequiredKeys)
+	}
+	as := s.Properties["assessments"].Items
+	if !slices.Equal(sorted(as.Required), sorted(AssessmentRequiredKeys)) {
+		t.Errorf("assessment required: schema %v, loader %v", as.Required, AssessmentRequiredKeys)
+	}
+	for name, max := range map[string]int{"nodes": maxEstateNodes, "edges": maxEstateEdges, "absences": maxEstateAbsences, "assessments": maxEstateAssessments} {
+		if got := s.Properties[name].MaxItems; got != max {
+			t.Errorf("%s maxItems: schema %d, loader %d", name, got, max)
+		}
+	}
+	if got := n.Properties["facts"].MaxItems; got != maxNodeFacts {
+		t.Errorf("facts maxItems: schema %d, loader %d", got, maxNodeFacts)
+	}
+	if got := as.Properties["basis"].MaxItems; got != maxBasis {
+		t.Errorf("basis maxItems: schema %d, loader %d", got, maxBasis)
 	}
 	ab := s.Properties["absences"].Items
 	if got := asStrings(t, ab.Properties["source"].Enum); !slices.Equal(sorted(got), sorted(EstateSources)) {

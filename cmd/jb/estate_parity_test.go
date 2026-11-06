@@ -105,8 +105,8 @@ func TestEstateDriftJSONKeysAreUnchanged(t *testing.T) {
 	diffKeys := []string{"note", "from", "to", "questions_compared", "changes", "not_comparable", "nodes_not_compared", "counts", "findings"}
 	_, out, _ = run(t, w.deps(), "estate", "diff", "--case", dir, "--file", "base.yaml", "--output", "json")
 	wantEstateKeys(t, "diff", out, diffKeys...)
-	wantEstateKeys(t, "diff side", subObject(t, out, "from"), "ref", "path", "latest_observed", "nodes", "edges", "absences")
-	wantEstateKeys(t, "diff counts", subObject(t, out, "counts"), "all", "nodes", "edges", "absences")
+	wantEstateKeys(t, "diff side", subObject(t, out, "from"), "ref", "path", "latest_observed", "nodes", "edges", "absences", "facts")
+	wantEstateKeys(t, "diff counts", subObject(t, out, "counts"), "all", "nodes", "edges", "absences", "facts")
 	wantEstateKeys(t, "diff counts all", subObject(t, subObject(t, out, "counts"), "all"), "added", "removed", "changed")
 	wantEstateKeys(t, "diff finding", firstOf(t, out, "findings"), "detector", "tag", "severity", "summary", "detail")
 	wantEstateKeys(t, "diff change", firstOf(t, out, "changes"), "kind", "type", "subject", "from", "to", "relation", "source", "method", "from_observed", "to_observed")

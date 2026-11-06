@@ -977,7 +977,9 @@ type EstateDiffResult struct {
 // Only observations made by the same source and the same method are compared. A
 // question that exists on one side only, because the method or the resolver changed or
 // a service was skipped, is in NotComparable with its counts; it is never counted as
-// drift and never hidden. An incomplete snapshot on either side is refused, because its
+// drift and never hidden. Facts are compared as a set of values per node, key, source
+// and method; assessments are opinion and are not compared. An incomplete snapshot on
+// either side is refused, because its
 // missing answers would read as removals, and a corrupt or unknown file is an error,
 // never an empty baseline. A nil error means the comparison ran, whether or not it
 // found drift. With opts.Alert, a failure to deliver is returned with the result.
@@ -1032,7 +1034,7 @@ func EstateDiff(ctx context.Context, caseDir string, opts EstateDiffOptions) (*E
 		return EstateChangeCounts{diff.Count(app.ChangeAdded, typ), diff.Count(app.ChangeRemoved, typ), diff.Count(app.ChangeChanged, typ)}
 	}
 	res := &EstateDiffResult{Note: EstateDriftNote, EstateComparison: diff,
-		Counts:   map[string]EstateChangeCounts{"all": cnt(""), "nodes": cnt(app.ItemNode), "edges": cnt(app.ItemEdge), "absences": cnt(app.ItemAbsence)},
+		Counts:   map[string]EstateChangeCounts{"all": cnt(""), "nodes": cnt(app.ItemNode), "edges": cnt(app.ItemEdge), "absences": cnt(app.ItemAbsence), "facts": cnt(app.ItemFact)},
 		Findings: make([]EstateDriftFinding, 0, len(findings))}
 	for _, f := range findings {
 		res.Findings = append(res.Findings, EstateDriftFinding{f.Detector, f.Tag, core.SeverityName(f.Severity), f.Summary, f.Detail})

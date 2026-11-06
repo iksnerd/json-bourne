@@ -19,8 +19,11 @@ import (
 // EstateSnapshotAPIVersion is the only snapshot format this build reads. A snapshot is
 // one dated, complete-or-not run of the passive collectors over the targets an estate
 // file already names (docs/CASE-SPEC.md section 4.5.1). It wraps an ordinary
-// jb.estate/v1 body so that every claim keeps its source, method and time.
-const EstateSnapshotAPIVersion = "jb.estate-snapshot/v1"
+// jb.estate/v2 body so that every claim keeps its source, method and time.
+const EstateSnapshotAPIVersion = "jb.estate-snapshot/v2"
+
+// estateSnapshotV1APIVersion is refused with a message that says how to get a v2 snapshot.
+const estateSnapshotV1APIVersion = "jb.estate-snapshot/v1"
 
 // EstateSnapshotDir is the directory, inside paths.estate, that holds snapshots. The
 // estate loader reads only files directly inside paths.estate, so a snapshot is never
@@ -70,7 +73,7 @@ type SnapshotTargets struct {
 	ASNs      []string `yaml:"asns,omitempty"`
 }
 
-// EstateSnapshot is a parsed, validated jb.estate-snapshot/v1 file.
+// EstateSnapshot is a parsed, validated jb.estate-snapshot/v2 file.
 type EstateSnapshot struct {
 	APIVersion string `yaml:"apiVersion"`
 	ID         string `yaml:"id"`
@@ -110,6 +113,8 @@ func ParseEstateSnapshot(data []byte) (*EstateSnapshot, error) {
 	case EstateSnapshotAPIVersion:
 	case "":
 		return nil, fmt.Errorf("apiVersion is required (this build reads %s)", EstateSnapshotAPIVersion)
+	case estateSnapshotV1APIVersion:
+		return nil, fmt.Errorf("unsupported apiVersion %q: this build reads only %s; rewrite apiVersion to %s and the apiVersion of its estate body to %s, or regenerate the snapshot with `jb estate refresh`", probe.APIVersion, EstateSnapshotAPIVersion, EstateSnapshotAPIVersion, EstateAPIVersion)
 	default:
 		return nil, fmt.Errorf("unsupported apiVersion %q: this build reads only %s", probe.APIVersion, EstateSnapshotAPIVersion)
 	}

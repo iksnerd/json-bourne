@@ -16,7 +16,7 @@ The loader is strict. An unknown key, an unknown `type`, a missing `type`, a fil
 | `store.path` | string | no | Path of the DuckDB file. |
 | `feeds` | list | no | Reputation feeds for `jb intel` (`greynoise`, `sans-isc`, `dnsbl`). Each element is a mapping with a `type`. Ignored by `hunt` and `watch`, which never read a feed key. |
 | `intel` | mapping | no | Options of `jb intel`; see [Reputation lookups](#reputation-lookups). |
-| `estate` | mapping | no | Which external services `jb estate asn\|dns\|ct` and `jb estate refresh` may ask; see [Estate collectors](#estate-collectors) and [Estate drift](#estate-drift). Ignored by every other command. |
+| `estate` | mapping | no | Which external services `jb estate asn\|dns\|ct` and `jb estate refresh` may ask; see [Estate collectors](#estate-collectors) and [Estate drift](#estate-drift). `jb estate facts import` reads a local file and needs no entry ([Estate facts](#estate-facts)). Ignored by every other command. |
 | `alerts` | list | no | Extra places `jb watch` delivers alerts, in addition to stdout and `watch.log`; see [Alert delivery](#alert-delivery). Ignored by `hunt` and `intel`. |
 
 ## Which config answers a command
@@ -794,6 +794,14 @@ The check is a separate command, not a step of `jb watch`. `watch` runs every fe
 ```
 
 `&&` is deliberate: when the refresh is INCOMPLETE the diff does not run against stale data, and the non-zero exit is what the scheduler should alert on. The first run needs a baseline: run `jb estate IP|asn|dns|ct` to record what to watch, then `jb estate refresh` and `jb estate promote <id>`. After a change you accept, run `jb estate promote <id>` for the snapshot you reviewed; until then the same drift is reported on every run (and held back by `--ttl`). Snapshots accumulate in `estate/snapshots/`; nothing deletes them.
+
+## Estate facts
+
+```
+jb estate facts import --case DIR [--file estate.yaml] [--apply] [--output table|json] IMPORT-FILE
+```
+
+Adds facts to nodes of an estate file from one export file you hold. It adds no config key and needs no `estate.external` entry, because it reads one local file and sends nothing: the source `scan-cache` is a store someone else built earlier, and the target observes nothing from `jb` (`docs/POLICY.md`, "The test for a source"). The `commands:` name `estate` covers it. The import file shape, its caps (1 MiB, 5000 facts) and the rules are in `docs/CASE-SPEC.md` section 4.5.2. It is a dry run unless `--apply` is given, so `jb estate facts import` on its own writes nothing. Exit 2 is usage: no file, an unknown key, a node the estate file does not have, a file over the caps, or a result that would not load. The estate file must already exist. The diff compares facts per node, key, source and method (`docs/CASE-SPEC.md` section 4.5.1), so keep the `method` and `source_note` of an export stable between imports if you want later exports compared with it.
 
 ## Alert delivery
 

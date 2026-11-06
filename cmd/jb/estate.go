@@ -44,7 +44,7 @@ func newEstateCmdWith(d deps) *cobra.Command {
 		Use:   "estate --case DIR IP [IP ...]",
 		Short: "Record who holds an address (reverse DNS and RDAP) into the case's estate file",
 		Long: "estate asks, for each address, a DNS resolver for its PTR record and an RDAP service for the\n" +
-			"registration of the range that covers it, and merges the answers into a jb.estate/v1 file in the\n" +
+			"registration of the range that covers it, and merges the answers into a jb.estate/v2 file in the\n" +
 			"case's estate directory (docs/CASE-SPEC.md section 4.5). Every node, edge and absence is stamped\n" +
 			"with its source, the method (the exact query) and the time.\n\n" +
 			"It is passive: queries go to the resolver and the RDAP service, never to the address, and the\n" +
@@ -102,6 +102,7 @@ func newEstateCmdWith(d deps) *cobra.Command {
 	f.StringVar(&output, "output", "table", "output format: table or json")
 	cmd.AddCommand(newEstateExtCmds(d)...)
 	cmd.AddCommand(newEstateDriftCmds(d)...)
+	cmd.AddCommand(newEstateFactsCmd(d))
 	return cmd
 }
 

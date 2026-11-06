@@ -235,18 +235,17 @@ The examples are test vectors for the proposed loader. They are not run today.
 
 Shipped:
 
-- The v1 file format: `internal/casefile/estate.go`, `schemas/estate.schema.json`, and the tests named in [docs/spec/README.md](../spec/README.md).
-- The estate view of the dashboard: `internal/adapters/web`, `internal/estategraph`.
+- The v2 file format: `internal/casefile/estate.go` (strict loader, `service` nodes, `facts`, `assessments`; `jb.estate/v1` is refused with the rewrite message), `schemas/estate.schema.json` (rewritten in place to v2, kept equal to the loader by `TestEstateSchemaMatchesStruct` and `TestEstateSchemaMatchesLoaderRules`), and the corpus `internal/casefile/testdata/estate/` (valid files, and one invalid file per rule with the substring its error must contain; `TestEstateCorpus`). The caps are tested at N and N+1 in `internal/casefile/estate_v2_test.go`. The examples and every estate file in the repository are v2.
+- The snapshot format `jb.estate-snapshot/v2` and the drift check for facts: `internal/casefile/estate_snapshot.go`, `internal/app/estate_diff.go` (facts compared as a set per node, key, source and method; a group on one side only is listed as not comparable; assessments are not compared) and `internal/app/estate_refresh.go` (a refresh carries the baseline's facts, and the assessments that still resolve, into the snapshot). `jb estate refresh|diff|promote` and `EstateRefresh`, `EstateDiff`, `EstatePromote` use them.
+- The Estate page of the dashboard shows facts in the node record and assessments under the heading `Assessments (opinion)` with a fixed notice that does not depend on the caveat (`internal/adapters/web`, `internal/estategraph` draws `service` nodes like any node).
+- The role `scan-cache` in `docs/POLICY.md` and `casefile.EstateSources`, and `jb estate facts import FILE` (`jb.EstateFactsImport`, `internal/casefile/estate_facts_import.go`): one neutral JSON shape (`jb.estate-facts/v1`, CASE-SPEC section 4.5.2), unknown keys refused, 1 MiB and 5000 facts, no network, a dry run unless `--apply`.
 - Reputation snapshots: `jb intel` writes them and the dashboard's `LatestReputation` reads them (`internal/core/dashboard.go`).
 - A way to find the events that carry a given field value, newest first: `FieldEventFinder` in `internal/core/activity.go`, used today by `jb actor status`.
 
 Proposed:
 
-- The v2 loader, schema and corpus.
-- The `service` node kind, `facts` and `assessments` in the loader and in the view types.
-- The strength table and the overlays in the Estate page.
-- A read port for the overlays, if `FieldEventFinder` does not fit.
-- The POLICY.md change for a cached third-party source, if the maintainer accepts one.
+- The strength table, edge weight and the filter by node kind in the Estate page.
+- The overlays (reputation verdict and last-seen time on an `ip` node), and a read port for them if `FieldEventFinder` does not fit.
 
 ## Open questions
 

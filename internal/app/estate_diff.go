@@ -38,6 +38,7 @@ const (
 	ItemNode    = "node"
 	ItemEdge    = "edge"
 	ItemAbsence = "absence"
+	ItemFact    = "fact"
 )
 
 // DriftSide describes one side of a comparison, so the output says exactly what was
@@ -51,6 +52,7 @@ type DriftSide struct {
 	Nodes    int    `json:"nodes"`
 	Edges    int    `json:"edges"`
 	Absences int    `json:"absences"`
+	Facts    int    `json:"facts"`
 }
 
 // EstateChange is one difference between two observations of the same question.
@@ -66,6 +68,9 @@ type EstateChange struct {
 	FromObserved string `json:"from_observed"`
 	ToObserved   string `json:"to_observed"`
 	Detail       string `json:"detail,omitempty"`
+	// Value is the fact value that appeared or disappeared (type fact only). Subject is
+	// then "<node id>#<fact key>".
+	Value string `json:"value,omitempty"`
 }
 
 // NotComparable is a question that exists on one side only, or a node recorded under a
@@ -78,6 +83,8 @@ type NotComparable struct {
 	Claims   int    `json:"claims"`
 	Observed string `json:"observed"`
 	Reason   string `json:"reason"`
+	// Subject is "<node id>#<fact key>" for a group of facts that exists on one side only.
+	Subject string `json:"subject,omitempty"`
 }
 
 // EstateDiff is the result of comparing two estate states.
@@ -170,6 +177,9 @@ func groupEstate(e *casefile.Estate) (map[qkey]*qgroup, string) {
 
 func driftSide(s *casefile.EstateState, latest string) DriftSide {
 	d := DriftSide{Ref: s.Ref, Path: s.Path, Observed: latest, Nodes: len(s.Estate.Nodes), Edges: len(s.Estate.Edges), Absences: len(s.Estate.Absences)}
+	for _, n := range s.Estate.Nodes {
+		d.Facts += len(n.Facts)
+	}
 	if s.Snapshot != nil {
 		d.Snapshot, d.Taken = s.Snapshot.ID, s.Snapshot.Taken
 	}
@@ -261,15 +271,91 @@ func DiffEstates(from, to *casefile.EstateState) (EstateDiff, error) {
 		out.NotComparable = append(out.NotComparable, NotComparable{Side: "both", Claims: out.NodesNotCompared,
 			Reason: "node(s) present on both sides but recorded by a different source or method on each; labels were not compared"})
 	}
+	diffFacts(from.Estate, to.Estate, &out)
 	sort.SliceStable(out.Changes, func(i, j int) bool { return changeKey(out.Changes[i]) < changeKey(out.Changes[j]) })
 	return out, nil
 }
 
-var typeOrder = map[string]string{ItemEdge: "1", ItemAbsence: "2", ItemNode: "3"}
+// factGroup is the values one source and method recorded for one key of one node, as a
+// set: a port list that gains an entry has gained one value, not replaced a list.
+type factGroup struct {
+	node, key, source, method string
+	values                    map[string]casefile.Fact
+	observed                  string // the latest time any fact of the group was observed
+}
+
+type factKey struct{ node, key, source, method string }
+
+func groupFacts(e *casefile.Estate) map[factKey]*factGroup {
+	out := map[factKey]*factGroup{}
+	for _, n := range e.Nodes {
+		for _, f := range n.Facts {
+			k := factKey{n.ID, f.Key, f.Source, f.Method}
+			g := out[k]
+			if g == nil {
+				g = &factGroup{node: n.ID, key: f.Key, source: f.Source, method: f.Method, values: map[string]casefile.Fact{}}
+				out[k] = g
+			}
+			g.values[f.Value] = f
+			if at := normTime(f.Observed); at > g.observed {
+				g.observed = at
+			}
+		}
+	}
+	return out
+}
+
+// diffFacts compares facts as a set per node, key, source and method. A value that
+// appears or disappears is a change with both observation times. A group that exists on
+// one side only is listed as not comparable and is never drift, as for any claim.
+// Assessments are opinion and are not compared.
+func diffFacts(from, to *casefile.Estate, out *EstateDiff) {
+	gf, gt := groupFacts(from), groupFacts(to)
+	keys := make([]factKey, 0, len(gf)+len(gt))
+	for k := range gf {
+		keys = append(keys, k)
+	}
+	for k := range gt {
+		if _, both := gf[k]; !both {
+			keys = append(keys, k)
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		a, b := keys[i], keys[j]
+		return strings.Join([]string{a.node, a.key, a.source, a.method}, "\x00") < strings.Join([]string{b.node, b.key, b.source, b.method}, "\x00")
+	})
+	const reason = "this exact group of facts (node, key, source and method) was not recorded on the other side; a different source note or method is not a change of the world"
+	for _, k := range keys {
+		f, t := gf[k], gt[k]
+		subject := k.node + "#" + k.key
+		switch {
+		case f != nil && t != nil:
+			out.Compared++
+			for v, tf := range t.values {
+				if _, ok := f.values[v]; !ok {
+					out.Changes = append(out.Changes, EstateChange{Kind: ChangeAdded, Type: ItemFact, Subject: subject, Value: v, Source: k.source, Method: k.method,
+						FromObserved: f.observed, ToObserved: normTime(tf.Observed)})
+				}
+			}
+			for v, ff := range f.values {
+				if _, ok := t.values[v]; !ok {
+					out.Changes = append(out.Changes, EstateChange{Kind: ChangeRemoved, Type: ItemFact, Subject: subject, Value: v, Source: k.source, Method: k.method,
+						FromObserved: normTime(ff.Observed), ToObserved: t.observed})
+				}
+			}
+		case f != nil:
+			out.NotComparable = append(out.NotComparable, NotComparable{Source: k.source, Method: k.method, Side: "from only", Claims: len(f.values), Observed: f.observed, Subject: subject, Reason: reason})
+		default:
+			out.NotComparable = append(out.NotComparable, NotComparable{Source: k.source, Method: k.method, Side: "to only", Claims: len(t.values), Observed: t.observed, Subject: subject, Reason: reason})
+		}
+	}
+}
+
+var typeOrder = map[string]string{ItemEdge: "1", ItemAbsence: "2", ItemNode: "3", ItemFact: "4"}
 var kindOrder = map[string]string{ChangeAdded: "1", ChangeRemoved: "2", ChangeChanged: "3"}
 
 func changeKey(c EstateChange) string {
-	return strings.Join([]string{typeOrder[c.Type], c.Source, c.Method, kindOrder[c.Kind], c.Subject, c.From, c.To, c.Relation}, "\x00")
+	return strings.Join([]string{typeOrder[c.Type], c.Source, c.Method, kindOrder[c.Kind], c.Subject, c.From, c.To, c.Relation, c.Value}, "\x00")
 }
 
 func diffGroup(k qkey, f, t *qgroup) []EstateChange {

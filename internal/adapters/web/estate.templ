@@ -52,7 +52,7 @@ templ graphBlock(g graphView) {
 	}
 	<h3>Nodes ({ str(g.NodeTotal) })</h3>
 	<table>
-		<tr><th>kind</th><th>label</th><th>source</th><th>method</th><th>observed</th></tr>
+		<tr><th>kind</th><th>label</th><th>source</th><th>method</th><th>observed</th><th>facts</th></tr>
 		for _, n := range g.Nodes {
 			<tr>
 				<td>{ n.Kind }</td>
@@ -62,6 +62,7 @@ templ graphBlock(g graphView) {
 				<td>{ n.Source }</td>
 				<td class="mono">{ n.Method }</td>
 				<td>{ n.Observed }</td>
+				<td>{ str(n.NFacts) }</td>
 			</tr>
 		}
 	</table>
@@ -99,6 +100,38 @@ templ graphBlock(g graphView) {
 	} else {
 		@alert("muted") {
 			no recorded absences
+		}
+	}
+	<h3>Assessments (opinion)</h3>
+	<p class="note">{ assessmentNotice }</p>
+	@assessmentTable(g.Assessments, true, "no assessment in this map")
+	if g.AssessmentTotal > len(g.Assessments) {
+		<p class="note">showing { str(len(g.Assessments)) } of { str(g.AssessmentTotal) } assessments.</p>
+	}
+}
+
+// assessmentTable lists assessments. The caller prints the heading and the fixed notice.
+templ assessmentTable(rows []assessRow, withSubject bool, empty string) {
+	if len(rows) > 0 {
+		<table>
+			<tr>
+				if withSubject {
+					<th>subject</th>
+				}
+				<th>label</th><th>by</th><th>decided</th><th>basis</th><th>note</th>
+			</tr>
+			for _, a := range rows {
+				<tr>
+					if withSubject {
+						<td class="mono">{ a.Subject }</td>
+					}
+					<td>{ a.Label }</td><td>{ a.By }</td><td>{ a.Decided }</td><td class="mono">{ a.Basis }</td><td>{ a.Note }</td>
+				</tr>
+			}
+		</table>
+	} else {
+		@alert("muted") {
+			{ empty }
 		}
 	}
 }
@@ -141,6 +174,19 @@ templ nodeRecord(p nodePage, panel bool) {
 		<tr><th>observed</th><td>{ p.Node.Observed }</td></tr>
 		<tr><th>map</th><td>{ p.GraphID }</td></tr>
 	</table>
+	<h2>Facts</h2>
+	if len(p.Facts) > 0 {
+		<table>
+			<tr><th>key</th><th>value</th><th>source</th><th>method</th><th>observed</th></tr>
+			for _, f := range p.Facts {
+				<tr><td class="mono">{ f.Key }</td><td class="mono">{ f.Value }</td><td>{ f.Source }</td><td class="mono">{ f.Method }</td><td>{ f.Observed }</td></tr>
+			}
+		</table>
+	} else {
+		@alert("muted") {
+			no recorded fact about this node
+		}
+	}
 	<h2>Connections out</h2>
 	if len(p.Out) > 0 {
 		<table>
@@ -198,6 +244,9 @@ templ nodeRecord(p nodePage, panel bool) {
 			no recorded absence about this node
 		}
 	}
+	<h2>Assessments (opinion)</h2>
+	<p class="note">{ assessmentNotice }</p>
+	@assessmentTable(p.Assess, false, "no assessment about this node")
 	if panel {
 		<p class="note"><a href={ templ.URL(nodeHref(p.Node.G, p.Node.ID)) }>open this record as a page</a></p>
 	}

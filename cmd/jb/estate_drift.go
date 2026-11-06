@@ -198,24 +198,29 @@ func newEstateDiffCmd(d deps) *cobra.Command {
 func writeDiffTable(w io.Writer, r *jb.EstateDiffResult) error {
 	df := r.EstateComparison
 	side := func(label string, s app.DriftSide) {
-		fmt.Fprintf(w, "%-8s %s (%s): %d node(s), %d edge(s), %d absence(s), latest observation %s\n", label, s.Ref, s.Path, s.Nodes, s.Edges, s.Absences, s.Observed)
+		fmt.Fprintf(w, "%-8s %s (%s): %d node(s), %d edge(s), %d absence(s), %d fact(s), latest observation %s\n", label, s.Ref, s.Path, s.Nodes, s.Edges, s.Absences, s.Facts, s.Observed)
 	}
 	side("from", df.From)
 	side("to", df.To)
 	fmt.Fprintf(w, "compared %d question(s) (same source and same method); %d not comparable\n", df.Compared, len(df.NotComparable))
-	all, nodes, edges, absences := r.Counts["all"], r.Counts["nodes"], r.Counts["edges"], r.Counts["absences"]
-	fmt.Fprintf(w, "changes  %d added, %d removed, %d changed (nodes %d/%d/%d, edges %d/%d/%d, absences %d/%d/%d)\n",
+	all, nodes, edges, absences, facts := r.Counts["all"], r.Counts["nodes"], r.Counts["edges"], r.Counts["absences"], r.Counts["facts"]
+	fmt.Fprintf(w, "changes  %d added, %d removed, %d changed (nodes %d/%d/%d, edges %d/%d/%d, absences %d/%d/%d, facts %d/%d/%d)\n",
 		all.Added, all.Removed, all.Changed,
 		nodes.Added, nodes.Removed, nodes.Changed,
 		edges.Added, edges.Removed, edges.Changed,
-		absences.Added, absences.Removed, absences.Changed)
+		absences.Added, absences.Removed, absences.Changed,
+		facts.Added, facts.Removed, facts.Changed)
 	fmt.Fprintf(w, "note     %s\n", r.Note)
 	if len(df.Changes) > 0 {
 		fmt.Fprintln(w, "\nCHANGES")
 		tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 		fmt.Fprintln(tw, "KIND\tTYPE\tSUBJECT\tSOURCE\tFROM OBSERVED\tTO OBSERVED\tDETAIL")
 		for _, c := range df.Changes {
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", strings.ToUpper(c.Kind), c.Type, c.Subject, c.Source, c.FromObserved, c.ToObserved, c.Detail)
+			detail := c.Detail
+			if c.Type == app.ItemFact {
+				detail = "value " + oneLine(c.Value)
+			}
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", strings.ToUpper(c.Kind), c.Type, c.Subject, c.Source, c.FromObserved, c.ToObserved, detail)
 		}
 		if err := tw.Flush(); err != nil {
 			return err
@@ -230,7 +235,11 @@ func writeDiffTable(w io.Writer, r *jb.EstateDiffResult) error {
 				fmt.Fprintf(tw, "both\t-\t%d\t-\t%s\n", n.Claims, n.Reason)
 				continue
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%d\t%s\t%s\n", n.Side, n.Source, n.Claims, n.Observed, oneLine(n.Method))
+			method := oneLine(n.Method)
+			if n.Subject != "" {
+				method = n.Subject + ": " + method
+			}
+			fmt.Fprintf(tw, "%s\t%s\t%d\t%s\t%s\n", n.Side, n.Source, n.Claims, n.Observed, method)
 		}
 		if err := tw.Flush(); err != nil {
 			return err

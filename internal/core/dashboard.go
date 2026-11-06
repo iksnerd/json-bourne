@@ -134,11 +134,27 @@ type EstateGraph struct {
 	Nodes    []EstateNode
 	Edges    []EstateEdge
 	Absences []EstateAbsence
+	// Assessments are opinion, kept apart from the claims. The dashboard marks them so.
+	Assessments []EstateAssessment
 }
 
 // EstateNode, EstateEdge and EstateAbsence carry the provenance every claim has.
 type EstateNode struct {
 	ID, Kind, Label, Source, Method, Observed string
+	Facts                                     []EstateFact
+}
+
+// EstateFact is one observation about a node, with the provenance every claim has.
+type EstateFact struct {
+	Key, Value, Source, Method, Observed string
+}
+
+// EstateAssessment is one author's judgement about a node. It is opinion, not
+// observation. Basis holds node ids or "<node id>#<fact key>".
+type EstateAssessment struct {
+	ID, Subject, Label, By, Decided string
+	Basis                           []string
+	Note                            string
 }
 
 type EstateEdge struct {
