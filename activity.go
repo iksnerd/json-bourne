@@ -70,7 +70,7 @@ func Activity(ctx context.Context, caseDir string, opts ActivityOptions) (*Activ
 	if err != nil {
 		return nil, err
 	}
-	cp, err := config.PlanCase(caseDir, opts.Config, true)
+	cp, err := config.PlanCase(caseDir, opts.Config, "activity", true)
 	if err != nil {
 		return nil, fmt.Errorf("jb: %w", err)
 	}

@@ -1,13 +1,15 @@
 # Hunt config for the fingerprint detector (docs/CONFIG.md, `type: fingerprint`).
 #
-# Not listed under `config:` in case.yaml, because a case with two listed configs asks
-# for --config on every hunt. List it, or pass it:
+# Listed after config/hunt.yaml in case.yaml. `commands` below says it answers
+# `jb activity` and `jb actor status`, so neither needs --config:
 #
-#   jb hunt --case examples/case --config config/fingerprint.yaml
+#   jb activity --case examples/case
 #
 # The source must map its documents to the canonical HTTP fields: user_agent, path,
 # status (plus client_ip and method when known). The default mapper keeps the whole
 # _source as the event's fields, so an index that already uses those names works.
+
+commands: [activity, actor]
 
 sources:
   - type: kibana

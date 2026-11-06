@@ -10,7 +10,7 @@ import (
 func TestOpenCasePlacesTheStoreInTheCaseAndBuildsTheAdapters(t *testing.T) {
 	dir := copyExampleCase(t, "https://kibana.example.com")
 	gitInit(t, dir)
-	plan, err := planCase(io.Discard, dir, "", false)
+	plan, err := planCase(io.Discard, dir, "", "hunt", false)
 	if err != nil {
 		t.Fatal(err)
 	}

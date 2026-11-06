@@ -93,7 +93,7 @@ func newEstateRefreshCmd(d deps) *cobra.Command {
 
 			// The switches come from the case's config. No config means nothing external.
 			var cfg *config.File
-			if cfgFile, cerr := chooseCaseConfig(c, cfgPath); cerr == nil {
+			if cfgFile, cerr := chooseCaseConfig(c, cfgPath, "estate"); cerr == nil {
 				if cfg, cerr = config.Load(cfgFile); cerr != nil {
 					return cerr
 				}
@@ -364,7 +364,7 @@ func deliverDrift(cmd *cobra.Command, d deps, c *casefile.Case, cfgFlag string, 
 	if _, err := casefile.Guard(c.EvidenceDir()); err != nil {
 		return nil, fmt.Errorf("refusing to write alerts into %s: %w", c.Paths.Evidence, err)
 	}
-	cfgFile, err := chooseCaseConfig(c, cfgFlag)
+	cfgFile, err := chooseCaseConfig(c, cfgFlag, "estate")
 	if err != nil {
 		return nil, err
 	}

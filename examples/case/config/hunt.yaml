@@ -1,5 +1,10 @@
 # Hunt config for the example case. Same format as examples/jb.example.yaml (docs/CONFIG.md).
 #
+# `commands` says which commands this config answers. The case lists two configs, so a
+# command that names no --config uses the one that declares it; config/fingerprint.yaml
+# declares activity and actor.
+commands: [hunt, watch, serve, intel, estate, rename-source]
+#
 # Credentials are never written here. A source names the environment variable that
 # holds its API key, and jb reads it when it starts:
 #

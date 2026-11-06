@@ -302,6 +302,8 @@ func TestDoctorOnlineConnectsOncePerHostAndSendsNothing(t *testing.T) {
 	b, _ := os.ReadFile(cfg)
 	// Point kibana at the raw listener, add two webhooks on one host, and a disabled DNSBL.
 	editFile(t, cfg, strings.TrimSuffix(strings.SplitN(string(b), "url: ", 2)[1], "\n")[:strings.Index(strings.SplitN(string(b), "url: ", 2)[1], "\n")], "http://"+kib.ln.Addr().String())
+	// The case lists a second config on the same host; it points at the same listener.
+	editFile(t, filepath.Join(dir, "config", "fingerprint.yaml"), "https://kibana.example.com", "http://"+kib.ln.Addr().String())
 	b, _ = os.ReadFile(cfg)
 	add := "\nalerts:\n  - type: webhook\n    url_env: JB_WEBHOOK_URL\n    allow_insecure_loopback: true\n" +
 		"feeds:\n  - type: dnsbl\n    zone: bl.example.test\n"

@@ -52,7 +52,7 @@ func newActorStatusCmd() *cobra.Command {
 			if output != "table" && output != "json" {
 				return usageErrorf("--output must be table or json, got %q", output)
 			}
-			plan, err := planCase(cmd.ErrOrStderr(), caseDir, cfgPath, true)
+			plan, err := planCase(cmd.ErrOrStderr(), caseDir, cfgPath, "actor", true)
 			if err != nil {
 				return err
 			}

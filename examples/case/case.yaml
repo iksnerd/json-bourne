@@ -19,6 +19,7 @@ retention:
   findings_days: 365
 config:
   - config/hunt.yaml
+  - config/fingerprint.yaml
 handling:
   passive_only: true
   redact_in_reports: [email, account_id]

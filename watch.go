@@ -101,7 +101,7 @@ func Watch(ctx context.Context, caseDir string, opts WatchOptions) (*CycleReport
 		opts.Out = io.Discard
 	}
 
-	plan, err := config.PlanCase(caseDir, opts.Config, opts.Window != 0)
+	plan, err := config.PlanCase(caseDir, opts.Config, "watch", opts.Window != 0)
 	if err != nil {
 		return nil, fmt.Errorf("jb: %w", err)
 	}

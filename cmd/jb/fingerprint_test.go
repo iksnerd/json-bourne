@@ -12,17 +12,11 @@ import (
 	"time"
 )
 
-// The example case ships config/fingerprint.yaml. It is not listed under `config:` in
-// case.yaml (the case's only listed config is what `jb hunt --case` picks without
-// --config), so the tests list it where they need it.
+// The example case lists config/fingerprint.yaml after config/hunt.yaml; each declares
+// its commands, so no test passes --config to choose between them.
 const fpConfigRel = "config/fingerprint.yaml"
 
 const exampleUA = "ExampleBrowser/9.1 (Plan9; Win64; x64) InventedKit/537.36 (like Gecko) Chrome/9.1.0.0 Safari/537.36"
-
-func listFingerprintConfig(t *testing.T, dir string) {
-	t.Helper()
-	editFile(t, filepath.Join(dir, "case.yaml"), "config:\n", "config:\n  - "+fpConfigRel+"\n")
-}
 
 func TestCaseCheckReportsActors(t *testing.T) {
 	code, stdout, stderr := run(t, testDeps(nil), "case", "check", exampleCase)
@@ -67,7 +61,6 @@ func TestCaseCheckFailsOnABrokenActorFile(t *testing.T) {
 func TestCaseCheckValidatesTheFingerprintConfig(t *testing.T) {
 	t.Run("example config is valid", func(t *testing.T) {
 		dir := copyExampleCase(t, "")
-		listFingerprintConfig(t, dir)
 		code, stdout, stderr := run(t, testDeps(nil), "case", "check", dir)
 		if code != 0 || !strings.Contains(stdout, fpConfigRel+": OK") {
 			t.Fatalf("exit %d\n%s\n%s", code, stdout, stderr)
@@ -75,7 +68,6 @@ func TestCaseCheckValidatesTheFingerprintConfig(t *testing.T) {
 	})
 	t.Run("an actor file that is not there", func(t *testing.T) {
 		dir := copyExampleCase(t, "")
-		listFingerprintConfig(t, dir)
 		editFile(t, filepath.Join(dir, fpConfigRel), "example-actor.yaml", "missing-actor.yaml")
 		code, stdout, stderr := run(t, testDeps(nil), "case", "check", dir)
 		if code != exitFailure || !strings.Contains(stdout, fpConfigRel+": FAIL") || !strings.Contains(stdout, "missing-actor.yaml") {
@@ -134,7 +126,6 @@ func TestHuntCaseFingerprintEndToEnd(t *testing.T) {
 			srv := fakeHTTPKibana(t, tc.grant)
 			dir := copyExampleCase(t, srv.URL)
 			gitInit(t, dir)
-			listFingerprintConfig(t, dir)
 			// Same server for the fingerprint config's source.
 			editFile(t, filepath.Join(dir, fpConfigRel), "https://kibana.example.com", srv.URL)
 			editFile(t, filepath.Join(dir, "case.yaml"), "default: 24h", "default: 1h")

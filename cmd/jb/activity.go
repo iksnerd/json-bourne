@@ -69,7 +69,7 @@ func newActivityCmdWith(d deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			plan, err := planCase(cmd.ErrOrStderr(), caseDir, cfgPath, true)
+			plan, err := planCase(cmd.ErrOrStderr(), caseDir, cfgPath, "activity", true)
 			if err != nil {
 				return err
 			}

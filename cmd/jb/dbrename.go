@@ -111,7 +111,7 @@ func storePathFor(stderr io.Writer, caseDir, cfgPath string) (string, error) {
 		}
 		return cfg.StorePath(), nil
 	}
-	plan, err := planCase(stderr, caseDir, cfgPath, true)
+	plan, err := planCase(stderr, caseDir, cfgPath, "rename-source", true)
 	if err != nil {
 		return "", err
 	}

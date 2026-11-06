@@ -105,7 +105,7 @@ func TestCaseCheckJSON(t *testing.T) {
 	if got.Guard == nil || !got.Guard.OK || got.Guard.Result == "" {
 		t.Errorf("guard = %+v", got.Guard)
 	}
-	if len(got.Configs) != 1 || got.Configs[0].Path != "config/hunt.yaml" || !got.Configs[0].OK {
+	if len(got.Configs) != 2 || got.Configs[0].Path != "config/hunt.yaml" || !got.Configs[0].OK || got.Configs[1].Path != "config/fingerprint.yaml" || !got.Configs[1].OK {
 		t.Errorf("configs = %+v", got.Configs)
 	}
 

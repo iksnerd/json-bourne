@@ -109,7 +109,7 @@ func openServeSource(cmd *cobra.Command, caseDir, cfgPath string) (*serveSource,
 		sp := cfg.StorePath()
 		return &serveSource{store: sp, evidence: filepath.Dir(sp)}, nil
 	}
-	plan, err := planCase(cmd.ErrOrStderr(), caseDir, cfgPath, true)
+	plan, err := planCase(cmd.ErrOrStderr(), caseDir, cfgPath, "serve", true)
 	if err != nil {
 		return nil, err
 	}

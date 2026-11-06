@@ -29,8 +29,8 @@ func asUsage(err error) error {
 
 // planCase loads the case, refuses when the evidence guard fails, and chooses the
 // config and the default window. Nothing here reads the environment or evidence/.
-func planCase(stderr io.Writer, dir, cfgFlag string, windowSet bool) (*casePlan, error) {
-	p, err := config.PlanCase(dir, cfgFlag, windowSet)
+func planCase(stderr io.Writer, dir, cfgFlag, command string, windowSet bool) (*casePlan, error) {
+	p, err := config.PlanCase(dir, cfgFlag, command, windowSet)
 	if err != nil {
 		return nil, asUsage(err)
 	}
@@ -41,8 +41,8 @@ func planCase(stderr io.Writer, dir, cfgFlag string, windowSet bool) (*casePlan,
 }
 
 // chooseCaseConfig returns the absolute path of the hunt config to use.
-func chooseCaseConfig(c *casefile.Case, flag string) (string, error) {
-	p, err := config.ChooseCaseConfig(c, flag)
+func chooseCaseConfig(c *casefile.Case, flag, command string) (string, error) {
+	p, err := config.ChooseCaseConfig(c, flag, command)
 	return p, asUsage(err)
 }
 
