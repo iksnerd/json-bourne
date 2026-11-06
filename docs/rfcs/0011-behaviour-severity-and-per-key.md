@@ -43,7 +43,7 @@ A `common` action that sets any of the three is refused at load, with an error t
 
 With `min_events_per_key` the finding adds `hot_key` (the key with the most events, the smallest on a tie), `hot_key_events` and `min_events_per_key` to `Detail`. `hot_key` goes through `piiguard.Shown` exactly as `sole_key` does, so `hash_keys` hashes it. A personal `key_field` without `hash_keys` is already refused.
 
-Truncation. When `keys_truncated` would be true, the action sets `min_events_per_key`, and no stored key reached it, `Detect` and `Activity` return an error. It is not `core.ErrNoRecords`. It names the action, says `max_keys` was reached and says to raise it. `classify` in `internal/app/hunt.go` maps it to status `error`, `Hunt` keeps no findings of that detector for the run, `Activity` reports `INCOMPLETE`, and `watchCycle` raises the `watch-incomplete` alert. When a stored key reached the threshold, the action fires normally.
+Truncation. When `keys_truncated` would be true, the action sets `min_events_per_key`, and no stored key reached it, `Detect` and `Activity` return an error. It is not `core.ErrNoRecords`. It names the action, says `max_keys` was reached and says to raise it. `classify` in `internal/app/hunt.go` maps it to status `error`, `Hunt` keeps the findings of the other actions beside the error (RFC 0012), `Activity` reports `INCOMPLETE` (`ACTIVE` and incomplete when another action fired), and `watchCycle` raises the `watch-incomplete` alert. When a stored key reached the threshold, the action fires normally.
 
 Example (not run here):
 
@@ -62,11 +62,10 @@ Example (not run here):
 - Per-key severity, or a threshold on a `common` action.
 - A tag per hot key.
 - Any new field in the finding other than `hot_key`, `hot_key_events`, `min_events_per_key`, `min_severity` and `note`.
-- Keeping the other actions' findings when one action is incomplete (see Drawbacks).
 
 ## Drawbacks
 
-An incomplete action fails the whole detector for that run, because `Hunt` drops findings when `Detect` returns an error. A real hit on another action in the same detector is not reported in that run. `Detect` returns those findings beside the error, but nothing reads them. Fixing that needs a change to how `Hunt` records a partly finished detector, which is out of scope here.
+An incomplete action marks the whole detector incomplete for that run, so the hunt is incomplete. The findings of the other actions are kept (RFC 0012).
 
 A floor of `activity` on an action with an empty baseline restores the severity the empty-baseline drop removed. That is what the floor means, and a reader must know it.
 
@@ -98,6 +97,5 @@ Shipped: none.
 
 ## Open questions
 
-- Should `Hunt` keep the findings of a detector that returns findings and an error? Decided by the maintainer; it would remove the main drawback above.
 - Should a `note` be allowed on a floor below `critical`? The code allows it. The maintainer decides.
 - 2026-11-06: accepted by the maintainer; the code is merged.

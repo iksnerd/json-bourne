@@ -255,6 +255,8 @@ func SourceRun(run, source string) string { return run + "/" + source }
 // them, runs every detector over the stored evidence and stores the findings under run.
 //
 // A source or detector failing is recorded in the Result and does not stop the others.
+// A detector that returns findings and an error has its findings kept, stored and
+// counted; its status is still not ok, so the hunt is incomplete.
 // The returned error is non-nil only when the hunt itself could not proceed: bad
 // input, the context ending, or the findings not being saved. The Result is always
 // usable, and carries whatever was completed.
@@ -291,11 +293,10 @@ func Hunt(ctx context.Context, d Deps, run string, w core.Window) (Result, error
 		det := d.Detectors[i]
 		dc, dp := d.readersFor(det.Name(), cur, prev)
 		fs, err := det.Detect(ctx, dc, dp, w)
-		r := DetectorResult{Name: det.Name(), Status: classify(err), Err: err}
-		if err == nil {
-			r.Findings = len(fs)
-			found[i] = fs
-		}
+		// Findings returned beside an error are kept: they are proven from evidence
+		// the detector read, and the error alone makes the run incomplete (core.Detector).
+		r := DetectorResult{Name: det.Name(), Status: classify(err), Err: err, Findings: len(fs)}
+		found[i] = fs
 		res.Detectors[i] = r
 	}, func(i int) {
 		res.Detectors[i] = DetectorResult{Name: d.Detectors[i].Name(), Status: StatusCanceled, Err: ctx.Err()}

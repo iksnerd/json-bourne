@@ -47,7 +47,8 @@ func newHuntCmdWith(d deps) *cobra.Command {
 		Short: "Fetch a window of events, store them and run the detectors",
 		Long: "hunt fetches the last --window of events (and the window before it, as the baseline),\n" +
 			"stores them in the evidence database and runs every configured detector.\n" +
-			"It exits 1 when any source or detector did not complete, and says which.\n\n" +
+			"It exits 1 when any source or detector did not complete, and says which. A detector that\n" +
+			"returns findings and an error has its findings listed and the detector marked incomplete.\n\n" +
 			"--until TIME hunts a past window instead: [TIME - window, TIME), with the baseline the same\n" +
 			"length immediately before it. TIME is RFC 3339 with a zone (2026-10-01T00:00:00Z); a time\n" +
 			"without a zone, with fractions of a second, or after now is refused, and so is a window over\n" +

@@ -36,7 +36,8 @@ func newActivityCmdWith(d deps) *cobra.Command {
 			"before it as the baseline. TIME is RFC 3339 with a zone (2026-10-01T00:00:00Z); a time without\n" +
 			"a zone, with fractions of a second, or after now is refused, and so is a window over 31d. The\n" +
 			"run is stored as activity-until-<end>-w<seconds>. See docs/BACKFILL.md.\n\n" +
-			"  ACTIVE      a detector found a genuine event in the window.\n" +
+			"  ACTIVE      a detector found a genuine event in the window. A detector that stopped early\n" +
+			"              still counts if it had proved a finding; the output then says it is incomplete.\n" +
 			"  QUIET       every source and detector completed over the whole window, nothing was\n" +
 			"              truncated or mostly unreadable, and no genuine event was found.\n" +
 			"  INCOMPLETE  no genuine event was found, but something did not finish. This is not\n" +
@@ -195,6 +196,9 @@ func writeActivityTable(w io.Writer, r app.ActivityResult) error {
 	for _, d := range r.Detectors {
 		fmt.Fprintf(w, "\ndetector %s: %s%s\n", d.Name, d.Status, noteSuffix(d.Err))
 		if d.Status != app.StatusOK {
+			if d.Findings > 0 {
+				fmt.Fprintf(w, "  %d finding(s) proved before the detector stopped; they count as activity, and the detector is still incomplete.\n", d.Findings)
+			}
 			continue
 		}
 		tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
@@ -238,7 +242,11 @@ func judgedText(r app.ActivityResult) string {
 	var parts []string
 	for _, d := range r.Detectors {
 		if d.Status != app.StatusOK {
-			parts = append(parts, fmt.Sprintf("%s: not judged (%s)", d.Name, d.Status))
+			p := fmt.Sprintf("%s: not judged (%s)", d.Name, d.Status)
+			if d.Findings > 0 {
+				p += fmt.Sprintf(", %d finding(s) proved before it stopped", d.Findings)
+			}
+			parts = append(parts, p)
 			continue
 		}
 		c := d.Counts()
@@ -304,9 +312,11 @@ type jsonSubject struct {
 }
 
 type jsonActivityDetector struct {
-	Name       string        `json:"name"`
-	Status     string        `json:"status"`
-	Error      string        `json:"error,omitempty"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
+	// Findings is set when a detector that did not finish returned findings first.
+	Findings   int           `json:"findings_before_stop,omitempty"`
 	Seen       int           `json:"events_read"`
 	Unparsable int           `json:"unparsable"`
 	Subjects   []jsonSubject `json:"subjects"`
@@ -370,7 +380,7 @@ func writeActivityJSON(w io.Writer, r app.ActivityResult) error {
 		out.Sources = append(out.Sources, c)
 	}
 	for _, d := range r.Detectors {
-		jd := jsonActivityDetector{Name: d.Name, Status: string(d.Status), Error: errText(d.Err),
+		jd := jsonActivityDetector{Name: d.Name, Status: string(d.Status), Error: errText(d.Err), Findings: d.Findings,
 			Seen: d.Report.Seen, Unparsable: d.Report.Unparsable, Subjects: []jsonSubject{}, Notes: d.Report.Notes}
 		for _, s := range d.Report.Subjects {
 			jd.Subjects = append(jd.Subjects, jsonSubject{

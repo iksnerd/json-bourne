@@ -187,3 +187,20 @@ func TestTruncationDoesNotMatterWithoutPerKey(t *testing.T) {
 		t.Fatalf("fs=%v err=%v", fs, err)
 	}
 }
+
+// RFC 0012: an action that cannot be judged must not take the finding of an action that
+// can. Detect returns both; the finding rests only on that action's own events.
+func TestTruncatedActionDoesNotHideAnotherActionsFinding(t *testing.T) {
+	c := truncCfg(3)
+	c.Actions = append(c.Actions, Action{Name: "device-code", Class: ClassRare, Path: "/oauth/device/code", Methods: []string{"POST"}})
+	cur := events(win, noise(),
+		adminEvents("198.51.100.1", 1), adminEvents("198.51.100.2", 1), adminEvents("198.51.100.3", 1),
+		ev{key: "203.0.113.55", path: "/oauth/device/code", method: "POST", n: 1})
+	fs, err := detect(t, c, cur, events(win.Previous(), noise()))
+	if err == nil || !strings.Contains(err.Error(), "admin-console-login") {
+		t.Fatalf("err = %v, want the unjudged action named", err)
+	}
+	if len(fs) != 1 || fs[0].Tag != "behaviour:device-code" {
+		t.Fatalf("findings = %v, want only the device-code finding", fs)
+	}
+}
