@@ -14,7 +14,8 @@ import (
 )
 
 func newCaseShowCmd() *cobra.Command {
-	var caseDir, cfgName, output string
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "show --case DIR [--config NAME] [--output table|json]",
 		Short: "Print what one config of a case would run, without running it",
@@ -28,6 +29,7 @@ func newCaseShowCmd() *cobra.Command {
 			"--config names one of the case's configs, or the case's only config is used.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			caseDir, cfgName := fl.String("case"), fl.String("config")
 			if caseDir == "" {
 				return usageErrorf("--case is required")
 			}
@@ -51,10 +53,8 @@ func newCaseShowCmd() *cobra.Command {
 			return nil
 		},
 	}
-	f := cmd.Flags()
-	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); required")
-	f.StringVar(&cfgName, "config", "", "one of the case's configs, or a file inside the case (default: the only one)")
-	f.StringVar(&output, "output", "table", "output format: table or json")
+	fl = addOperationFlags(cmd, "case_show")
+	cmd.Flags().StringVar(&output, "output", "table", "output format: table or json")
 	return cmd
 }
 

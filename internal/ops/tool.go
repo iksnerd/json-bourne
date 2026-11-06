@@ -1,6 +1,9 @@
 package ops
 
-import "slices"
+import (
+	"maps"
+	"slices"
+)
 
 // ToolEntry is one entry of an MCP tools/list result: the operation without cli and
 // without the properties that only the command line accepts, plus annotations derived
@@ -11,6 +14,9 @@ type ToolEntry struct {
 	Description string          `json:"description"`
 	InputSchema Schema          `json:"inputSchema"`
 	Annotations ToolAnnotations `json:"annotations"`
+	// Fixed is what the server adds to every call: the values of the properties the
+	// entry does not offer (Operation.ToolFixed). It is not part of the entry's JSON.
+	Fixed map[string]any `json:"-"`
 }
 
 // ToolAnnotations are MCP's behaviour hints. A read-only operation is not destructive;
@@ -34,19 +40,20 @@ func Tool(op Operation) ToolEntry {
 		Required:             []string{},
 	}
 	for name, p := range op.InputSchema.Properties {
-		if slices.Contains(only, name) {
+		if _, fixed := op.ToolFixed[name]; fixed || slices.Contains(only, name) {
 			continue
 		}
 		s.Properties[name] = cloneProperty(p)
 	}
 	for _, r := range op.InputSchema.Required {
-		if !slices.Contains(only, r) {
+		if _, fixed := op.ToolFixed[r]; !fixed && !slices.Contains(only, r) {
 			s.Required = append(s.Required, r)
 		}
 	}
 	return ToolEntry{
 		Name: op.Name, Title: op.Title, Description: op.Description, InputSchema: s,
 		Annotations: ToolAnnotations{ReadOnlyHint: op.ReadOnly, DestructiveHint: !op.ReadOnly},
+		Fixed:       maps.Clone(op.ToolFixed),
 	}
 }
 

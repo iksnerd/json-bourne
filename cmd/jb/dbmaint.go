@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
-	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -15,6 +13,7 @@ import (
 
 	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/app"
+	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
 )
 
@@ -57,28 +56,13 @@ func writeIndentedJSON(w io.Writer, v any) error {
 
 // parseAge reads a duration like 36h, 90m or 14d (days and weeks are accepted here
 // only; time.ParseDuration has no unit above the hour).
-func parseAge(s string) (time.Duration, error) {
-	s = strings.TrimSpace(s)
-	for suffix, unit := range map[string]time.Duration{"d": 24 * time.Hour, "w": 7 * 24 * time.Hour} {
-		if n, ok := strings.CutSuffix(s, suffix); ok {
-			v, err := strconv.ParseUint(n, 10, 32)
-			if err != nil {
-				return 0, fmt.Errorf("%q is not a duration like 14d, 72h or 2w", s)
-			}
-			return time.Duration(v) * unit, nil
-		}
-	}
-	d, err := time.ParseDuration(s)
-	if err != nil {
-		return 0, fmt.Errorf("%q is not a duration like 14d, 72h or 2w", s)
-	}
-	return d, nil
-}
+func parseAge(s string) (time.Duration, error) { return config.ParseAge(s) }
 
 // ---- usage ----
 
 func newDBUsageCmd() *cobra.Command {
-	var cfgPath, caseDir, output string
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "usage (--config FILE | --case DIR) [--output table|json]",
 		Short: "Show what the evidence database holds, by run kind and by source label (read-only)",
@@ -93,6 +77,7 @@ func newDBUsageCmd() *cobra.Command {
 			"A store another process holds read-write is waited for (" + duckdb.EnvLockWait + ", default " + duckdb.DefaultLockWait.String() + "), then reported.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			caseDir, cfgPath := fl.String("case"), fl.String("config")
 			if err := checkOutput(output); err != nil {
 				return err
 			}
@@ -107,9 +92,8 @@ func newDBUsageCmd() *cobra.Command {
 			return writeUsage(cmd.OutOrStdout(), rep)
 		},
 	}
+	fl = addOperationFlags(cmd, "db_usage")
 	f := cmd.Flags()
-	f.StringVar(&cfgPath, "config", "", "YAML config naming the store (with --case: one of the case's configs)")
-	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it")
 	f.StringVar(&output, "output", "table", "table or json")
 	return cmd
 }
@@ -169,12 +153,8 @@ func writeUsage(w io.Writer, r *jb.DBUsageResult) error {
 // ---- prune ----
 
 func newDBPruneCmd(d deps) *cobra.Command {
-	var (
-		cfgPath, caseDir, kinds, olderThan, output string
-		runIDs                                     []string
-		keepLatest                                 int
-		dropFindings, apply                        bool
-	)
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "prune (--config FILE | --case DIR) (--kind K[,K...] --older-than DURATION [--keep-latest N] | --run ID [--run ID ...]) [--drop-findings] [--apply]",
 		Short: "Delete the stored events of old hunt/activity/search runs (dry run unless --apply)",
@@ -202,10 +182,10 @@ func newDBPruneCmd(d deps) *cobra.Command {
 			"A store held by another process is waited for (" + duckdb.EnvLockWait + "), then refused, naming the holder.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			caseDir, cfgPath, runIDs, kinds, olderThan, keepLatest, dropFindings, apply := fl.String("case"), fl.String("config"), fl.Strings("run"), fl.String("kind"), fl.String("older_than"), fl.Int("keep_latest"), fl.Bool("drop_findings"), fl.Bool("apply")
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			fl := cmd.Flags()
 			opts := jb.DBPruneOptions{Config: cfgPath, DropFindings: dropFindings, Apply: apply, Now: d.now}
 			var ks []core.RunKind
 			if fl.Changed("run") {
@@ -222,7 +202,7 @@ func newDBPruneCmd(d deps) *cobra.Command {
 				}
 				opts.Kinds = ks
 			}
-			if fl.Changed("older-than") {
+			if fl.Changed("older_than") {
 				age, err := parseAge(olderThan)
 				if err != nil {
 					return usageErrorf("--older-than: %v", err)
@@ -232,7 +212,7 @@ func newDBPruneCmd(d deps) *cobra.Command {
 				}
 				opts.OlderThan = age
 			}
-			if fl.Changed("keep-latest") {
+			if fl.Changed("keep_latest") {
 				opts.KeepLatest = &keepLatest
 			}
 			res, err := jb.DBPrune(cmd.Context(), caseDir, opts)
@@ -246,15 +226,8 @@ func newDBPruneCmd(d deps) *cobra.Command {
 			return writePrune(cmd.OutOrStdout(), res.Store, olderThan, ks, res.EventPruneResult, apply)
 		},
 	}
+	fl = addOperationFlags(cmd, "db_prune")
 	f := cmd.Flags()
-	f.StringVar(&cfgPath, "config", "", "YAML config naming the store (with --case: one of the case's configs)")
-	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it")
-	f.StringArrayVar(&runIDs, "run", nil, "remove exactly this hunt id (repeatable, at most 20); instead of --kind, --older-than and --keep-latest; never a watch run")
-	f.StringVar(&kinds, "kind", "", "run kinds to prune, comma separated: hunt, hunt-until, activity, activity-until, search, search-until (required; never watch)")
-	f.StringVar(&olderThan, "older-than", "", "prune hunts whose newest record is older than this (14d, 72h, 2w) (required)")
-	f.IntVar(&keepLatest, "keep-latest", 1, "always keep the N newest hunts of each selected kind, whatever their age")
-	f.BoolVar(&dropFindings, "drop-findings", false, "also delete the pruned hunts' findings and run records (default: keep them, marked pruned)")
-	f.BoolVar(&apply, "apply", false, "do it (default: dry run)")
 	f.StringVar(&output, "output", "table", "table or json")
 	return cmd
 }
@@ -374,10 +347,8 @@ func writePruneBody(w io.Writer, r core.EventPruneResult, applied bool) error {
 // ---- compact ----
 
 func newDBCompactCmd() *cobra.Command {
-	var (
-		cfgPath, caseDir, to, output string
-		apply, outside               bool
-	)
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "compact (--config FILE | --case DIR) --to FILE [--apply] [--allow-outside-evidence]",
 		Short: "Write a compacted copy of the evidence database to a new file (dry run unless --apply)",
@@ -395,6 +366,7 @@ func newDBCompactCmd() *cobra.Command {
 			"open) and only then puts it at --to; a copy that fails is deleted.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			caseDir, cfgPath, to, apply, outside := fl.String("case"), fl.String("config"), fl.String("to"), fl.Bool("apply"), fl.Bool("allow_outside_evidence")
 			if err := checkOutput(output); err != nil {
 				return err
 			}
@@ -411,13 +383,9 @@ func newDBCompactCmd() *cobra.Command {
 			return writeCompact(cmd.OutOrStdout(), res.Store, caseDir, cfgPath, res.CompactResult)
 		},
 	}
+	fl = addOperationFlags(cmd, "db_compact")
 	f := cmd.Flags()
-	f.StringVar(&cfgPath, "config", "", "YAML config naming the store (with --case: one of the case's configs)")
-	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it")
-	f.StringVar(&to, "to", "", "the new file to write the compacted copy to (must not exist)")
 	f.StringVar(&output, "output", "table", "output format: table or json (the result, without the swap steps)")
-	f.BoolVar(&apply, "apply", false, "write the copy (default: dry run)")
-	f.BoolVar(&outside, "allow-outside-evidence", false, "allow --to outside the evidence directory (its directory must still pass the git-ignore guard)")
 	return cmd
 }
 

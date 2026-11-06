@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
 )
 
@@ -13,25 +14,9 @@ import (
 // two months. Loop over days (docs/BACKFILL.md) instead of asking for one huge window.
 const maxUntilWindow = 31 * 24 * time.Hour
 
-// parseUntil reads --until: an RFC 3339 time that carries its zone ("2026-10-01T00:00:00Z"
-// or "2026-10-01T02:00:00+02:00"). A time without a zone is refused, not read as UTC or
-// local: the same text means different instants on different machines, and a window that
-// silently moves by the zone offset shows the wrong hours as quiet. Fractions of a second
-// are refused too, because the window edges are whole seconds and rounding would move
-// them. A time after now is refused: there is nothing to fetch there yet.
+// parseUntil reads --until (see config.ParseUntil for the rules).
 func parseUntil(s string, now time.Time) (time.Time, error) {
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("--until %q: want RFC 3339 with a zone, such as 2026-10-01T00:00:00Z or 2026-10-01T02:00:00+02:00 (a time without a zone is ambiguous and is refused): %w", s, err)
-	}
-	if t.Nanosecond() != 0 {
-		return time.Time{}, fmt.Errorf("--until %q: whole seconds only; the window edges are not rounded", s)
-	}
-	t = t.UTC()
-	if t.After(now.UTC().Truncate(time.Second)) {
-		return time.Time{}, fmt.Errorf("--until %s is after now (%s): a window cannot end in the future", t.Format(time.RFC3339), now.UTC().Truncate(time.Second).Format(time.RFC3339))
-	}
-	return t, nil
+	return config.ParseUntil("--until", s, now)
 }
 
 // windowPlan is the window a command hunts: ending now, or ending at --until.

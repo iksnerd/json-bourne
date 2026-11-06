@@ -1,0 +1,165 @@
+## jb
+## jb activity
+--case	-	string		case directory (docs/CASE-SPEC.md); required
+--config	-	string		one of the case's configs (default: the config whose `commands:` lists this command, else the case's only config)
+--no-store	-	bool	false	run over a private temporary store that is deleted when the command returns: nothing is written to the evidence database
+--output	-	string	table	output format: table or json
+--until	-	string		ask about the past window ending at TIME (RFC 3339 with a zone, not after now) instead of the one ending now; not offered on watch, which always ends now
+--window	-	duration	24h0m0s	length of the window, ending now (or at --until): 90m, 24h or 7d (default 24h, never the case's windows.default)
+## jb actor
+## jb actor status
+--case	-	string		case directory (docs/CASE-SPEC.md); required
+--config	-	string		one of the case's configs (default: the config whose `commands:` lists this command, else the case's only config)
+--output	-	string	table	output format: table or json
+## jb case
+## jb case check
+--case	-	string		case directory (docs/CASE-SPEC.md); required
+--output	-	string	table	output format: table or json
+## jb case show
+--case	-	string		case directory (docs/CASE-SPEC.md); required
+--config	-	string		one of the case's configs, or a file inside the case (default: the only one)
+--output	-	string	table	output format: table or json
+## jb db
+## jb db compact
+--allow-outside-evidence	-	bool	false	allow --to outside the evidence directory (its directory must still pass the git-ignore guard)
+--apply	-	bool	false	write the copy (default: dry run)
+--case	-	string		case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it
+--config	-	string		YAML config naming the store (with --case: one of the case's configs)
+--output	-	string	table	output format: table or json (the result, without the swap steps)
+--to	-	string		the new file to write the compacted copy to (must not exist)
+## jb db prune
+--apply	-	bool	false	do it (default: dry run)
+--case	-	string		case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it
+--config	-	string		YAML config naming the store (with --case: one of the case's configs)
+--drop-findings	-	bool	false	also delete the pruned hunts' findings and run records (default: keep them, marked pruned)
+--keep-latest	-	int	1	always keep the N newest hunts of each selected kind, whatever their age
+--kind	-	string		run kinds to prune, comma separated: hunt, hunt-until, activity, activity-until, search, search-until (required; never watch)
+--older-than	-	string		prune hunts whose newest record is older than this (14d, 72h, 2w) (required)
+--output	-	string	table	table or json
+--run	-	stringArray	[]	remove exactly this hunt id (repeatable, at most 20); instead of --kind, --older-than and --keep-latest; never a watch run
+## jb db rename-source
+--apply	-	bool	false	do the rename (default: dry run)
+--case	-	string		case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it
+--config	-	string		YAML config naming the store (with --case: one of the case's configs)
+--merge	-	bool	false	when NEW already holds some of OLD's documents, drop OLD's copies and relabel the rest
+--output	-	string	table	output format: table or json
+## jb db reputation
+--case	-	string		case directory (docs/CASE-SPEC.md); the store is placed as `jb intel --case` places it
+--config	-	string		YAML config naming the store (with --case: one of the case's configs)
+--indicator	-	stringArray	[]	only this IP address (repeat for up to 100)
+--latest	-	bool	false	newest row of each indicator from each source
+--limit	-	int	0	most rows to return (default 1000, at most 10000)
+--output	-	string	table	table or json
+--since	-	string		only rows observed at or after this RFC 3339 time or YYYY-MM-DD date
+--source	-	string		only rows from this source (feed name)
+--until	-	string		only rows observed before this RFC 3339 time or YYYY-MM-DD date (exclusive)
+## jb db status
+--case	-	string		case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it
+--config	-	string		YAML config naming the store (with --case: one of the case's configs)
+--output	-	string	table	output format: table or json
+## jb db usage
+--case	-	string		case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it
+--config	-	string		YAML config naming the store (with --case: one of the case's configs)
+--output	-	string	table	table or json
+## jb doctor
+--case	-	string		case directory (docs/CASE-SPEC.md)
+--config	-	string		path to the YAML config (with --case, one of the case's configs; default: all of them)
+--online	-	bool	false	also make one TCP connect per service host (sends nothing)
+--output	-	string	table	output format: table or json
+## jb estate
+--case	-	string		case directory (docs/CASE-SPEC.md) (required)
+--file	-	string	estate.yaml	estate file name inside the case's estate directory (created if missing, merged into if present)
+--max-ips	-	int	20	most addresses in one run, at most 100; more is refused, not truncated
+--output	-	string	table	output format: table or json
+--rdap-url	-	string	https://rdap.org	RDAP service base URL (the rdap.org bootstrap redirects to the registry that holds the address)
+--resolver	-	string		DNS resolver HOST:PORT for the PTR lookups (default: the system resolver)
+--timeout	-	duration	10s	timeout for each lookup
+## jb estate asn
+--case	-	string		case directory (docs/CASE-SPEC.md) (required)
+--config	-	string		config with the `estate:` section (default: the config whose `commands:` lists this command, else the case's only config)
+--file	-	string	estate.yaml	estate file name inside the case's estate directory (created if missing, merged into if present)
+--max-targets	-	int	10	most targets in one run, at most 50; more is refused, not truncated
+--min-interval	-	duration	1s	least time between two requests
+--output	-	string	table	output format: table or json
+--timeout	-	duration	10s	timeout for each request
+## jb estate ct
+--case	-	string		case directory (docs/CASE-SPEC.md) (required)
+--config	-	string		config with the `estate:` section (default: the config whose `commands:` lists this command, else the case's only config)
+--file	-	string	estate.yaml	estate file name inside the case's estate directory (created if missing, merged into if present)
+--max-names	-	int	500	most distinct names kept per domain, at most 2000; more ends the run INCOMPLETE
+--max-targets	-	int	10	most targets in one run, at most 50; more is refused, not truncated
+--min-interval	-	duration	1s	least time between two requests
+--output	-	string	table	output format: table or json
+--timeout	-	duration	30s	timeout for each request
+## jb estate diff
+--alert	-	bool	false	send findings that are new to the case's alert sinks (log in the evidence directory, and any webhook)
+--case	-	string		case directory (docs/CASE-SPEC.md) (required)
+--config	-	string		with --alert: the config whose `alerts:` apply (default: the config whose `commands:` lists this command, else the case's only config)
+--file	-	string	estate.yaml	the baseline estate file, the default --from
+--from	-	string		the earlier state: snapshot id, or estate file name (default: --file)
+--output	-	string	table	output format: table or json
+--to	-	string		the later state: snapshot id, or estate file name (default: the newest snapshot)
+--ttl	-	duration	3h0m0s	with --alert: how long an alerted tag stays quiet unless its severity rises
+## jb estate dns
+--case	-	string		case directory (docs/CASE-SPEC.md) (required)
+--config	-	string		config with the `estate:` section (default: the config whose `commands:` lists this command, else the case's only config)
+--file	-	string	estate.yaml	estate file name inside the case's estate directory (created if missing, merged into if present)
+--max-targets	-	int	10	most targets in one run, at most 50; more is refused, not truncated
+--min-interval	-	duration	250ms	least time between two requests
+--output	-	string	table	output format: table or json
+--resolver	-	string		DNS resolver HOST:PORT (default: the system resolver)
+--timeout	-	duration	5s	timeout for each request
+## jb estate promote
+--case	-	string		case directory (docs/CASE-SPEC.md) (required)
+--file	-	string	estate.yaml	the baseline estate file to replace
+--output	-	string	table	output format: table or json
+## jb estate refresh
+--case	-	string		case directory (docs/CASE-SPEC.md) (required)
+--config	-	string		config with the `estate:` section (default: the config whose `commands:` lists this command, else the case's only config)
+--file	-	string	estate.yaml	the baseline estate file whose targets are re-asked
+--max-targets	-	int	20	most distinct targets in one run, at most 100; more is refused, not truncated
+--output	-	string	table	output format: table or json
+--rdap-url	-	string	https://rdap.org	RDAP service base URL
+--resolver	-	string		DNS resolver HOST:PORT for PTR and forward lookups (default: the system resolver)
+--timeout	-	duration	10s	timeout for each request
+## jb hunt
+--case	-	string		case directory to hunt in (docs/CASE-SPEC.md)
+--config	-	string		path to the YAML config (required without --case; with --case, one of the case's configs)
+--no-store	-	bool	false	run over a private temporary store that is deleted when the command returns: nothing is written to the evidence database
+--output	-	string	table	output format: table or json
+--search	-	stringArray	[]	narrow every source by a phrase match of TERM for this run; repeat to AND more terms (at most 4)
+--search-field	-	string		field --search matches against (default: the source's search_field, else message)
+--until	-	string		hunt the past window ending at TIME (RFC 3339 with a zone, not after now) instead of the one ending now; not offered on watch, which always ends now
+--window	-	duration	1h0m0s	length of the window to hunt, ending now (or at --until): 90m, 24h or 7d (default 60m; with --case, the case's windows.default when it sets one)
+## jb intel
+--case	-	string		case directory (docs/CASE-SPEC.md)
+--config	-	string		path to the YAML config (required without --case; with --case, one of the case's configs)
+--output	-	string	table	output format: table or json
+## jb operations
+--output	-	string	json	output format: json or table
+--tool	-	bool	false	print MCP tools/list entries instead of the full definitions
+## jb serve
+--addr	-	string	127.0.0.1:8090	listen address; must be loopback unless --allow-remote
+--allow-remote	-	bool	false	accept a non-loopback --addr (there is no authentication; a loud warning is printed)
+--case	-	string		case directory (jb.case/v1): its config, evidence directory and estate directory
+--config	-	string		path to the YAML config; with --case, one of the case's configs
+--key-field	-	string	client_ip	event field holding the key (usually the client address)
+--path-field	-	string	path	event field holding the request path
+--status-field	-	string	status	event field holding the status
+## jb version
+## jb watch
+--case	-	string		case directory to watch (docs/CASE-SPEC.md; required)
+--config	-	string		one of the case's configs (default: the config whose `commands:` lists this command, else the case's only config)
+--every	-	duration	5m0s	time between cycles: 90s, 5m or 1h
+--keep	-	duration	48h0m0s	how long the events and findings of past watch runs stay in the store (at least twice --window; default 48h, or twice --window when longer)
+--name	-	string		name this watcher (^[a-z][a-z0-9_-]{0,31}$): own state, log, lock and run ids, so several can watch one case; default: the unnamed watcher
+--once	-	bool	false	run one cycle and exit; 0 when complete, 1 when incomplete or failed
+--output	-	string	table	output format: table or json (json needs --once and prints the cycle report)
+--repeat	-	duration	30m0s	least time between alerts for the same unchanged outage; a changed failure or a recovery alerts at once
+--ttl	-	duration	3h0m0s	how long an alerted tag stays quiet unless its severity rises
+--window	-	duration	1h0m0s	length of each cycle's hunt window, at least --every (default: the case's windows.default when it sets one, else 60m)
+## jb watch status
+--case	-	string		case directory (docs/CASE-SPEC.md; required)
+--config	-	string		only the watchers that run this one of the case's configs
+--name	-	string		only this watcher ("" is the unnamed one); default: every watcher found
+--output	-	string	table	table or json

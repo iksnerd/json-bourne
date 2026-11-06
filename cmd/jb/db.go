@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/internal/config"
 )
 
 func newDBCmdWith(d deps) *cobra.Command {
@@ -23,21 +24,23 @@ func newDBCmdWith(d deps) *cobra.Command {
 }
 
 func newDBStatusCmd() *cobra.Command {
-	var cfgPath, output string
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show the database path, schema version and row counts (read-only)",
 		Args:  noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if cfgPath == "" {
-				return usageErrorf("--config is required")
+			caseDir, cfgPath := fl.String("case"), fl.String("config")
+			if cfgPath == "" && caseDir == "" {
+				return usageErrorf("--config or --case is required")
 			}
 			if err := checkOutput(output); err != nil {
 				return err
 			}
 			// The library loads the config only: status needs the store path, never a
 			// credential. Read-only is enforced by the engine, not by this code.
-			s, err := jb.DBStatus(cmd.Context(), "", jb.DBOptions{Config: cfgPath})
+			s, err := jb.DBStatus(cmd.Context(), caseDir, jb.DBOptions{Config: cfgPath})
 			if err != nil {
 				return err
 			}
@@ -60,8 +63,8 @@ func newDBStatusCmd() *cobra.Command {
 			return tw.Flush()
 		},
 	}
-	cmd.Flags().StringVar(&cfgPath, "config", "", "path to the YAML config (required)")
 	cmd.Flags().StringVar(&output, "output", "table", "output format: table or json")
+	fl = addOperationFlags(cmd, "db_status")
 	return cmd
 }
 
@@ -74,12 +77,8 @@ func printNotes(w io.Writer, notes []string) {
 }
 
 func newDBReputationCmd() *cobra.Command {
-	var (
-		cfgPath, caseDir, output, source, since, until string
-		indicators                                     []string
-		limit                                          int
-		latest                                         bool
-	)
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "reputation (--config FILE | --case DIR) [--indicator IP ...] [--source NAME] [--since TIME] [--until TIME] [--limit N] [--latest] [--output table|json]",
 		Short: "List the reputation rows `jb intel` stored (read-only)",
@@ -90,6 +89,7 @@ func newDBReputationCmd() *cobra.Command {
 			"); a result cut at the cap says so and exits 1.\n\n" + jb.IntelNote,
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			caseDir, cfgPath, source, since, until, indicators, limit, latest := fl.String("case"), fl.String("config"), fl.String("source"), fl.String("since"), fl.String("until"), fl.Strings("indicator"), fl.Int("limit"), fl.Bool("latest")
 			if cfgPath == "" && caseDir == "" {
 				return usageErrorf("--config or --case is required")
 			}
@@ -123,31 +123,19 @@ func newDBReputationCmd() *cobra.Command {
 			return nil
 		},
 	}
+	fl = addOperationFlags(cmd, "db_reputation")
 	f := cmd.Flags()
-	f.StringVar(&cfgPath, "config", "", "YAML config naming the store (with --case: one of the case's configs)")
-	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); the store is placed as `jb intel --case` places it")
-	f.StringArrayVar(&indicators, "indicator", nil, "only this IP address (repeat for up to 100)")
-	f.StringVar(&source, "source", "", "only rows from this source (feed name)")
-	f.StringVar(&since, "since", "", "only rows observed at or after this RFC 3339 time or YYYY-MM-DD date")
-	f.StringVar(&until, "until", "", "only rows observed before this RFC 3339 time or YYYY-MM-DD date (exclusive)")
-	f.IntVar(&limit, "limit", 0, "most rows to return (default 1000, at most 10000)")
-	f.BoolVar(&latest, "latest", false, "newest row of each indicator from each source")
 	f.StringVar(&output, "output", "table", "table or json")
 	return cmd
 }
 
 // parseWhen reads an RFC 3339 time or a YYYY-MM-DD date (UTC); empty is the zero time.
 func parseWhen(flag, v string) (time.Time, error) {
-	if v == "" {
-		return time.Time{}, nil
+	t, err := config.ParseWhen(flag, v)
+	if err != nil {
+		return time.Time{}, usageErrorf("%v", err)
 	}
-	if t, err := time.Parse(time.RFC3339, v); err == nil {
-		return t, nil
-	}
-	if t, err := time.Parse(time.DateOnly, v); err == nil {
-		return t, nil
-	}
-	return time.Time{}, usageErrorf("%s %q: expected an RFC 3339 time or a YYYY-MM-DD date", flag, v)
+	return t, nil
 }
 
 func writeReputation(w io.Writer, r *jb.ReputationResult) error {

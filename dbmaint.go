@@ -147,19 +147,19 @@ func DBPrune(ctx context.Context, caseDir string, opts DBPruneOptions) (*DBPrune
 // DBCompactOptions say where [DBCompact] writes the compacted copy.
 type DBCompactOptions struct {
 	// Config names the store, as in [DBOptions.Config].
-	Config string
+	Config string `jb:"config" desc:"YAML config naming the store (with --case: one of the case's configs)"`
 	// To is the new file for the copy. Required. It must not exist (it is never
 	// overwritten), its directory must exist and pass the same git-ignore guard as
 	// evidence, and it must be inside the case's evidence directory (with no case, the
 	// store's own directory) unless AllowOutsideEvidence.
-	To string
+	To string `jb:"to" desc:"the new file to write the compacted copy to (must not exist)"`
 	// AllowOutsideEvidence lets To be outside the evidence directory. Its directory must
 	// still pass the git-ignore guard.
-	AllowOutsideEvidence bool
+	AllowOutsideEvidence bool `jb:"allow_outside_evidence" desc:"allow --to outside the evidence directory (its directory must still pass the git-ignore guard)"`
 	// Apply writes the copy. The zero value is a dry run that opens the store read-only
 	// and writes nothing. Apply opens the store read-write, which no other process can
 	// share, so it is refused while anything holds the store.
-	Apply bool
+	Apply bool `jb:"apply" desc:"write the copy (default: dry run)"`
 }
 
 // DBCompactResult is what [DBCompact] reports. Its JSON is the output of
@@ -246,18 +246,18 @@ func sameFile(a, b string) (bool, error) {
 // DBRenameSourceOptions say which source label [DBRenameSource] relabels.
 type DBRenameSourceOptions struct {
 	// Config names the store, as in [DBOptions.Config].
-	Config string
+	Config string `jb:"config" desc:"YAML config naming the store (with --case: one of the case's configs)"`
 	// Old is a stored label: a valid source name, or a default kibana:<index> label.
-	Old string
+	Old string `jb:"old" required:"true" desc:"the stored source label to relabel: a valid source name, or a default kibana:<index> label"`
 	// New is a valid source name (the rule for `name:` in a config). It differs from Old.
-	New string
+	New string `jb:"new" required:"true" desc:"the new source label: a valid source name that differs from old"`
 	// Merge, when New already holds documents Old also holds (same time, kind and
 	// content digest), drops the rows of Old that New covers and relabels the rest.
 	// Without it such an overlap refuses the rename, dry run or not.
-	Merge bool
+	Merge bool `jb:"merge" desc:"when NEW already holds some of OLD's documents, drop OLD's copies and relabel the rest"`
 	// Apply does the rename in one transaction. The zero value is a dry run that opens
 	// the store read-only and changes nothing.
-	Apply bool
+	Apply bool `jb:"apply" desc:"do the rename (default: dry run)"`
 }
 
 // DBRenameSourceResult counts a rename. Its JSON is the output of

@@ -183,13 +183,18 @@ Proposed. None of these exists yet.
 
 ## Reference implementations
 
-Shipped: the cobra commands in `cmd/jb`, the option structs in the root package (`jb.go`, `activity.go`, `watch.go`), the usage error of RFC 0005, and steps 1 and 2 of the plan: `internal/ops` (the types, the reflector, the check, the tool projection and the decode step; standard library only, with an archtest rule), and the registry in the root package (`jb.Operations`, `jb.Call`) with `case_show` and `case_check` end to end, `jb operations [--tool]` and the committed `docs/operations.json`.
+Shipped: the cobra commands in `cmd/jb`, the option structs in the root package (`jb.go`, `activity.go`, `watch.go`), the usage error of RFC 0005, and steps 1, 2, 3 and 5 of the plan:
 
-Proposed, in this order, each step ending in something that runs:
+- `internal/ops`: the types, the reflector, the check, the tool projection (with `toolFixed`, which removes a property from the tool and runs every call with its value) and the decode step; standard library only, with an archtest rule.
+- The registry in the root package (`jb.Operations`, `jb.Call`, `jb.CallTool`) with all 21 operations of the table: `activity`, `actor_status`, `case_check`, `case_show`, `db_compact`, `db_prune`, `db_rename_source`, `db_reputation`, `db_status`, `db_usage`, `doctor`, `estate_asn`, `estate_ct`, `estate_diff`, `estate_dns`, `estate_ip`, `estate_promote`, `estate_refresh`, `hunt`, `intel` and `watch_status`. `hunt` and `activity` carry `store` (default true), which the tool fixes to false. `estate_diff` takes `alert`, `config` and `ttl` from the command line only (`cli.only`). `jb operations [--tool]` and the committed `docs/operations.json`.
+- The flag builder (`cmd/jb/opflags.go`), used by `case show`, `case check`, `actor status`, `doctor`, `intel`, `watch status`, `estate promote` and the six `db` commands; a test pins every command's flags (names, types, defaults, help text) against a recorded set, and a test compares every command's flags with its operation's properties.
 
-3. The flag builder, applied to `case show` first, then to one command at a time.
+Not yet built, in this order:
+
 4. `jb mcp` with the read-only operations.
-5. The remaining operations, then the mutating ones behind `--allow`.
+5. (rest) The mutating operations behind `--allow`, which belongs to `jb mcp`.
+
+Commands still hand-written, each because the builder would change what a person sees: `hunt` and `activity` (the flag is `--no-store`, and `--window` is a duration flag that accepts `7d`), `estate` (the IP form), `estate asn|dns|ct|refresh` (duration flags with a non-zero default, shown as `duration`) and `estate diff` (`--ttl`). They agree with their operations in a test that maps `--no-store` to `store` and a duration flag to a string property.
 
 ## Open questions
 

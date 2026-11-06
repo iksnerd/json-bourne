@@ -17,10 +17,8 @@ import (
 )
 
 func newDBRenameSourceCmd() *cobra.Command {
-	var (
-		cfgPath, caseDir, output string
-		apply, merge             bool
-	)
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "rename-source (--config FILE | --case DIR) OLD NEW [--apply] [--merge]",
 		Short: "Relabel the events stored under source label OLD as NEW (dry run unless --apply)",
@@ -46,6 +44,7 @@ func newDBRenameSourceCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			caseDir, cfgPath, apply, merge := fl.String("case"), fl.String("config"), fl.Bool("apply"), fl.Bool("merge")
 			if err := checkOutput(output); err != nil {
 				return err
 			}
@@ -77,12 +76,9 @@ func newDBRenameSourceCmd() *cobra.Command {
 			return nil
 		},
 	}
+	fl = addOperationFlags(cmd, "db_rename_source")
 	f := cmd.Flags()
-	f.StringVar(&cfgPath, "config", "", "YAML config naming the store (with --case: one of the case's configs)")
-	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it")
 	f.StringVar(&output, "output", "table", "output format: table or json")
-	f.BoolVar(&apply, "apply", false, "do the rename (default: dry run)")
-	f.BoolVar(&merge, "merge", false, "when NEW already holds some of OLD's documents, drop OLD's copies and relabel the rest")
 	return cmd
 }
 

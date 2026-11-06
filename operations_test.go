@@ -23,9 +23,6 @@ func opByName(t *testing.T, name string) jb.Operation {
 
 func TestOperationsAreValidAndUnique(t *testing.T) {
 	list := jb.Operations()
-	if len(list) != 2 {
-		t.Fatalf("this cut registers case_show and case_check, got %d", len(list))
-	}
 	if ps := ops.ValidateAll(list); len(ps) != 0 {
 		t.Fatalf("registry breaks the RFC rules: %s", ops.Describe(ps))
 	}
@@ -83,7 +80,7 @@ func TestToolProjectionOfTheRegistry(t *testing.T) {
 			t.Errorf("%s: tool carries cli", op.Name)
 		}
 		ann := m["annotations"].(map[string]any)
-		if ann["readOnlyHint"] != true || ann["destructiveHint"] != false {
+		if ann["readOnlyHint"] != op.ReadOnly || ann["destructiveHint"] != !op.ReadOnly {
 			t.Errorf("%s: annotations %v", op.Name, ann)
 		}
 		if op.CLI != nil {

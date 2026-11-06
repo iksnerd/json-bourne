@@ -13,12 +13,8 @@ import (
 )
 
 func newDoctorCmdWith(d deps) *cobra.Command {
-	var (
-		cfgPath string
-		caseDir string
-		output  string
-		online  bool
-	)
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "doctor [--case DIR | --config FILE] [--online]",
 		Short: "Check the environment and the config before a run (read-only)",
@@ -37,6 +33,7 @@ func newDoctorCmdWith(d deps) *cobra.Command {
 			"is not a pass. doctor does not inventory external binaries; the only programs jb starts are the allowlisted plugins listed above and git.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			caseDir, cfgPath, online := fl.String("case"), fl.String("config"), fl.Bool("online")
 			if output != "table" && output != "json" {
 				return usageErrorf("--output must be table or json, got %q", output)
 			}
@@ -62,10 +59,8 @@ func newDoctorCmdWith(d deps) *cobra.Command {
 			return nil
 		},
 	}
+	fl = addOperationFlags(cmd, "doctor")
 	f := cmd.Flags()
-	f.StringVar(&cfgPath, "config", "", "path to the YAML config (with --case, one of the case's configs; default: all of them)")
-	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md)")
-	f.BoolVar(&online, "online", false, "also make one TCP connect per service host (sends nothing)")
 	f.StringVar(&output, "output", "table", "output format: table or json")
 	return cmd
 }

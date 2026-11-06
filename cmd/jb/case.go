@@ -26,7 +26,8 @@ func newCaseCmd() *cobra.Command {
 }
 
 func newCaseCheckCmd() *cobra.Command {
-	var output, caseDir string
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "check --case DIR [--output table|json]",
 		Short: "Validate a case: case.yaml, the evidence git guard and every listed config",
@@ -36,6 +37,7 @@ func newCaseCheckCmd() *cobra.Command {
 			"It exits 0 only when everything passes and 1 otherwise.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			caseDir := fl.String("case")
 			if caseDir == "" {
 				return usageErrorf("--case is required")
 			}
@@ -60,7 +62,7 @@ func newCaseCheckCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); required")
+	fl = addOperationFlags(cmd, "case_check")
 	cmd.Flags().StringVar(&output, "output", "table", "output format: table or json")
 	return cmd
 }

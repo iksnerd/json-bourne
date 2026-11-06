@@ -20,6 +20,11 @@ type Operation struct {
 	InputSchema Schema `json:"inputSchema"`
 	ReadOnly    bool   `json:"readOnly"`
 	CLI         *CLI   `json:"cli,omitempty"`
+	// ToolFixed names properties that an MCP tool does not offer and that every tool
+	// call runs with the value given here. hunt and activity fix store to false, so the
+	// tool provably leaves no evidence (RFC 0010, "Operations"). The command line and
+	// the Go API still offer the property.
+	ToolFixed map[string]any `json:"toolFixed,omitempty"`
 }
 
 // CLI says how the command line reaches an operation.
@@ -164,6 +169,18 @@ func Validate(op Operation) []Problem {
 			add("required-duplicate", ref+"."+r, "required lists it twice")
 		}
 		reqSeen[r] = true
+	}
+	for _, n := range sortedKeys(op.ToolFixed) {
+		p, ok := s.Properties[n]
+		if !ok {
+			add("tool-fixed-unknown", ref+"."+n, "toolFixed names no property")
+			continue
+		}
+		q := p
+		q.Default = op.ToolFixed[n]
+		if !defaultFits(q) {
+			add("tool-fixed-type", ref+"."+n, "toolFixed value %v does not fit type %s and its limits", op.ToolFixed[n], p.Type)
+		}
 	}
 	if op.CLI != nil {
 		validateCLI(op, add)

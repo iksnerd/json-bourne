@@ -65,7 +65,7 @@ type DBOptions struct {
 	// or the one that declares `commands: [rename-source]`, which is the name every
 	// `jb db` command chooses by). With no case directory it is the path of a YAML
 	// config. A function reads the config's store path and no credential.
-	Config string
+	Config string `jb:"config" desc:"YAML config naming the store (with --case: one of the case's configs)"`
 }
 
 // dbStore is the store a database function works on, and the directory its output may
