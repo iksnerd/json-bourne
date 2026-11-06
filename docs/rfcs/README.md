@@ -66,3 +66,4 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0001](0001-estate-v2.md) | Estate v2 | draft |
 | [0002](0002-mapper-plugin-protocol-v1.md) | Mapper plugin protocol v1 | implemented |
 | [0003](0003-dashboard-security-model.md) | Dashboard security model | implemented |
+| [0004](0004-stability-policy.md) | Stability policy | draft |
