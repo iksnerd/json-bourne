@@ -1,6 +1,7 @@
 # RFC 0008: A config says which commands it answers
-Status: draft
+Status: accepted
 Scope: a new optional `commands` key in the config file, and the rule by which a command chooses one of a case's configs.
+Accepted: 2026-11-06 by the maintainer
 
 ## Summary
 
@@ -148,3 +149,4 @@ Proposed:
 ## Changes
 
 None yet.
+- 2026-11-06: accepted by the maintainer. The code is merged; the status becomes `implemented` when the Reference implementations section is moved from proposed to shipped.

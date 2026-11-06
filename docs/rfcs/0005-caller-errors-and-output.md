@@ -1,6 +1,7 @@
 # RFC 0005: Caller errors, output formats and credential hints
-Status: draft
+Status: accepted
 Scope: one typed usage error shared by the CLI and the Go package, `--output` on every command that prints a result, and the wording of the error for an unset credential.
+Accepted: 2026-11-06 by the maintainer
 
 ## Summary
 
@@ -181,3 +182,4 @@ Proposed:
 - Whether `jb version` should take `--output json` for a launcher that wants the build string. The maintainer decides.
 - Whether a case that fails to load because `case.yaml` is invalid should be a usage error. Today it is not, because the file is the fault, not the request. The maintainer decides.
 - Whether `watch --output json` should one day stream one document per cycle without `--once`. It needs a line-delimited form. The maintainer decides when a caller asks.
+- 2026-11-06: accepted by the maintainer. The code is merged; the status becomes `implemented` when the Reference implementations section is moved from proposed to shipped.

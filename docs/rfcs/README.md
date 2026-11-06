@@ -67,9 +67,9 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0002](0002-mapper-plugin-protocol-v1.md) | Mapper plugin protocol v1 | implemented |
 | [0003](0003-dashboard-security-model.md) | Dashboard security model | implemented |
 | [0004](0004-stability-policy.md) | Stability policy | withdrawn |
-| [0005](0005-caller-errors-and-output.md) | Caller errors and output | draft |
-| [0006](0006-watch-status.md) | Watcher status | draft |
-| [0007](0007-case-show.md) | Case show | draft |
-| [0008](0008-config-commands.md) | Config commands | draft |
-| [0009](0009-no-store.md) | Hunt and activity without storing | draft |
+| [0005](0005-caller-errors-and-output.md) | Caller errors and output | accepted |
+| [0006](0006-watch-status.md) | Watcher status | accepted |
+| [0007](0007-case-show.md) | Case show | accepted |
+| [0008](0008-config-commands.md) | Config commands | accepted |
+| [0009](0009-no-store.md) | Hunt and activity without storing | accepted |
 | [0010](0010-operations.md) | Operations | draft |

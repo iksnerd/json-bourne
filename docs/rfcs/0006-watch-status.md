@@ -1,6 +1,7 @@
 # RFC 0006: Watcher status record and `jb watch status`
-Status: draft
+Status: accepted
 Scope: a machine-readable health record written by `jb watch`, and a command and Go function that report whether each watcher of a case is alive.
+Accepted: 2026-11-06 by the maintainer
 
 ## Summary
 
@@ -126,3 +127,4 @@ Proposed:
 - Should the heartbeat factor be configurable? The maintainer decides, when a caller needs a value other than 3.
 - Should `status` exit non-zero when a watcher is not `running`? Exit 0 today so that a caller reads the states; the downstream program's owner decides.
 - Should a watcher write one last record on a clean stop, saying it stopped on purpose? The maintainer decides; today `stopped` covers a clean stop and a kill alike.
+- 2026-11-06: accepted by the maintainer. The code is merged; the status becomes `implemented` when the Reference implementations section is moved from proposed to shipped.

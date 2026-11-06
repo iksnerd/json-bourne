@@ -1,6 +1,7 @@
 # RFC 0009: Ask a question without leaving evidence
-Status: draft
+Status: accepted
 Scope: a `--no-store` flag on `jb hunt` and `jb activity`, and the matching Go options, that run the same code over a private temporary store.
+Accepted: 2026-11-06 by the maintainer
 
 ## Summary
 
@@ -119,3 +120,4 @@ Proposed:
 Should the run id carry a marker such as a `-nostore` suffix? The author proposes not, for the reason given under the design. The maintainer decides.
 
 Should a killed run's directory be swept by the next `jb` start? The author proposes not, because a sweep deletes files in `TMPDIR` by name pattern. The maintainer decides.
+- 2026-11-06: accepted by the maintainer. The code is merged; the status becomes `implemented` when the Reference implementations section is moved from proposed to shipped.

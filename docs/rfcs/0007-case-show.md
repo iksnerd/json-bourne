@@ -1,6 +1,7 @@
 # RFC 0007: jb case show and a uniform --case flag
-Status: draft
+Status: accepted
 Scope: a command and a Go function that print what one config of a case would run, a reusable `Describe` in `internal/config`, and `--case DIR` on `jb case check` in place of its positional argument.
+Accepted: 2026-11-06 by the maintainer
 
 ## Summary
 
@@ -99,3 +100,4 @@ Proposed: `internal/config/describe.go` (`Describe`, `ShowCase`), `cmd/jb/casesh
 ## Changes
 
 None yet.
+- 2026-11-06: accepted by the maintainer. The code is merged; the status becomes `implemented` when the Reference implementations section is moved from proposed to shipped.
