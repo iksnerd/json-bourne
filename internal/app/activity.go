@@ -54,6 +54,9 @@ type ActivityResult struct {
 	// Disabled is what the config switched off: neither read nor run. A QUIET verdict
 	// is about the enabled components only, and states so.
 	Disabled []Disabled
+	// Stored is false when the run went to a temporary store that was deleted afterwards
+	// (`--no-store`); see Result.Stored.
+	Stored bool
 	// Reasons lists, for INCOMPLETE and for an ACTIVE that is also incomplete, what did
 	// not finish. It is empty when the check completed.
 	Reasons []string
@@ -128,7 +131,7 @@ func (r ActivityResult) Last() (time.Time, bool) {
 // context ending, the findings not being saved). The result is then still usable, and
 // its Verdict is never QUIET.
 func Activity(ctx context.Context, d Deps, run string, w core.Window) (ActivityResult, error) {
-	res := ActivityResult{Run: run, Window: w, Baseline: w.Previous(), Verdict: VerdictIncomplete, Disabled: d.Disabled}
+	res := ActivityResult{Run: run, Window: w, Baseline: w.Previous(), Verdict: VerdictIncomplete, Disabled: d.Disabled, Stored: !d.Scratch}
 	for _, det := range d.Detectors {
 		if _, ok := det.(core.ActivityReporter); !ok {
 			return res, fmt.Errorf("activity: detector %q cannot report activity", det.Name())

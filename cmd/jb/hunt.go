@@ -40,6 +40,7 @@ func newHuntCmdWith(d deps) *cobra.Command {
 		search  []string
 		sfield  string
 		untilS  string
+		noStore bool
 	)
 	cmd := &cobra.Command{
 		Use:   "hunt",
@@ -69,7 +70,7 @@ func newHuntCmdWith(d deps) *cobra.Command {
 			"the same window without the filter, so the output says \"no match; index alive\" (the term is\n" +
 			"absent) or that the index is empty or unreachable (nothing can be said). The detectors read the\n" +
 			"stored evidence for the window, which includes earlier runs' events, not only the matches; the\n" +
-			"run is stored as search-<time>.",
+			"run is stored as search-<time>.\n\n" + noStoreLong,
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if cfgPath == "" && caseDir == "" {
@@ -122,14 +123,11 @@ func newHuntCmdWith(d deps) *cobra.Command {
 				return err
 			}
 			defer rt.Close() // ends any plugin child process, on success, failure and interrupt alike
-			st, err := duckdb.OpenContext(cmd.Context(), cfg.StorePath(), false, duckdb.OpenOptions{})
+			st, err := config.OpenRunStore(cmd.Context(), cfg, noStore, plan.keepOut()...)
 			if err != nil {
-				return fmt.Errorf("open database: %w", err)
+				return err
 			}
-			defer st.Close()
-			if _, err := st.Migrate(); err != nil {
-				return fmt.Errorf("migrate database: %w", err)
-			}
+			defer st.Close() // removes a --no-store scratch store, on success, failure and interrupt alike
 
 			w := wp.W
 			prefix := "hunt"
@@ -184,9 +182,22 @@ func newHuntCmdWith(d deps) *cobra.Command {
 	f.StringVar(&output, "output", "table", "output format: table or json")
 	f.StringVar(&untilS, "until", "", "hunt the past window ending at TIME (RFC 3339 with a zone, not after now) instead of the one ending now; not offered on watch, which always ends now")
 	f.StringArrayVar(&search, "search", nil, "narrow every source by a phrase match of TERM for this run; repeat to AND more terms (at most 4)")
+	f.BoolVar(&noStore, "no-store", false, noStoreUsage)
 	f.StringVar(&sfield, "search-field", "", "field --search matches against (default: the source's search_field, else message)")
 	return cmd
 }
+
+// noStoreUsage, noStoreLong and notStoredLine are the words of --no-store, shared by hunt
+// and activity so the two commands cannot drift.
+const (
+	noStoreUsage = "run over a private temporary store that is deleted when the command returns: nothing is written to the evidence database"
+	noStoreLong  = "--no-store runs the same code over a private temporary store (mode 0700, outside the case and\n" +
+		"the evidence directory), deleted when the command returns. The evidence database is not opened,\n" +
+		"created or changed, and the output says `not stored` (stored: false in JSON). Detectors then see\n" +
+		"only the events fetched by this run, not those saved by earlier runs, so a result can differ from a\n" +
+		"stored run. Use it for a question that must leave no evidence."
+	notStoredLine = "not stored: this run left no evidence"
+)
 
 func searchFieldName(override string) string {
 	if override != "" {
@@ -246,6 +257,9 @@ func errText(err error) string {
 func writeTable(w io.Writer, r app.Result, search []string) error {
 	absent := len(search) > 0 && searchAbsent(r)
 	fmt.Fprintf(w, "run       %s\n", r.Run)
+	if !r.Stored {
+		fmt.Fprintln(w, notStoredLine)
+	}
 	if !r.Until.IsZero() {
 		fmt.Fprintf(w, "until     %s (historical window; not relative to now)\n", stamp(r.Until))
 	}
@@ -350,6 +364,7 @@ type jsonResult struct {
 	Window    [2]time.Time    `json:"window"`
 	Baseline  [2]time.Time    `json:"baseline"`
 	Complete  bool            `json:"complete"`
+	Stored    bool            `json:"stored"` // false: the run went to a temporary store (--no-store)
 	Sources   []jsonComponent `json:"sources"`
 	Detectors []jsonComponent `json:"detectors"`
 	Findings  []jsonFinding   `json:"findings"`
@@ -376,7 +391,7 @@ func writeJSON(w io.Writer, r app.Result, search []string) error {
 	absent := len(search) > 0 && searchAbsent(r)
 	out := jsonResult{
 		Run: r.Run, Window: [2]time.Time{r.Window.From, r.Window.To},
-		Baseline: [2]time.Time{r.Baseline.From, r.Baseline.To}, Complete: r.Complete() || absent,
+		Baseline: [2]time.Time{r.Baseline.From, r.Baseline.To}, Complete: r.Complete() || absent, Stored: r.Stored,
 		Sources: []jsonComponent{}, Detectors: []jsonComponent{}, Findings: []jsonFinding{},
 	}
 	out.Until = tptr(r.Until)

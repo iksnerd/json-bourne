@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/app"
+	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
 )
 
@@ -22,6 +22,7 @@ func newActivityCmdWith(d deps) *cobra.Command {
 		window  = 24 * time.Hour
 		output  string
 		untilS  string
+		noStore bool
 	)
 	cmd := &cobra.Command{
 		Use:   "activity --case DIR",
@@ -99,14 +100,11 @@ func newActivityCmdWith(d deps) *cobra.Command {
 			if len(skipped) > 0 {
 				fmt.Fprintf(cmd.ErrOrStderr(), "note: not an activity detector, skipped: %s\n", strings.Join(skipped, ", "))
 			}
-			st, err := duckdb.OpenContext(cmd.Context(), cfg.StorePath(), false, duckdb.OpenOptions{})
+			st, err := config.OpenRunStore(cmd.Context(), cfg, noStore, plan.keepOut()...)
 			if err != nil {
-				return fmt.Errorf("open database: %w", err)
+				return err
 			}
-			defer st.Close()
-			if _, err := st.Migrate(); err != nil {
-				return fmt.Errorf("migrate database: %w", err)
-			}
+			defer st.Close() // removes a --no-store scratch store, on success, failure and interrupt alike
 
 			run := wp.runID("activity")
 			res, aerr := app.Activity(cmd.Context(), runDeps(rt, dets, st), run, wp.W)
@@ -139,6 +137,7 @@ func newActivityCmdWith(d deps) *cobra.Command {
 	f.Var((*windowValue)(&window), "window", "length of the window, ending now (or at --until): 90m, 24h or 7d")
 	f.StringVar(&untilS, "until", "", "ask about the past window ending at TIME (RFC 3339 with a zone, not after now) instead of the one ending now; not offered on watch, which always ends now")
 	f.StringVar(&output, "output", "table", "output format: table or json")
+	f.BoolVar(&noStore, "no-store", false, noStoreUsage)
 	return cmd
 }
 
@@ -174,6 +173,9 @@ func subjectNote(s core.ActivitySubject) string {
 
 func writeActivityTable(w io.Writer, r app.ActivityResult) error {
 	fmt.Fprintf(w, "run       %s\n", r.Run)
+	if !r.Stored {
+		fmt.Fprintln(w, notStoredLine)
+	}
 	if !r.Until.IsZero() {
 		fmt.Fprintf(w, "until     %s (historical window; not relative to now)\n", stamp(r.Until))
 	}
@@ -313,6 +315,7 @@ type jsonActivity struct {
 	Until     *time.Time             `json:"until,omitempty"` // set only for a historical window (--until)
 	Verdict   string                 `json:"verdict"`
 	Complete  bool                   `json:"complete"`
+	Stored    bool                   `json:"stored"` // false: the run went to a temporary store (--no-store)
 	Reasons   []string               `json:"reasons"`
 	Window    [2]time.Time           `json:"window"`
 	Baseline  [2]time.Time           `json:"baseline"`
@@ -340,7 +343,7 @@ func tptr(t time.Time) *time.Time {
 
 func writeActivityJSON(w io.Writer, r app.ActivityResult) error {
 	out := jsonActivity{
-		Run: r.Run, Verdict: string(r.Verdict), Complete: r.Complete(), Reasons: append([]string{}, r.Reasons...),
+		Run: r.Run, Verdict: string(r.Verdict), Complete: r.Complete(), Stored: r.Stored, Reasons: append([]string{}, r.Reasons...),
 		Until:    tptr(r.Until),
 		Window:   [2]time.Time{r.Window.From, r.Window.To},
 		Baseline: [2]time.Time{r.Baseline.From, r.Baseline.To},

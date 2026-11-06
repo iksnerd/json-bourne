@@ -37,6 +37,9 @@ type Deps struct {
 	// Sources or Detectors, so they are never fetched or run; Hunt copies them into
 	// Result so that no report can leave out what was not read.
 	Disabled []Disabled
+	// Scratch says Sink and Reader are a private temporary store that is deleted when the
+	// command returns (`--no-store`). The code is the same; the result says Stored false.
+	Scratch bool
 }
 
 // Disabled is one source or detector switched off in the config (`enabled: false`).
@@ -188,6 +191,9 @@ type Result struct {
 	// Disabled is what the config switched off: neither read nor run, so absent from
 	// Sources and Detectors. A report states it beside them.
 	Disabled []Disabled
+	// Stored is false when the run went to a temporary store that was deleted afterwards
+	// (`--no-store`), so it left no evidence and no stored run to cite.
+	Stored bool
 }
 
 // Failed returns the names of the components that did not finish with StatusOK.
@@ -253,7 +259,7 @@ func SourceRun(run, source string) string { return run + "/" + source }
 // input, the context ending, or the findings not being saved. The Result is always
 // usable, and carries whatever was completed.
 func Hunt(ctx context.Context, d Deps, run string, w core.Window) (Result, error) {
-	res := Result{Run: run, Window: w, Baseline: w.Previous(), Disabled: d.Disabled}
+	res := Result{Run: run, Window: w, Baseline: w.Previous(), Disabled: d.Disabled, Stored: !d.Scratch}
 	if err := validate(d, run, w); err != nil {
 		return res, err
 	}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
@@ -42,6 +41,9 @@ type ActivityOptions struct {
 	Env Env
 	// Now is the clock. Nil means time.Now.
 	Now func() time.Time
+	// NoStore asks the question over a private temporary store that is deleted before
+	// the function returns; see [HuntOptions.NoStore]. [ActivityResult.Stored] is false.
+	NoStore bool
 }
 
 // Activity asks whether the actors a case names are active from any client, with the
@@ -95,14 +97,11 @@ func Activity(ctx context.Context, caseDir string, opts ActivityOptions) (*Activ
 	if len(dets) == 0 {
 		return nil, errors.New("jb: the config has no enabled fingerprint or behaviour detector, so it cannot say whether an actor is active")
 	}
-	st, err := duckdb.OpenContext(ctx, cfg.StorePath(), false, duckdb.OpenOptions{})
+	st, err := config.OpenRunStore(ctx, cfg, opts.NoStore, cp.Case.Dir, cp.Case.EvidenceDir())
 	if err != nil {
-		return nil, fmt.Errorf("jb: open database: %w", err)
+		return nil, fmt.Errorf("jb: %w", err)
 	}
-	defer st.Close()
-	if _, err := st.Migrate(); err != nil {
-		return nil, fmt.Errorf("jb: migrate database: %w", err)
-	}
+	defer st.Close() // removes the scratch store of NoStore
 	res, aerr := app.Activity(ctx, watchrun.RunDeps(rt, dets, st), run, w)
 	res.Until = opts.Until
 	return &res, aerr

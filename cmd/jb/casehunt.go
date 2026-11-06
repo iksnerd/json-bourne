@@ -54,3 +54,12 @@ func (p *casePlan) placeStore(stderr io.Writer, cfg *config.File) {
 }
 
 func insideDir(dir, p string) bool { return config.InsideDir(dir, p) }
+
+// keepOut is what a --no-store scratch store must not be inside: the case and its
+// evidence directory. A nil plan (no --case) has none.
+func (p *casePlan) keepOut() []string {
+	if p == nil {
+		return nil
+	}
+	return []string{p.c.Dir, p.c.EvidenceDir()}
+}
