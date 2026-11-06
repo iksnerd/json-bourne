@@ -2,6 +2,14 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/). Before 1.0, the Go API (packages `jb` and `sdk`) and the CLI flags may change between minor versions.
 
+## [Unreleased]
+
+### Added
+- docs/rfcs/README.md, docs/spec/README.md and docs/rfcs/0000-template.md: the RFC process, the index of specs and the RFC template. A test in `internal/archtest` checks the form of every RFC.
+- docs/rfcs/0001-estate-v2.md: a draft RFC for `jb.estate/v2` (per-host facts, separate assessments, a `service` node kind, live overlays in the dashboard). Not accepted; nothing in it is implemented.
+- docs/rfcs/0002-mapper-plugin-protocol-v1.md: back-fill RFC for the mapper plugin protocol at `v: 1` (scope, reasons, limits, trust model, drawbacks, conformance). The normative text stays in docs/PLUGINS.md.
+- docs/rfcs/0003-dashboard-security-model.md: back-fill RFC for the security model of `jb serve` (read-only, loopback and Host check, the Content-Security-Policy, vendored pinned scripts, escaping rules), with each rule's test and the rules that have none.
+
 ## [0.3.1] - 2026-11-06
 
 ### Fixed

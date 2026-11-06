@@ -28,3 +28,6 @@
 # Synthetic fixtures are the one exception to the data rules above.
 !internal/**/testdata/**
 !examples/**
+
+# Agent worktrees live here while a session runs; never commit them.
+/.claude/worktrees/
