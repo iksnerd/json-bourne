@@ -18,7 +18,11 @@ import (
 
 // EstateAPIVersion is the only estate file format this build reads. The format is
 // specified in docs/CASE-SPEC.md section 4.5 and schemas/estate.schema.json.
-const EstateAPIVersion = "jb.estate/v1"
+const EstateAPIVersion = "jb.estate/v2"
+
+// estateV1APIVersion is refused with a message that says how to migrate. There is no
+// v1 reader (docs/rfcs/0001-estate-v2.md).
+const estateV1APIVersion = "jb.estate/v1"
 
 // EstateRequiredKeys are the top-level keys that must be present.
 var EstateRequiredKeys = []string{"apiVersion", "id", "caveat", "nodes"}
@@ -30,10 +34,15 @@ var (
 	NodeRequiredKeys    = []string{"id", "kind", "label", "source", "method", "observed"}
 	EdgeRequiredKeys    = []string{"from", "to", "relation", "source", "method", "observed"}
 	AbsenceRequiredKeys = []string{"subject", "source", "method", "observed", "answer"}
+	// FactRequiredKeys: a fact is an observation and carries the same provenance as any claim.
+	FactRequiredKeys = []string{"key", "value", "source", "method", "observed"}
+	// AssessmentRequiredKeys: an assessment is one author's judgement. It is not a claim,
+	// but it must say who decided and what it rests on.
+	AssessmentRequiredKeys = []string{"id", "subject", "label", "by", "decided", "basis"}
 )
 
 // NodeKinds are the allowed values of a node's kind.
-var NodeKinds = []string{"ip", "host", "domain", "asn", "org", "network"}
+var NodeKinds = []string{"ip", "host", "domain", "asn", "org", "network", "service"}
 
 // EdgeConfidences are the allowed values of an edge's confidence.
 var EdgeConfidences = []string{"stated", "inferred"}
@@ -41,9 +50,11 @@ var EdgeConfidences = []string{"stated", "inferred"}
 // EstateSources is the closed list of passive sources an estate file may cite. It is
 // the list declared in docs/POLICY.md (a test keeps the two equal). Every one is a
 // public registry, resolver or log that answers about an address or name without
-// the investigator contacting the infrastructure itself. A scanner or prober is not on
-// it, and adding one is a policy change, not a code change.
-var EstateSources = []string{"rdap", "rdns", "dns", "whois", "crt.sh", "ct-log", "bgp", "passive-dns"}
+// the investigator contacting the infrastructure itself, or a store the operator
+// already holds and the target observes nothing from (`scan-cache`; see "The test for a
+// source"). A scanner or prober is not on it, and adding one is a policy change, not a
+// code change.
+var EstateSources = []string{"rdap", "rdns", "dns", "whois", "crt.sh", "ct-log", "bgp", "passive-dns", "scan-cache"}
 
 // AbsenceAnswer is the only answer an absence can record: the source was asked and
 // said it holds nothing. A failed lookup is not an absence and is never recorded.
@@ -54,30 +65,42 @@ const (
 	maxEstateNodes    = 5000
 	maxEstateEdges    = 20000
 	maxEstateAbsences = 5000
-	maxCaveat         = 2000
-	maxEstateLine     = 500
+	// The caps below bound what a hostile file can make the loader or the dashboard hold.
+	maxNodeFacts         = 50
+	maxEstateFacts       = 20000
+	maxEstateAssessments = 2000
+	maxBasis             = 20
+	maxAssessmentBy      = 128
+	maxCaveat            = 2000
+	maxEstateLine        = 500
 )
 
 var (
 	estateIDRE  = regexp.MustCompile(`^[a-z0-9_][a-z0-9._:/_-]{0,253}$`)
 	relationRE  = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
+	factKeyRE   = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,63}$`)
+	assessIDRE  = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
+	assessLabRE = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}$`)
 	errEstateNL = errors.New("must be one line")
 )
 
-// Estate is a parsed, validated jb.estate/v1 file: infrastructure relationships
+// Estate is a parsed, validated jb.estate/v2 file: infrastructure relationships
 // inferred from passive sources. It maps ownership and infrastructure, never the
-// people who used it; Caveat says so and is required.
+// people who used it; Caveat says so and is required. Assessments are opinion and are
+// kept apart from the claims.
 type Estate struct {
-	APIVersion string    `yaml:"apiVersion"`
-	ID         string    `yaml:"id"`
-	Caveat     string    `yaml:"caveat"`
-	Nodes      []Node    `yaml:"nodes"`
-	Edges      []Edge    `yaml:"edges,omitempty"`
-	Absences   []Absence `yaml:"absences,omitempty"`
+	APIVersion  string       `yaml:"apiVersion"`
+	ID          string       `yaml:"id"`
+	Caveat      string       `yaml:"caveat"`
+	Nodes       []Node       `yaml:"nodes"`
+	Edges       []Edge       `yaml:"edges,omitempty"`
+	Absences    []Absence    `yaml:"absences,omitempty"`
+	Assessments []Assessment `yaml:"assessments,omitempty"`
 }
 
-// Node is one thing: an address, a host name, a domain, an AS, an organisation or a
-// network range.
+// Node is one thing: an address, a host name, a domain, an AS, an organisation, a
+// network range or a third-party service. Facts are observations about the node, each
+// with its own source, method and time.
 type Node struct {
 	ID       string `yaml:"id"`
 	Kind     string `yaml:"kind"`
@@ -85,6 +108,36 @@ type Node struct {
 	Source   string `yaml:"source"`
 	Method   string `yaml:"method"`   // how it was obtained, e.g. the exact query
 	Observed string `yaml:"observed"` // RFC 3339
+	Facts    []Fact `yaml:"facts,omitempty"`
+}
+
+// Fact is one observation about a node: an open port, an operating system, a
+// certificate name. It is a claim, so it carries source, method and observed. A
+// judgement is not a fact; it belongs in an Assessment.
+type Fact struct {
+	Key      string `yaml:"key"`
+	Value    string `yaml:"value"`
+	Source   string `yaml:"source"`
+	Method   string `yaml:"method"`
+	Observed string `yaml:"observed"`
+}
+
+// Assessment is one author's judgement about one node. It is opinion and not an
+// observation, so it never sits on a node. Basis lists what it rests on: node ids, or
+// `<node id>#<fact key>`.
+type Assessment struct {
+	ID      string   `yaml:"id"`
+	Subject string   `yaml:"subject"`
+	Label   string   `yaml:"label"`
+	By      string   `yaml:"by"`
+	Decided string   `yaml:"decided"` // RFC 3339
+	Basis   []string `yaml:"basis"`
+	Note    string   `yaml:"note,omitempty"`
+}
+
+// key is what makes two facts of one node identical. Observed is not compared.
+func (f Fact) key() string {
+	return strings.Join([]string{f.Key, f.Value, f.Source, f.Method}, "\x00")
 }
 
 // Edge is a relationship between two nodes. An inferred edge says what it was
@@ -131,6 +184,8 @@ func ParseEstate(data []byte) (*Estate, error) {
 	case EstateAPIVersion:
 	case "":
 		return nil, fmt.Errorf("apiVersion is required (this build reads %s)", EstateAPIVersion)
+	case estateV1APIVersion:
+		return nil, fmt.Errorf("unsupported apiVersion %q: this build reads only %s; rewrite the file with apiVersion: %s (that edit is the whole migration)", probe.APIVersion, EstateAPIVersion, EstateAPIVersion)
 	default:
 		return nil, fmt.Errorf("unsupported apiVersion %q: this build reads only %s", probe.APIVersion, EstateAPIVersion)
 	}
@@ -216,8 +271,13 @@ func (e *Estate) validate() error {
 	if len(e.Absences) > maxEstateAbsences {
 		bad("absences hold at most %d entries, has %d", maxEstateAbsences, len(e.Absences))
 	}
+	if len(e.Assessments) > maxEstateAssessments {
+		bad("assessments hold at most %d entries, has %d", maxEstateAssessments, len(e.Assessments))
+	}
 
 	ids := map[string]bool{}
+	factKeys := map[string]map[string]bool{} // node id -> fact keys present
+	totalFacts := 0
 	for i, n := range e.Nodes {
 		if i >= maxEstateNodes {
 			break
@@ -229,6 +289,15 @@ func (e *Estate) validate() error {
 			bad("nodes[%d]: duplicate node id %q", i, n.ID)
 		}
 		ids[n.ID] = true
+		totalFacts += len(n.Facts)
+		keys := map[string]bool{}
+		for _, f := range n.Facts {
+			keys[f.Key] = true
+		}
+		factKeys[n.ID] = keys
+	}
+	if totalFacts > maxEstateFacts {
+		bad("the file holds %d facts in total, at most %d", totalFacts, maxEstateFacts)
 	}
 	seenEdge := map[string]int{}
 	for i, ed := range e.Edges {
@@ -264,6 +333,19 @@ func (e *Estate) validate() error {
 		}
 		seenAbs[a.key()] = i
 	}
+	seenAssess := map[string]int{}
+	for i, a := range e.Assessments {
+		if i >= maxEstateAssessments {
+			break
+		}
+		for _, err := range a.validate(ids, factKeys) {
+			bad("assessments[%d]: %v", i, err)
+		}
+		if j, dup := seenAssess[a.ID]; dup && a.ID != "" {
+			bad("assessments[%d]: duplicate assessment id %q, repeats assessments[%d]", i, a.ID, j)
+		}
+		seenAssess[a.ID] = i
+	}
 	return errors.Join(errs...)
 }
 
@@ -284,7 +366,94 @@ func (n Node) validate() []error {
 	} else if n.Kind == "ip" && !isIP(n.Label) {
 		bad("label of an ip node must be the address in canonical form")
 	}
-	return append(errs, checkProvenance(n.Source, n.Method, n.Observed)...)
+	errs = append(errs, checkProvenance(n.Source, n.Method, n.Observed)...)
+	if len(n.Facts) > maxNodeFacts {
+		bad("facts hold at most %d entries, has %d", maxNodeFacts, len(n.Facts))
+	}
+	seen := map[string]int{}
+	for i, f := range n.Facts {
+		if i >= maxNodeFacts {
+			break
+		}
+		for _, err := range f.validate() {
+			bad("facts[%d]: %v", i, err)
+		}
+		if j, dup := seen[f.key()]; dup {
+			bad("facts[%d]: duplicate fact, repeats facts[%d] (same key, value, source and method)", i, j)
+		}
+		seen[f.key()] = i
+	}
+	return errs
+}
+
+func (f Fact) validate() []error {
+	var errs []error
+	switch {
+	case f.Key == "":
+		errs = append(errs, errors.New(`missing required field "key"`))
+	case !factKeyRE.MatchString(f.Key):
+		errs = append(errs, fmt.Errorf("key %q must match %s", f.Key, factKeyRE))
+	}
+	if err := checkLine("value", f.Value, maxEstateLine); err != nil {
+		errs = append(errs, err)
+	}
+	return append(errs, checkProvenance(f.Source, f.Method, f.Observed)...)
+}
+
+// validate checks one assessment. ids holds the node ids of the file and factKeys the
+// fact keys of each node, which is what a basis reference resolves against.
+func (a Assessment) validate(ids map[string]bool, factKeys map[string]map[string]bool) []error {
+	var errs []error
+	bad := func(format string, v ...any) { errs = append(errs, fmt.Errorf(format, v...)) }
+	if !assessIDRE.MatchString(a.ID) {
+		bad("id %q must match %s", a.ID, assessIDRE)
+	}
+	switch {
+	case a.Subject == "":
+		bad(`missing required field "subject"`)
+	case !ids[a.Subject]:
+		bad("subject %q is not a node of this file", a.Subject)
+	}
+	if !assessLabRE.MatchString(a.Label) {
+		bad("label %q must match %s (lower case)", a.Label, assessLabRE)
+	}
+	if err := checkLine("by", a.By, maxAssessmentBy); err != nil {
+		errs = append(errs, err)
+	}
+	if a.Decided == "" {
+		bad(`missing required field "decided"`)
+	} else if _, err := time.Parse(time.RFC3339, a.Decided); err != nil {
+		bad("decided %q must be an RFC 3339 timestamp with a zone, e.g. 2026-11-06T10:00:00Z", a.Decided)
+	}
+	if a.Note != "" {
+		if err := checkLine("note", a.Note, maxEstateLine); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	switch n := len(a.Basis); {
+	case n == 0:
+		bad(`missing required field "basis": an assessment must say what it rests on (1 to %d references)`, maxBasis)
+	case n > maxBasis:
+		bad("basis holds at most %d references, has %d", maxBasis, n)
+	}
+	seen := map[string]bool{}
+	for i, ref := range a.Basis {
+		if i >= maxBasis {
+			break
+		}
+		if seen[ref] {
+			bad("basis[%d]: duplicate reference %q", i, ref)
+		}
+		seen[ref] = true
+		node, key, hasKey := strings.Cut(ref, "#")
+		switch {
+		case !ids[node]:
+			bad("basis[%d]: reference %q does not resolve: %q is not a node of this file", i, ref, node)
+		case hasKey && !factKeys[node][key]:
+			bad("basis[%d]: reference %q does not resolve: node %q has no fact with key %q", i, ref, node, key)
+		}
+	}
+	return errs
 }
 
 func (e Edge) validate() []error {
@@ -346,6 +515,11 @@ func MarshalEstate(e *Estate) ([]byte, error) {
 	}
 	if buf.Len() > maxEstateSize {
 		return nil, fmt.Errorf("estate would be %d bytes, over the %d byte limit: start a second estate file", buf.Len(), maxEstateSize)
+	}
+	// What is written must be what the loader reads back, including the credential scan,
+	// which works on the YAML and not on the struct.
+	if _, err := ParseEstate(buf.Bytes()); err != nil {
+		return nil, fmt.Errorf("refusing to write an estate the loader would reject: %w", err)
 	}
 	return buf.Bytes(), nil
 }

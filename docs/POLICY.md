@@ -24,7 +24,7 @@
 
 ## Estate sources
 
-An estate file (`jb.estate/v1`, `docs/CASE-SPEC.md` section 4.5) records infrastructure relationships. It may cite only passive sources: public registries, resolvers and logs that answer about an address or name without `jb` contacting the infrastructure. The loader rejects any other `source`, and a test keeps this list equal to the code.
+An estate file (`jb.estate/v2`, `docs/CASE-SPEC.md` section 4.5) records infrastructure relationships. It may cite only passive sources: public registries, resolvers and logs that answer about an address or name without `jb` contacting the infrastructure. The loader rejects any other `source`, and a test keeps this list equal to the code.
 
 <!-- estate-sources:begin -->
 - `rdap`: RIR and registry RDAP answers about an address, AS or domain.
@@ -35,6 +35,7 @@ An estate file (`jb.estate/v1`, `docs/CASE-SPEC.md` section 4.5) records infrast
 - `ct-log`: entries read from a certificate transparency log.
 - `bgp`: routing and origin-AS data, from a public BGP data service (RIPEstat-style API) fed by route collectors.
 - `passive-dns`: a passive DNS database's record of past resolutions.
+- `scan-cache`: a store of past observations that someone else collected earlier (open ports, exposed services, known vulnerabilities), read from an export file the operator already holds. `jb` has no network code for it; `jb estate facts import FILE` reads the file from disk and nothing leaves the machine.
 <!-- estate-sources:end -->
 
 No scanner, port probe, banner grab, TLS handshake or HTTP request to the target is a source, whatever it is called. An address is looked up in a registry or resolver; the address itself is never contacted. Adding a source is a change to this list and to `casefile.EstateSources` in the same commit.
@@ -43,7 +44,9 @@ No scanner, port probe, banner grab, TLS handshake or HTTP request to the target
 
 A source is passive when the target observes nothing from `jb`. The test is what the target sees, not what the source is called. A store of past observations that a third party collected earlier (for open ports, exposed services or known vulnerabilities) passes: `jb` asks the store, and the address is never contacted. A service that scans on demand when asked does not pass, because the request makes it touch the target.
 
-A source that passes the test is still not on by default. It joins the list above under its own name, the operator turns it on, and it sends the address to a third party, so it needs the `estate.external` switch like the other external services. Each new source is judged by this test and recorded as a change to this file.
+A source that passes the test joins the list above under its own name. If `jb` itself asks the source over the network, it sends the address to a third party, is off by default and needs the `estate.external` switch like the other external services. A source `jb` only reads from a local file the operator obtained (`scan-cache`) sends nothing and needs no switch. Each new source is judged by this test and recorded as a change to this file.
+
+Decided 2026-11-06 by the maintainer: a cached third-party store passes the test. The first one is the role `scan-cache`. It names a role and not a vendor, so any export the operator converts to the neutral import shape (`docs/CASE-SPEC.md` section 4.5.2) counts. A collector that queries a named service would be a separate source name, behind `estate.external`, and a separate change to this file.
 
 ### What leaves the machine
 

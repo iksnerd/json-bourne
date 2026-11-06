@@ -172,7 +172,7 @@ func TestEstateConflictIsReportedAndNothingIsOverwritten(t *testing.T) {
 func TestEstateRefusesToReplaceAFileItCannotRead(t *testing.T) {
 	dir := copyExampleCase(t, "")
 	p := filepath.Join(dir, "estate", "estate.yaml")
-	if err := os.WriteFile(p, []byte("apiVersion: jb.estate/v1\nsurprise: 1\n"), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte("apiVersion: jb.estate/v2\nsurprise: 1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	code, _, stderr := run(t, estateDeps(okPTR(), &stubRDAP{}), "estate", "--case", dir, "192.0.2.10")

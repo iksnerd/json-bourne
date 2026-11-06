@@ -128,8 +128,14 @@ func hostileFake() *fake {
 func hostileEstate() core.EstateGraph {
 	return core.EstateGraph{ID: "e1", Caveat: "ownership, not operators",
 		Nodes: []core.EstateNode{
-			{ID: "ip:192.0.2.10", Kind: "ip", Label: hostileSum, Source: "rdns", Method: `PTR "onmouseover="x`, Observed: "2026-11-06T10:00:00Z"},
-			{ID: "host:edge.example.com", Kind: "host", Label: "edge.example.com", Source: "rdns", Method: "PTR q", Observed: "2026-11-06T10:00:00Z"}},
+			{ID: "ip:192.0.2.10", Kind: "ip", Label: hostileSum, Source: "rdns", Method: `PTR "onmouseover="x`, Observed: "2026-11-06T10:00:00Z",
+				Facts: []core.EstateFact{
+					{Key: "port.open", Value: "443", Source: "scan-cache", Method: "import of a synthetic export", Observed: "2026-11-06T10:00:00Z"},
+					{Key: "tech", Value: hostilePath, Source: "scan-cache", Method: hostileUA, Observed: "2026-11-06T10:00:00Z"}}},
+			{ID: "host:edge.example.com", Kind: "host", Label: "edge.example.com", Source: "rdns", Method: "PTR q", Observed: "2026-11-06T10:00:00Z"},
+			{ID: "service:dns-provider", Kind: "service", Label: "Example DNS Provider", Source: "dns", Method: "NS lookup", Observed: "2026-11-06T10:00:00Z"}},
+		Assessments: []core.EstateAssessment{{ID: "a1", Subject: "ip:192.0.2.10", Label: "suspicious", By: hostileSum, Decided: "2026-11-06T12:00:00Z",
+			Basis: []string{"ip:192.0.2.10#port.open", hostilePath}, Note: hostileUA}},
 		Edges:    []core.EstateEdge{{From: "ip:192.0.2.10", To: "host:edge.example.com", Relation: "ptr", Source: "rdns", Method: "PTR q", Observed: "2026-11-06T10:00:00Z", Confidence: "stated"}},
 		Absences: []core.EstateAbsence{{Subject: "ip:192.0.2.10", Source: "rdap", Method: "GET q", Observed: "2026-11-06T10:00:00Z", Answer: "not_found"}},
 	}
@@ -489,6 +495,47 @@ func TestEstatePagesShowProvenanceAndCaveatOnEveryNodeAndEdge(t *testing.T) {
 	_, _, list := get(t, h, "/estate")
 	if !strings.Contains(list, "<svg") || !strings.Contains(list, "not_found") {
 		t.Errorf("estate list should draw the graph and show absences:\n%s", list)
+	}
+}
+
+// Facts show with their source, method and time. An assessment sits under its own heading
+// with a fixed notice, never in a node table, and the notice does not depend on the
+// caveat of the file.
+func TestEstateShowsFactsAndMarksAssessmentsAsOpinion(t *testing.T) {
+	d := newDeps(hostileFake())
+	g := hostileEstate()
+	g.Caveat = "" // a caveat that says nothing about opinion must not change the notice
+	d.Estate = fakeEstate{g: []core.EstateGraph{g}}
+	h := New(d, Options{Loopback: true})
+	node := "/estate/node?g=e1&id=ip:192.0.2.10"
+	for _, p := range []string{"/estate", node} {
+		_, _, body := get(t, h, p)
+		for _, w := range []string{"Assessments (opinion)", assessmentNotice, "suspicious", "2026-11-06T12:00:00Z"} {
+			if !strings.Contains(body, w) {
+				t.Errorf("%s lacks %q", p, w)
+			}
+		}
+	}
+	_, _, body := get(t, h, node)
+	for _, w := range []string{"Facts", "port.open", "443", "scan-cache", "import of a synthetic export", "ip:192.0.2.10#port.open"} {
+		if !strings.Contains(body, w) {
+			t.Errorf("node record lacks %q:\n%s", w, body)
+		}
+	}
+	// A node with no assessment says so and still shows no judgement.
+	_, _, other := get(t, h, "/estate/node?g=e1&id=host:edge.example.com")
+	if strings.Contains(other, "suspicious") || !strings.Contains(other, "Assessments (opinion)") {
+		t.Errorf("a node without an assessment shows the heading and no judgement:\n%s", other)
+	}
+	// The assessment is not in the node table of the estate page.
+	_, _, list := get(t, h, "/estate")
+	i, j := strings.Index(list, "<h3>Nodes"), strings.Index(list, "<h3>Edges")
+	if i < 0 || j < i || strings.Contains(list[i:j], "suspicious") {
+		t.Errorf("an assessment must not appear in the node table")
+	}
+	// A service node is drawn like any node.
+	if !strings.Contains(list, "Example DNS Provider") {
+		t.Errorf("service node missing:\n%s", list)
 	}
 }
 

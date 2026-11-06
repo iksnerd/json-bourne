@@ -1,5 +1,5 @@
 # Synthetic estate map. Everything here is invented: example.com and RFC 5737 addresses.
-apiVersion: jb.estate/v1
+apiVersion: jb.estate/v2
 id: example-estate
 caveat: This map shows infrastructure ownership and relationships as public registries and DNS describe them. It does not show who typed the commands, and a CDN edge address says nothing about the visitor behind it.
 nodes:
@@ -9,6 +9,17 @@ nodes:
     source: rdns
     method: "PTR 10.2.0.192.in-addr.arpa via the system resolver"
     observed: 2026-11-06T10:00:00Z
+    facts:
+      - key: tls.cn
+        value: edge.example.com
+        source: ct-log
+        method: "synthetic example: certificate common name seen in a CT log"
+        observed: 2026-11-06T10:00:00Z
+      - key: port.open
+        value: "443"
+        source: scan-cache
+        method: "synthetic example: `jb estate facts import` of an invented export"
+        observed: 2026-11-05T08:00:00Z
   - id: host:edge.example.com
     kind: host
     label: edge.example.com
@@ -36,3 +47,11 @@ edges:
     method: "GET https://rdap.example.com/ip/192.0.2.10"
     observed: 2026-11-06T10:00:01Z
     confidence: stated
+assessments:
+  - id: example-watch
+    subject: ip:192.0.2.10
+    label: watch
+    by: example-analyst
+    decided: 2026-11-06T12:00:00Z
+    basis: ["ip:192.0.2.10#tls.cn", "ip:192.0.2.10#port.open"]
+    note: "Invented example of an opinion; it is not an observation."

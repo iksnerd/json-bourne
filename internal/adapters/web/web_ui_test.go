@@ -165,7 +165,7 @@ func TestEstateGraphJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &g); err != nil {
 		t.Fatal(err)
 	}
-	if g.ID != "e1" || len(g.Nodes) != 2 || len(g.Edges) != 1 || g.Components != 1 || g.Cut {
+	if g.ID != "e1" || len(g.Nodes) != 3 || len(g.Edges) != 1 || g.Components != 2 || g.Cut {
 		t.Errorf("graph = %+v", g)
 	}
 	for _, n := range g.Nodes {

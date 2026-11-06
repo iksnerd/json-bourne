@@ -248,8 +248,47 @@ func RefreshEstate(ctx context.Context, d RefreshDeps, req RefreshRequest) (*cas
 	ext("dns", t.DNS, req.DNSInterval, CollectDNS)
 	ext("crt.sh", t.CT, req.CTInterval, CollectCT)
 
+	carryBaseline(&snap.Estate, req.Base)
 	snap.Complete = len(snap.Failures) == 0
 	return snap, nil
+}
+
+// carryBaseline copies what the collectors never write from the baseline into the new
+// body, so that promoting a snapshot does not erase it. The facts of a node go onto the
+// same node of the snapshot unchanged (value, source, method and time); they are not
+// asked again. A node the snapshot does not name takes its facts with it: the diff lists
+// that group as not comparable, and the archive made by promotion keeps the old file.
+// An assessment is carried when its subject and every basis reference still resolve.
+func carryBaseline(body, base *casefile.Estate) {
+	facts := map[string][]casefile.Fact{}
+	for _, n := range base.Nodes {
+		if len(n.Facts) > 0 {
+			facts[n.ID] = n.Facts
+		}
+	}
+	keys := map[string]map[string]bool{}
+	for i := range body.Nodes {
+		n := &body.Nodes[i]
+		n.Facts = append([]casefile.Fact(nil), facts[n.ID]...)
+		keys[n.ID] = map[string]bool{}
+		for _, f := range n.Facts {
+			keys[n.ID][f.Key] = true
+		}
+	}
+	resolves := func(ref string) bool {
+		node, key, hasKey := strings.Cut(ref, "#")
+		k, ok := keys[node]
+		return ok && (!hasKey || k[key])
+	}
+	for _, a := range base.Assessments {
+		ok := resolves(a.Subject)
+		for _, ref := range a.Basis {
+			ok = ok && resolves(ref)
+		}
+		if ok {
+			body.Assessments = append(body.Assessments, a)
+		}
+	}
 }
 
 type extCollectFn func(context.Context, ExternalDeps, ExternalRequest) (ExternalResult, error)

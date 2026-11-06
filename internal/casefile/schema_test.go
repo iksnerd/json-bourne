@@ -17,6 +17,7 @@ type schemaNode struct {
 	Properties           map[string]schemaNode `json:"properties"`
 	AdditionalProperties json.RawMessage       `json:"additionalProperties"`
 	Items                *schemaNode           `json:"items"`
+	MaxItems             int                   `json:"maxItems"`
 }
 
 func loadSchema(t *testing.T) schemaNode {

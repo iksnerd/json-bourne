@@ -81,7 +81,7 @@ func TestSnapshotLoaderIsStrict(t *testing.T) {
 	for name, mut := range map[string]func(string) string{
 		"unknown key":        func(x string) string { return x + "surprise: 1\n" },
 		"unknown nested key": func(x string) string { return strings.Replace(x, "  - name: dns", "  - colour: red\n    name: dns", 1) },
-		"wrong apiVersion":   func(x string) string { return strings.Replace(x, EstateSnapshotAPIVersion, "jb.estate-snapshot/v2", 1) },
+		"wrong apiVersion":   func(x string) string { return strings.Replace(x, EstateSnapshotAPIVersion, "jb.estate-snapshot/v3", 1) },
 		"complete missing":   func(x string) string { return strings.Replace(x, "complete: true\n", "", 1) },
 		"complete but failed": func(x string) string {
 			return strings.Replace(x, "services:", "failures:\n  - target: a\n    lookup: b\n    reason: c\nservices:", 1)
@@ -110,7 +110,7 @@ func TestCorruptSnapshotIsAnErrorNotAnEmptyBaseline(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := filepath.Join(c.Dir, "estate", "snapshots")
-	if err := os.WriteFile(filepath.Join(dir, "20261106T100000Z.yaml"), []byte("apiVersion: jb.estate-snapshot/v1\ngarbage: [\n"), 0o640); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "20261106T100000Z.yaml"), []byte("apiVersion: jb.estate-snapshot/v2\ngarbage: [\n"), 0o640); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := LatestEstateSnapshot(c); err == nil || !strings.Contains(err.Error(), "20261106T100000Z") {

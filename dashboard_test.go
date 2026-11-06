@@ -122,6 +122,27 @@ func TestDashboardHandlerCarriesTheSecurityModel(t *testing.T) {
 	writerCanOpen(t, dir) // every request closed its handle
 }
 
+// The v2 example estate (facts and an assessment) renders through the real handler, and
+// the assessment is marked as opinion.
+func TestDashboardRendersTheV2EstateFactsAndAssessments(t *testing.T) {
+	dir := dashCase(t)
+	seedDash(t, dir)
+	h, _, err := jb.DashboardHandler(jb.DashboardOptions{Case: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := do(t, h, "GET", "/estate/node?g=example-estate&id=ip:192.0.2.10", "localhost:8090")
+	body := rec.Body.String()
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, body)
+	}
+	for _, want := range []string{"tls.cn", "port.open", "scan-cache", "Assessments (opinion)", "example-analyst", "watch"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("node record lacks %q:\n%s", want, body)
+		}
+	}
+}
+
 func TestDashboardHandlerKeepsItsRulesWhenMounted(t *testing.T) {
 	dir := dashCase(t)
 	seedDash(t, dir)

@@ -434,7 +434,43 @@ func (s *server) watch(w http.ResponseWriter, r *http.Request) {
 
 type nodeRow struct {
 	G, ID, Kind, Label, Source, Method, Observed string
+	NFacts                                       int
 }
+
+type factRow struct{ Key, Value, Source, Method, Observed string }
+
+// assessRow is one assessment as shown. It is opinion: the page prints assessmentNotice
+// with every list of them, whatever the file's caveat says.
+type assessRow struct{ ID, Subject, Label, By, Decided, Basis, Note string }
+
+// assessmentNotice is the fixed text printed with every assessment section. It is not
+// taken from the file.
+const assessmentNotice = "An assessment is the opinion of its author and not an observation. It rests on the basis it lists; check that before relying on it."
+
+func factRowOf(f core.EstateFact) factRow {
+	return factRow{c(f.Key), c(f.Value), c(f.Source), c(f.Method), c(f.Observed)}
+}
+
+func assessRowOf(a core.EstateAssessment) assessRow {
+	basis := make([]string, 0, len(a.Basis))
+	for _, b := range a.Basis {
+		basis = append(basis, c(b))
+	}
+	return assessRow{c(a.ID), c(a.Subject), c(a.Label), c(a.By), c(a.Decided), strings.Join(basis, ", "), c(a.Note)}
+}
+
+// assessmentsOf returns the rows of the assessments about one node ("" means all of
+// them), at most tableCap.
+func assessmentsOf(g core.EstateGraph, subject string) []assessRow {
+	var out []assessRow
+	for _, a := range g.Assessments {
+		if (subject == "" || a.Subject == subject) && len(out) < tableCap {
+			out = append(out, assessRowOf(a))
+		}
+	}
+	return out
+}
+
 type edgeRow struct {
 	G                                  string
 	I                                  int
@@ -455,6 +491,8 @@ type graphView struct {
 	Nodes                []nodeRow
 	Edges                []edgeRow
 	Absences             []absenceRow
+	Assessments          []assessRow
+	AssessmentTotal      int
 	NodeTotal, EdgeTotal int
 	SVGNodes             []svgNode
 	SVGEdges             []svgEdge
@@ -464,14 +502,15 @@ type graphView struct {
 }
 
 func nodeRowOf(g string, n core.EstateNode) nodeRow {
-	return nodeRow{c(g), c(n.ID), c(n.Kind), c(n.Label), c(n.Source), c(n.Method), c(n.Observed)}
+	return nodeRow{c(g), c(n.ID), c(n.Kind), c(n.Label), c(n.Source), c(n.Method), c(n.Observed), len(n.Facts)}
 }
 func edgeRowOf(g string, i int, e core.EstateEdge) edgeRow {
 	return edgeRow{c(g), i, c(e.From), c(e.To), c(e.Relation), c(e.Source), c(e.Method), c(e.Observed), c(e.Confidence), c(e.InferredFrom)}
 }
 
 func buildGraph(g core.EstateGraph) graphView {
-	v := graphView{ID: c(g.ID), Caveat: c(g.Caveat), NodeTotal: len(g.Nodes), EdgeTotal: len(g.Edges)}
+	v := graphView{ID: c(g.ID), Caveat: c(g.Caveat), NodeTotal: len(g.Nodes), EdgeTotal: len(g.Edges),
+		Assessments: assessmentsOf(g, ""), AssessmentTotal: len(g.Assessments)}
 	for i, n := range g.Nodes {
 		if i == tableCap {
 			break
@@ -554,6 +593,8 @@ type nodePage struct {
 	Node       nodeRow
 	Out, In    []edgeRow
 	Absences   []absenceRow
+	Facts      []factRow
+	Assess     []assessRow
 }
 
 func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
@@ -568,7 +609,10 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 		if x.ID != id {
 			continue
 		}
-		p := nodePage{Nav: "estate", Title: "Node " + c(x.Label), Caveat: c(g.Caveat), GraphID: c(g.ID), Node: nodeRowOf(g.ID, x)}
+		p := nodePage{Nav: "estate", Title: "Node " + c(x.Label), Caveat: c(g.Caveat), GraphID: c(g.ID), Node: nodeRowOf(g.ID, x), Assess: assessmentsOf(g, id)}
+		for _, f := range x.Facts {
+			p.Facts = append(p.Facts, factRowOf(f))
+		}
 		for i, e := range g.Edges {
 			if e.From == id && len(p.Out) < tableCap {
 				p.Out = append(p.Out, edgeRowOf(g.ID, i, e))

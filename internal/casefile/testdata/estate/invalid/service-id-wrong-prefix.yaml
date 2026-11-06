@@ -1,0 +1,11 @@
+# want: must start with its kind
+apiVersion: jb.estate/v2
+id: t
+caveat: "Ownership and relationships, not who typed the commands."
+nodes:
+  - id: host:dns-provider
+    kind: service
+    label: X
+    source: dns
+    method: m
+    observed: 2026-11-06T10:00:00Z

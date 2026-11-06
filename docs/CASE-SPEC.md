@@ -17,8 +17,9 @@ Status: draft. Scope: how one investigation is defined as data, so the tool stay
 | `--window NAME`, assets as detector ignore lists | **Proposed.** `--window` is still a duration; only `windows.default` is read. |
 | `jb.actor/v1` file format: strict loader, size cap, path confinement (`internal/casefile/actor.go`), JSON Schema (`schemas/actor.schema.json`) kept equal to the loader by a test | **Implemented.** Section 4.4. |
 | `jb case check` loads every file in `actors/` and builds each listed config's detectors | **Implemented.** Section 9. |
-| `jb.estate-snapshot/v1` snapshots and the estate drift check (`jb estate refresh`, `diff`, `promote`; `internal/casefile/estate_snapshot.go`, `internal/app/estate_diff.go`, `estate_refresh.go`) | **Implemented.** Section 4.5.1. No JSON Schema yet (the loader is the specification). |
-| `jb.estate/v1` file format: strict loader, size cap, path confinement, passive-source allowlist (`internal/casefile/estate.go`), JSON Schema (`schemas/estate.schema.json`) kept equal to the loader by a test; `jb case check` loads every file in `estate/` | **Implemented.** Sections 4.5 and 9. |
+| `jb.estate-snapshot/v2` snapshots and the estate drift check, facts included (`jb estate refresh`, `diff`, `promote`; `internal/casefile/estate_snapshot.go`, `internal/app/estate_diff.go`, `estate_refresh.go`) | **Implemented.** Section 4.5.1. No JSON Schema yet (the loader is the specification). |
+| `jb.estate/v2` file format: strict loader, size cap, path confinement, source allowlist, `service` nodes, facts and assessments (`internal/casefile/estate.go`), JSON Schema (`schemas/estate.schema.json`) kept equal to the loader by a test; `jb case check` loads every file in `estate/`. `jb.estate/v1` is removed. | **Implemented.** Sections 4.5 and 9. [RFC 0001](rfcs/0001-estate-v2.md). |
+| `jb estate facts import FILE`: facts from an export file you hold, source `scan-cache` (`internal/casefile/estate_facts_import.go`, `estate_facts_import.go`) | **Implemented.** Section 4.5.2. |
 | `jb estate --case DIR IP...`: passive reverse-DNS and RDAP collector that merges into an estate file | **Implemented** (`cmd/jb/estate.go`, `internal/app/estate.go`, `internal/adapters/rdap`, `internal/adapters/dnsptr`). Section 9. |
 | `type: fingerprint` detector reading actor files (`docs/CONFIG.md`) | **Implemented** (`internal/adapters/detectors/fingerprint`). |
 | `jb.assets/v1` file format (section 4.3) | **Proposed.** The example file shows it; no code parses it. The fingerprint detector takes its own `ignore_ips` setting until it does. |
@@ -178,28 +179,33 @@ Rules:
 
 The `fingerprint` detector (`docs/CONFIG.md`) turns an actor file into findings. Its judgement of an event (match, ignored, noise, genuine, grant) and its severities are specified there.
 
-### 4.5 `estate/` (`jb.estate/v1`, implemented)
+### 4.5 `estate/` (`jb.estate/v2`, implemented)
 
-An estate file is the case's map of infrastructure: which addresses, hosts, domains, networks and organisations relate to which, as public registries and DNS describe them. It is data. Drawing it is not core's job: a viewer reads the file. One file per map, `.yaml` or `.yml`, directly inside `paths.estate`. The loader is `casefile.LoadEstates` / `LoadEstateFile`; `schemas/estate.schema.json` mirrors it. An unknown key is an error, at any depth.
+An estate file is the case's map of infrastructure: which addresses, hosts, domains, networks and organisations relate to which, as public registries and DNS describe them. It is data. Drawing it is not core's job: a viewer reads the file. One file per map, `.yaml` or `.yml`, directly inside `paths.estate`. The loader is `casefile.LoadEstates` / `LoadEstateFile`; `schemas/estate.schema.json` mirrors it. An unknown key is an error, at any depth. `jb.estate/v1` is removed: a v1 file is refused with an error that names both versions and says to rewrite it. The migration is one line, changing `apiVersion` to `jb.estate/v2`; the file stays valid.
 
 | Key | Type | Required | Rules |
 |---|---|---|---|
-| `apiVersion` | string | yes | MUST be `jb.estate/v1`. Checked before the other keys. |
+| `apiVersion` | string | yes | MUST be `jb.estate/v2`. Checked before the other keys. |
 | `id` | string | yes | `^[a-z0-9][a-z0-9-]{0,62}$`. Unique across the estate directory. |
 | `caveat` | string | yes | Not empty and not only space; one line of up to 2000 bytes. It MUST say that the map shows infrastructure ownership and relationships, not who typed the commands. The loader checks that it is present, not what it says. |
 | `nodes` | list | yes | 1 to 5000 entries. |
 | `edges` | list | no | At most 20000. |
 | `absences` | list | no | At most 5000. |
+| `assessments` | list | no | At most 2000. An empty list is valid. |
 
-Every node, edge and absence MUST carry `source`, `method` and `observed`. A claim missing any of them is a load error, not a gap to fill later: two observations taken by different methods cannot be compared, and a comparison across them reports a change that did not happen.
+Every node, edge, absence and fact MUST carry `source`, `method` and `observed`. A claim missing any of them is a load error, not a gap to fill later: two observations taken by different methods cannot be compared, and a comparison across them reports a change that did not happen.
 
 | Field | Rules |
 |---|---|
-| `source` | One of the passive sources in `docs/POLICY.md` (`rdap`, `rdns`, `dns`, `whois`, `crt.sh`, `ct-log`, `bgp`, `passive-dns`). Any other value, in particular the name of a scanner, is refused. |
+| `source` | One of the sources in `docs/POLICY.md` (`rdap`, `rdns`, `dns`, `whois`, `crt.sh`, `ct-log`, `bgp`, `passive-dns`, `scan-cache`). Any other value, in particular the name of a scanner, is refused. |
 | `method` | How it was obtained, for example the exact query: one line, 1 to 500 bytes. |
 | `observed` | An RFC 3339 timestamp with a zone, for example `2026-11-06T10:00:00Z`. |
 
-A **node** has `id`, `kind` (`ip`, `host`, `domain`, `asn`, `org`, `network`) and `label` (one line, up to 255 bytes; an `ip` node's label is the address in canonical form). The `id` is lower case, matches `^[a-z0-9_][a-z0-9._:/_-]{0,253}$` and starts with the kind and a colon (`ip:192.0.2.10`, `host:edge.example.com`). Ids are unique within a file.
+A **node** has `id`, `kind` (`ip`, `host`, `domain`, `asn`, `org`, `network`, `service`) and `label` (one line, up to 255 bytes; an `ip` node's label is the address in canonical form). The `id` is lower case, matches `^[a-z0-9_][a-z0-9._:/_-]{0,253}$` and starts with the kind and a colon (`ip:192.0.2.10`, `host:edge.example.com`). Ids are unique within a file. A `service` node names a third-party service that infrastructure talks to (`service:dns-provider`); its `source` is the source that observed the relationship. There is no node kind for a person.
+
+A node MAY carry `facts`, a list of at most 50 entries (an empty list is valid), and a file holds at most 20000 facts in total. A **fact** is an observation about the node, a claim like any other: `key` (`^[a-z][a-z0-9_.-]{0,63}$`; recommended: `port.open`, `os`, `tls.cn`, `cpe`, `vuln`, `tech`), `value` (text read as written, so `22` is the text `22`; a list or a map is an error; one line, 1 to 500 bytes), and `source`, `method`, `observed` as above. Two facts of one node MAY share a `key`, because a host has many open ports. Two facts are identical, and a duplicate and an error, when `key`, `value`, `source` and `method` are equal byte for byte; `observed` is not compared. A fact SHOULD NOT hold a judgement: a key such as `classification` or `verdict` belongs in an assessment, and the loader cannot enforce that.
+
+An **assessment** is one author's judgement about one node. It is opinion, not a claim, and it never sits on a node. Fields: `id` (`^[a-z0-9][a-z0-9-]{0,62}$`, unique among the assessments of the file), `subject` (a node id in the file), `label` (`^[a-z][a-z0-9_-]{0,31}$`, lower case), `by` (who decided: a role or a handle, one line, up to 128 bytes), `decided` (RFC 3339 with a zone; a time in the future is allowed), `basis` and optionally `note` (one line, up to 500 bytes). `by` and `basis` are REQUIRED. `basis` lists 1 to 20 references without duplicates; each is a node id of the file, or `<node id>#<fact key>`, which resolves only when that node has a fact with that key (the loader splits at the first `#`; a node id cannot contain one). A reference that does not resolve is a load error. The `caveat` of a v2 file SHOULD also say that assessments are the opinion of their author; the dashboard prints a fixed notice with every assessment and does not rely on the caveat.
 
 An **edge** has `from`, `to` (node ids in the same file), `relation` (`^[a-z][a-z0-9_-]{0,63}$`, for example `ptr`, `within`, `registered_to`), and optionally `confidence`: `stated` (read straight from the record) or `inferred`. An `inferred` edge MUST give `inferred_from`, one line saying what it was inferred from; `inferred_from` on any other edge is an error. An edge with no `confidence` is allowed and claims neither. A dangling endpoint and a self edge are errors. Two edges with the same `from`, `to`, `relation`, `source` and `method` are a duplicate and an error; the same endpoints seen by another source or method are a second observation and are allowed.
 
@@ -211,10 +217,11 @@ Rules:
 - The credential scan of section 6.3 applies to every string in the file.
 - The file is at most 4 MiB, a single YAML document, and must resolve inside the estate directory (section 6.2 applies, and a symlink to another directory of the case is refused too).
 - Rewriting a file (`jb estate`) does not preserve comments.
+- The collectors write no facts and no assessments. `jb estate refresh` carries both through (see 4.5.1); `jb estate facts import` adds facts (4.5.2).
 - Relations the collectors write: `ptr`, `within`, `registered_to` (`jb estate IP`); `originated_by`, `announced_in`, `held_by` (`jb estate asn`, source `bgp`); `resolves_to`, `cname`, `mx`, `ns`, `spf_authorises`, `spf_include`, `spf_redirect` (`jb estate dns`, source `dns`); `ct_candidate` (`jb estate ct`, source `crt.sh`, always `inferred` with `inferred_from`: a name on a certificate is a candidate host, not a confirmed one). The relation list is open; the loader checks the shape, not the vocabulary.
 - `bgp`, `crt.sh` and `dns` collectors are off until the case config enables them, and a result cut at a cap or any lookup that failed ends the run incomplete (`docs/POLICY.md`, `docs/CONFIG.md`).
 
-#### 4.5.1 Estate snapshots (`jb.estate-snapshot/v1`, implemented)
+#### 4.5.1 Estate snapshots (`jb.estate-snapshot/v2`, implemented)
 
 A snapshot is one dated run of the passive collectors over the targets an estate file already records (`jb estate refresh`). It is how the estate drift check (`jb estate diff`) has two states to compare. Snapshots live in `<paths.estate>/snapshots/<id>.yaml`, where `<id>` is the UTC time of the run, `20261106T100000Z` (`YYYYMMDDThhmmssZ`). A file in `estate/snapshots/` is never read as an estate map: the estate loader reads only files directly inside `paths.estate`, so `jb case check` and the dashboard do not see snapshots.
 
@@ -222,7 +229,7 @@ Loader: `casefile.LoadEstateSnapshot` / `ListEstateSnapshots`. An unknown key is
 
 | Key | Type | Required | Rules |
 |---|---|---|---|
-| `apiVersion` | string | yes | MUST be `jb.estate-snapshot/v1`. |
+| `apiVersion` | string | yes | MUST be `jb.estate-snapshot/v2`. A `jb.estate-snapshot/v1` file is refused with an error that says to rewrite it or regenerate it with `jb estate refresh`. |
 | `id` | string | yes | `^[0-9]{8}T[0-9]{6}Z$`; MUST equal `taken` in UTC and the file name. |
 | `taken` | string | yes | RFC 3339 with a zone. |
 | `complete` | bool | yes | `true` only when every lookup got a full answer and no claim was dropped. `true` with a listed failure, or `false` with none, is an error. |
@@ -231,15 +238,36 @@ Loader: `casefile.LoadEstateSnapshot` / `ListEstateSnapshots`. An unknown key is
 | `targets` | map | no | `domains`, `addresses`, `asns`: what was asked, for the reader. |
 | `services` | list | yes | One entry per collector: `name` (`rdap` covers reverse DNS and RDAP, `bgp`, `dns`, `crt.sh`), `state` (`ran`, `skipped`, `none`), `targets` (count) and an optional `reason`. A service the case config does not enable is `skipped`, never absent. |
 | `failures` | list | no | `target`, `lookup`, `reason` (one line each, at most 500 bytes, at most 500 entries): every lookup that failed, timed out, was rate limited, was cut at a cap or was not asked, and every claim dropped because it conflicted with another in the same run. |
-| `estate` | map | yes | A `jb.estate/v1` body (section 4.5), validated as one. An incomplete snapshot in which every lookup failed may have no nodes. |
+| `estate` | map | yes | A `jb.estate/v2` body (section 4.5), validated as one. An incomplete snapshot in which every lookup failed may have no nodes. |
 
 Rules:
 
 - **An incomplete snapshot is a record of a run, never a state of the estate.** `jb estate diff` refuses it on either side and `jb estate promote` refuses it. A snapshot that skipped a service is complete for what it asked but cannot be promoted, because the baseline would silently lose that service's claims.
 - **A snapshot is never overwritten.** It is written to a temporary file in its directory and hard-linked to its final name, which fails when the name exists; a second run in the same second fails with `snapshot already exists`. The estate file is not touched by a refresh.
 - **Targets are read back from the claims, not guessed.** A domain is a `dns` target if it has an edge or absence from source `dns` (or is a `dns` node that no `spf_include`/`spf_redirect` edge points at), a `ct` target if it has a `ct_candidate` edge, an absence or a node from `crt.sh`; an address is an rdns/rdap target if it has an edge, absence or node from those sources, a BGP address target if it has an `announced_in` edge or a `bgp` absence; an AS is a BGP target if it has a `bgp` absence or an `originated_by` edge whose method no `announced_in` edge shares (an address question writes both). A name that only appeared as an answer (an SPF include, a PTR name, the origin AS of an address) was not asked about and is not a target.
+- **Facts and assessments.** The collectors write neither, so a refresh copies the facts of the baseline onto the same nodes of the snapshot unchanged (value, source, method and time); it does not ask them again. A node the snapshot does not name takes its facts with it: the diff lists that group of facts as not comparable, and promotion archives the old file. An assessment is carried when its subject and every basis reference still resolve in the snapshot, and otherwise is left out of the snapshot (it stays in the archive). `diff` compares facts as a set per node, key, source and method: a value that appears or disappears is a change of type `fact` (subject `<node id>#<key>`, the `value`, and both observation times, the earlier side's being the latest time of that group). A group that exists on one side only is listed as not comparable with its `subject` and is never drift. A port list that gains an entry is one added value, not a replaced list. Fact changes raise no finding. Assessments are opinion and are not compared.
 - **Promotion** (`jb estate promote`) writes the snapshot's `estate` body over the baseline file after copying the baseline, unchanged, to `<paths.estate>/archive/<stem>-<id>.yaml` (never overwritten; the archive is not read as a map either). Nothing else changes the baseline.
 - **What a comparison means.** Every claim carries `source` and `method`; two claims are comparable only when both are equal. The method is the exact question, so another resolver, another RDAP or BGP service URL or another query is a different method. A question present on one side only is *not comparable*, is listed with its claim count and observed time, and is never counted as drift. An absence is an answer: *was present, now absent* and *was absent, now present* are changes. A node is unique by id within a file, so it carries the source and method of the question that first named it; it is compared only when both sides name it through the same question and counted as added or removed only when that question is comparable. A baseline that was built by merging several runs (`jb estate dns` into an existing file) may hold claims of the same question from different times; take the baseline from a promoted snapshot to keep one question's claims from one run.
+
+#### 4.5.2 Facts import (`jb.estate-facts/v1`, implemented)
+
+`jb estate facts import --case DIR [--file NAME] [--apply] FILE` adds facts to the nodes of an estate file from one export file the operator already holds. It reads that one file from disk. It never contacts the network, so it needs no `estate.external` switch; `docs/POLICY.md` ("The test for a source") explains why the role `scan-cache` is passive. jb reads no vendor format: the operator converts an export to this shape with a script they control.
+
+The import file is one JSON object, at most 1 MiB, with at most 5000 facts (values) in all. An unknown key is an error at any depth, and so is a second JSON value after the first.
+
+| Key | Required | Rules |
+|---|---|---|
+| `apiVersion` | yes | MUST be `jb.estate-facts/v1`. |
+| `method` | yes | How the data was obtained, for example the export and the script that converted it. One line. |
+| `source_note` | yes | Where the data came from: the store and the date of the export. One line. |
+| `observed` | yes | RFC 3339 with a zone: when the store observed the data. |
+| `facts` | yes | A non-empty list of entries. |
+
+An entry has `node` (a node id that is already in the estate file), `key` (the fact key rule above), `values` (a non-empty list of strings, each one line of 1 to 500 bytes, no duplicates; a number is an error, so the script writes `"22"`) and optionally `observed`, which replaces the file's time for this entry. Every string goes through the credential scan of section 6.3.
+
+Each value becomes one fact with `source: scan-cache`, the entry's `key`, and `method` set to `<method> (source: <source_note>)`. The method is part of the identity of a question, so an export taken by other means is a different method and its facts are not compared with these. A fact already recorded (same key, value, source and method) is left as it is, with its original time, so importing the same export twice changes nothing.
+
+The command is a dry run unless `--apply` is given, and says what it would add. The whole import is refused and the estate file left as it was when a node is not in the file, when a node would hold more than 50 facts or the file more than 20000, or when the result would not load. The target file must exist: an import adds facts to nodes recorded first. Rewriting the file does not preserve comments. The library function is `jb.EstateFactsImport` with `EstateFactsImportOptions{Apply}`.
 
 ## 5. `case.yaml` reference
 

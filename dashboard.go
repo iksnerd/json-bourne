@@ -219,7 +219,11 @@ func (e dashEstate) Estates(ctx context.Context) ([]core.EstateGraph, error) {
 	for _, x := range es {
 		g := core.EstateGraph{ID: x.ID, Caveat: x.Caveat}
 		for _, n := range x.Nodes {
-			g.Nodes = append(g.Nodes, core.EstateNode{ID: n.ID, Kind: n.Kind, Label: n.Label, Source: n.Source, Method: n.Method, Observed: n.Observed})
+			en := core.EstateNode{ID: n.ID, Kind: n.Kind, Label: n.Label, Source: n.Source, Method: n.Method, Observed: n.Observed}
+			for _, f := range n.Facts {
+				en.Facts = append(en.Facts, core.EstateFact{Key: f.Key, Value: f.Value, Source: f.Source, Method: f.Method, Observed: f.Observed})
+			}
+			g.Nodes = append(g.Nodes, en)
 		}
 		for _, ed := range x.Edges {
 			g.Edges = append(g.Edges, core.EstateEdge{From: ed.From, To: ed.To, Relation: ed.Relation, Source: ed.Source, Method: ed.Method,
@@ -227,6 +231,10 @@ func (e dashEstate) Estates(ctx context.Context) ([]core.EstateGraph, error) {
 		}
 		for _, a := range x.Absences {
 			g.Absences = append(g.Absences, core.EstateAbsence{Subject: a.Subject, Source: a.Source, Method: a.Method, Observed: a.Observed, Answer: a.Answer})
+		}
+		for _, a := range x.Assessments {
+			g.Assessments = append(g.Assessments, core.EstateAssessment{ID: a.ID, Subject: a.Subject, Label: a.Label, By: a.By, Decided: a.Decided,
+				Basis: append([]string(nil), a.Basis...), Note: a.Note})
 		}
 		out = append(out, g)
 	}

@@ -376,14 +376,14 @@ func TestEstateDriftRefusals(t *testing.T) {
 		t.Fatal("refresh")
 	}
 	snaps := snapshotFiles(t, dir)
-	if err := os.WriteFile(filepath.Join(dir, "estate", "snapshots", snaps[0]), []byte("apiVersion: jb.estate-snapshot/v1\nbogus: true\n"), 0o640); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "estate", "snapshots", snaps[0]), []byte("apiVersion: jb.estate-snapshot/v2\nbogus: true\n"), 0o640); err != nil {
 		t.Fatal(err)
 	}
 	if code, _, errs := run(t, w.deps(), "estate", "diff", "--case", dir, "--file", "base.yaml"); code == 0 || errs == "" {
 		t.Errorf("a corrupt snapshot must be an error: %d %s", code, errs)
 	}
 	// A corrupt baseline likewise.
-	if err := os.WriteFile(filepath.Join(dir, "estate", "base.yaml"), []byte("apiVersion: jb.estate/v1\n"), 0o640); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "estate", "base.yaml"), []byte("apiVersion: jb.estate/v2\n"), 0o640); err != nil {
 		t.Fatal(err)
 	}
 	if code, _, errs := run(t, w.deps(), "estate", "refresh", "--case", dir, "--file", "base.yaml"); code == 0 || !strings.Contains(errs, "baseline") {
