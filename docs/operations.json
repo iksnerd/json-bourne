@@ -1,0 +1,56 @@
+[
+  {
+    "name": "case_show",
+    "title": "Show a case config",
+    "description": "Describe what one config of a case would run: sources (type, URL without query, index, the name of the credential variable), detectors, the store path and the alert sinks. Reads no environment variable, makes no connection and opens no store.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "case": {
+          "type": "string",
+          "description": "The case directory (docs/CASE-SPEC.md)."
+        },
+        "config": {
+          "type": "string",
+          "description": "One of the case's configs: a name from case.yaml or a file inside the case. Default: the only config."
+        }
+      },
+      "required": [
+        "case"
+      ]
+    },
+    "readOnly": true,
+    "cli": {
+      "command": [
+        "case",
+        "show"
+      ]
+    }
+  },
+  {
+    "name": "case_check",
+    "title": "Check a case",
+    "description": "Validate a case: case.yaml, the evidence git guard, every actor file, every listed config and the case files its detectors name. A problem in the case is in the result (ok is false), not an error. Reads no credential.",
+    "inputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "case": {
+          "type": "string",
+          "description": "The case directory (docs/CASE-SPEC.md)."
+        }
+      },
+      "required": [
+        "case"
+      ]
+    },
+    "readOnly": true,
+    "cli": {
+      "command": [
+        "case",
+        "check"
+      ]
+    }
+  }
+]
