@@ -4,8 +4,17 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Breaking
+- Errors returned by the Go package no longer start with `jb: `; the command line adds its own. A caller that matched that prefix matches the message instead, or uses `jb.IsUsage` (RFC 0013).
+- The address errors of the dashboard no longer name `--addr` or `--allow-remote`. Match `web.ErrNotLoopback` and `web.ErrBadAddr`; `jb serve` still prints the flag hints.
+- `jb db usage` reports a failed overlap check instead of "no overlap", and `jb db status` on a missing store says so before opening it (same exit code, nothing created).
+
 ### Added
-- `jb activity` (table output) says how long before the end of the window the last genuine event was, beside the verdict: `ACTIVE: ... last activity 2026-11-05T11:09:00Z (51m ago)`. The age counts from the window end (the `--until` time for a historical window), not the wall clock. JSON output is unchanged.
+- Go API, one function per command (RFC 0013): `CaseCheck`, `Doctor`, `ActorStatus`, `DBStatus`, `DBUsage`, `DBPrune`, `DBCompact`, `DBRenameSource`, `Intel`, `EstateIP`, `EstateASN`, `EstateDNS`, `EstateCT`, `EstateRefresh`, `EstateDiff`, `EstatePromote`, `DashboardHandler` and `Serve`. The JSON result types of those commands now belong to the package, and the commands print them. The mutating `DB*` functions are a dry run unless `Apply` is set. See the README table.
+- `HuntOptions.Search` and `SearchField` (the `jb hunt --search` options); refusals are `jb.UsageError` and send nothing. `Result.SearchAbsent()` says a term is absent from a live index; `Result.Complete()` is unchanged.
+- `DashboardOptions.AllowedHosts`: an exact list of Host values for a handler behind a reverse proxy, so the Host check stays on (RFC 0003).
+- `jb case check` notes a command that two configs of the case declare, since `jb COMMAND --case` will then ask for `--config`.
+- `jb activity` prints the age of the last genuine event beside the verdict, for example `last activity 2026-11-05T11:09:00Z (51m ago)`; JSON is unchanged.
 
 ## [0.4.0] - 2026-11-06
 

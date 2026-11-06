@@ -74,5 +74,5 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0009](0009-no-store.md) | Hunt and activity without storing | accepted |
 | [0011](0011-behaviour-severity-and-per-key.md) | Behaviour severity floor and per-key threshold | accepted |
 | [0012](0012-partial-findings.md) | Partial findings | accepted |
-| [0013](0013-library-surface.md) | Library surface | accepted |
+| [0013](0013-library-surface.md) | Library surface | implemented |
 | [0010](0010-operations.md) | Operations | draft |

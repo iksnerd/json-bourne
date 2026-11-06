@@ -1,5 +1,5 @@
 # RFC 0013: Library surface
-Status: accepted
+Status: implemented
 Scope: expose every operation of the `jb` command line as a Go function in the root package `jb`, with result types the library owns, so that a Go program can use `jb` as a package and the CLI is a thin printer over the same functions.
 Accepted: 2026-11-06 by the maintainer
 
@@ -120,3 +120,4 @@ Proposed, in groups that can be built apart:
 ## Changes
 
 - 2026-11-06: first draft, accepted by the maintainer the same day ("first lets just add them - we want to use JB as a package").
+- 2026-11-06: implemented. All functions of groups 1 to 5 shipped on main; the result types moved into the package. `jb hunt` still composes its own pieces and shares the search logic with `jb.Hunt`; full unification of that command is a follow-up. `EstatePromote` has no dry run because the command has none.
