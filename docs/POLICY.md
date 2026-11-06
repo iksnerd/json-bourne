@@ -39,6 +39,12 @@ An estate file (`jb.estate/v1`, `docs/CASE-SPEC.md` section 4.5) records infrast
 
 No scanner, port probe, banner grab, TLS handshake or HTTP request to the target is a source, whatever it is called. An address is looked up in a registry or resolver; the address itself is never contacted. Adding a source is a change to this list and to `casefile.EstateSources` in the same commit.
 
+### The test for a source
+
+A source is passive when the target observes nothing from `jb`. The test is what the target sees, not what the source is called. A store of past observations that a third party collected earlier (for open ports, exposed services or known vulnerabilities) passes: `jb` asks the store, and the address is never contacted. A service that scans on demand when asked does not pass, because the request makes it touch the target.
+
+A source that passes the test is still not on by default. It joins the list above under its own name, the operator turns it on, and it sends the address to a third party, so it needs the `estate.external` switch like the other external services. Each new source is judged by this test and recorded as a change to this file.
+
 ### What leaves the machine
 
 Passive towards the target is not the same as nothing sent. `jb estate asn` (source `bgp`) and `jb estate ct` (source `crt.sh`) ask a third-party service, so the AS numbers, addresses and domain names you ask about leave the machine to that service and are visible to its operator. `jb estate dns` (source `dns`) sends the names to a resolver, which asks the domain's own name servers on your behalf; `jb` itself never connects to the domain or to anything it resolves to. Each of the three is **off by default** and is switched on one by one in the case config (`estate.external`, `docs/CONFIG.md`); until it is, the command refuses and sends nothing. Use `dns` only for a domain you own or are authorised to profile. The older `jb estate IP` lookups (reverse DNS, RDAP) are not behind the switch: they send only the address, to a resolver and a registry.

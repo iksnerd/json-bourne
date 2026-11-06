@@ -5,7 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Breaking
-- `jb hunt` can list findings while a detector's status is not `ok`; read `complete` first. `jb activity` can read ACTIVE with `complete` false (exit 0, where it was INCOMPLETE and exit 1). `jb watch` alerts an incomplete detector's findings (RFC 0012).
+- `jb hunt` can list findings while a detector's status is not `ok`; read `complete` first. `jb activity` can read ACTIVE with `complete` false, and then exits 1; before, ACTIVE with an incomplete source exited 0. `jb watch` alerts an incomplete detector's findings (RFC 0012).
 - `jb case check DIR` is now `jb case check --case DIR`; the positional directory is removed (RFC 0007).
 - A config file may declare `commands:`; a case with several configs picks the one that declares the command, and the error otherwise lists every config with its commands. A config with `commands:` is refused by an older `jb` as an unknown key (RFC 0008). `examples/case` now lists two configs.
 - `config.UsageError` is removed (internal); use `core.IsUsage`. The unset-credential error now continues after "is not set" with a hint (RFC 0005).

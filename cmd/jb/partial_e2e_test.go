@@ -89,7 +89,7 @@ func TestActivityIsActiveAndIncompleteForAnIncompleteDetectorWithAFinding(t *tes
 	if err := json.Unmarshal([]byte(stdout), &out); err != nil {
 		t.Fatalf("not JSON: %v\n%s\n%s", err, stdout, stderr)
 	}
-	if out.Verdict != "ACTIVE" || out.Complete || code != 0 {
+	if out.Verdict != "ACTIVE" || out.Complete || code != 1 {
 		t.Fatalf("exit %d verdict %q complete %v\n%s", code, out.Verdict, out.Complete, stdout)
 	}
 	if d := out.Detectors[0]; d.Status != "error" || d.Findings != 1 {

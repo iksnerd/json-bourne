@@ -249,7 +249,7 @@ Proposed:
 
 ## Open questions
 
-1. **A cached third-party database as a source.** Is it passive for this policy? What is it called on the list? Does a lookup that sends the address to a third party need the `estate.external` switch that the other external services have? Decides: the maintainer.
+1. **A cached third-party database as a source.** Decided on 2026-11-06 by the maintainer: it is passive when the target observes nothing from `jb`, and a store of past scan results passes. The test is in [POLICY.md](../POLICY.md), section "The test for a source". Each such source joins the list under its own name, is off by default, and needs the `estate.external` switch. Still open: what the first one is called. Decides: the maintainer.
 2. **Edges in `basis`.** Edges have no ids. Should an assessment be able to cite an edge, and by what address? Decides: the maintainer, with the author.
 3. **The strength table.** Are the values in the table right, and who may change them? Decides: the maintainer.
 4. **Set comparison for facts.** Is comparing the set of values per group right for keys where order or multiplicity matters? Decides: the author, after a test on a synthetic port history.

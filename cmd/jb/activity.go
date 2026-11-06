@@ -37,7 +37,8 @@ func newActivityCmdWith(d deps) *cobra.Command {
 			"a zone, with fractions of a second, or after now is refused, and so is a window over 31d. The\n" +
 			"run is stored as activity-until-<end>-w<seconds>. See docs/BACKFILL.md.\n\n" +
 			"  ACTIVE      a detector found a genuine event in the window. A detector that stopped early\n" +
-			"              still counts if it had proved a finding; the output then says it is incomplete.\n" +
+			"              still counts if it had proved a finding; the output then says it is incomplete\n" +
+			"              and the exit code is 1, as for INCOMPLETE.\n" +
 			"  QUIET       every source and detector completed over the whole window, nothing was\n" +
 			"              truncated or mostly unreadable, and no genuine event was found.\n" +
 			"  INCOMPLETE  no genuine event was found, but something did not finish. This is not\n" +
@@ -131,6 +132,9 @@ func newActivityCmdWith(d deps) *cobra.Command {
 			}
 			if res.Verdict == app.VerdictIncomplete {
 				return fmt.Errorf("activity incomplete, not QUIET: %s", strings.Join(res.Reasons, "; "))
+			}
+			if res.Verdict == app.VerdictActive && !res.Complete() {
+				return fmt.Errorf("activity ACTIVE, but the check is incomplete: %s", strings.Join(res.Reasons, "; "))
 			}
 			return nil
 		},

@@ -65,7 +65,7 @@ A reader sees findings and an `INCOMPLETE` line together and must read both. Tha
 
 The rule that a finding beside an error rests on read evidence is a convention. A future detector can break it, and only its own tests catch that.
 
-`jb activity` exits 0 for `ACTIVE` with an incomplete detector. A script that wants to know the check was incomplete must read `complete` in JSON or the `NOTE` line, as it must today for `ACTIVE` with an incomplete source.
+`jb activity` exits 1 for `ACTIVE` with an incomplete detector or source, as it does for `INCOMPLETE`. The maintainer decided this on 2026-11-06: a run with a gap is never a success to a shell. The verdict and the findings still print.
 
 ## Alternatives and prior art
 
@@ -82,7 +82,7 @@ Nothing is promised stable, and there is no shim. What changes for a script or p
 
 - `jb hunt` JSON and table: `findings` can be non-empty when a detector's `status` is not `ok`. Before, a failed detector contributed none. The exit code is unchanged (1 when anything did not finish).
 - `DetectorResult.Findings` is non-zero for a failed detector. Before, it was always zero.
-- `jb activity` JSON: the verdict can be `ACTIVE` with `complete` false where it was `INCOMPLETE` (exit 1) before. The exit code in that case moves from 1 to 0. The detector entry gains an optional `findings_before_stop`.
+- `jb activity`: the verdict can be `ACTIVE` with `complete` false where it was `INCOMPLETE` before. In every case where `ACTIVE` is incomplete (a detector or a source), the exit code is 1; before this change an incomplete source with `ACTIVE` exited 0. The detector entry gains an optional `findings_before_stop`. A script that relied on exit 0 reads `complete` and decides itself.
 - `jb watch`: a cycle with an incomplete detector can now alert findings it did not alert before. The cycle status is still `incomplete`.
 - The stored findings of a run can include findings from a detector whose status is `error`. The evidence store has no schema change.
 
@@ -108,6 +108,5 @@ Shipped: none.
 
 ## Open questions
 
-- Should `jb activity` exit 1 for `ACTIVE` with an incomplete detector? It exits 0 today for `ACTIVE` with an incomplete source. The maintainer decides.
 - Should a future conformance helper run every detector against a failing reader and check the contract? It would turn the review above into a test. The maintainer decides.
 - 2026-11-06: accepted by the maintainer; the code is merged.

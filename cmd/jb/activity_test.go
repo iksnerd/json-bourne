@@ -196,7 +196,7 @@ func TestActivityIsIncompleteNotQuietWhenSomethingDidNotFinish(t *testing.T) {
 }
 
 // A positive stands even when a source failed; the output says the check was also incomplete.
-func TestActivityActiveStandsDespiteGaps(t *testing.T) {
+func TestActivityActiveWithGapsExitsOne(t *testing.T) {
 	idx := newFakeIndex(t, []doc{
 		webDoc(cur(1), "OtherClient/1.0", "/login", 200, "203.0.113.10", "x"),
 		webDoc(cur(2), exampleUA, "/login", 200, "203.0.113.11", "x"),
@@ -204,7 +204,7 @@ func TestActivityActiveStandsDespiteGaps(t *testing.T) {
 	})
 	dir := searchCase(t, idx)
 	code, out, stdout, _ := runActivityCmd(t, dir)
-	if code != 0 || out.Verdict != "ACTIVE" || out.Complete {
+	if code != 1 || out.Verdict != "ACTIVE" || out.Complete {
 		t.Fatalf("exit %d verdict %q complete %v\n%s", code, out.Verdict, out.Complete, stdout)
 	}
 	_, tbl, _ := run(t, testDeps(huntEnv), "activity", "--case", dir, "--config", fpConfigRel, "--window", "1h")
