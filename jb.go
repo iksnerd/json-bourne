@@ -119,7 +119,9 @@ func Hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 type CaseHuntOptions struct {
 	HuntOptions
 	// Config names one of the case's configs, as listed in case.yaml, or a file inside
-	// the case. Empty means the case's only config; a case that lists several needs it.
+	// the case. A relative path is looked for in the case directory first, then in the
+	// working directory; either way the real path (symlinks followed) must be inside the
+	// case. Empty means the case's only config; a case that lists several needs it.
 	Config string
 }
 

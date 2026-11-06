@@ -465,6 +465,33 @@ func TestHuntCaseConfigSelection(t *testing.T) {
 			t.Fatalf("exit %d: %s", code, stderr)
 		}
 	})
+	t.Run("a relative path is relative to the case, from any working directory", func(t *testing.T) {
+		dir, _ := readyCase(t)
+		b, _ := os.ReadFile(filepath.Join(dir, "config", "hunt.yaml"))
+		draft := filepath.Join(dir, "config", "drafts", "x.yaml")
+		if err := os.MkdirAll(filepath.Dir(draft), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(draft, b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		t.Chdir(t.TempDir())
+		_, _, stderr, code := huntCase(t, "--case", dir, "--config", "config/drafts/x.yaml")
+		if code != 0 {
+			t.Fatalf("exit %d: %s", code, stderr)
+		}
+	})
+	t.Run("a relative path that leaves the case is refused", func(t *testing.T) {
+		dir, served := readyCase(t)
+		t.Chdir(t.TempDir())
+		_, _, stderr, code := huntCase(t, "--case", dir, "--config", "../hunt.yaml")
+		if code != exitUsage {
+			t.Errorf("code=%d stderr=%q", code, stderr)
+		}
+		if served() != 0 {
+			t.Error("reached the source")
+		}
+	})
 	t.Run("a config outside the case is refused", func(t *testing.T) {
 		dir, served := readyCase(t)
 		outside := writeConfig(t, "https://kibana.example.com")

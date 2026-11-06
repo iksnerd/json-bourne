@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -97,6 +98,8 @@ func ParseWindow(s string) (time.Duration, error) {
 
 // ChooseCaseConfig returns the absolute path of the hunt config to use. flag names one
 // of the case's configs, or a file inside the case; empty means the case's only config.
+// A relative flag that is not a listed entry is looked for in the case directory, then
+// in the working directory; the real path (symlinks followed) must be inside the case.
 func ChooseCaseConfig(c *casefile.Case, flag string) (string, error) {
 	abs := func(rel string) string { return filepath.Join(c.Dir, filepath.FromSlash(rel)) }
 	if flag == "" {
@@ -114,10 +117,30 @@ func ChooseCaseConfig(c *casefile.Case, flag string) (string, error) {
 			return abs(rel), nil
 		}
 	}
-	// Not a listed entry: accept a file that resolves inside the case directory.
-	real, err := filepath.EvalSymlinks(flag)
+	// Not a listed entry: accept a file that resolves inside the case directory. A
+	// relative path is tried against the case directory first, then the working
+	// directory; either way the resolved real path must be inside the case.
+	candidates := []string{flag}
+	where := "the path as given"
+	if !filepath.IsAbs(flag) {
+		candidates = []string{filepath.Join(c.Dir, flag), flag}
+		where = fmt.Sprintf("the case directory %s and the working directory", c.Dir)
+		if wd, err := os.Getwd(); err == nil {
+			where += " " + wd
+		}
+	}
+	var real string
+	var err error
+	for _, cand := range candidates {
+		if cand, err = filepath.Abs(cand); err != nil {
+			continue
+		}
+		if real, err = filepath.EvalSymlinks(cand); err == nil {
+			break
+		}
+	}
 	if err != nil {
-		return "", usagef("--config %q is not one of the case's configs (%s) and is not a readable file", flag, strings.Join(c.Config, ", "))
+		return "", usagef("--config %q is not one of the case's configs (%s) and is not a readable file (looked in %s)", flag, strings.Join(c.Config, ", "), where)
 	}
 	root, err := filepath.EvalSymlinks(c.Dir)
 	if err != nil {
