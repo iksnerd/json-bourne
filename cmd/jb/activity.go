@@ -15,8 +15,6 @@ import (
 	"github.com/iksnerd/json-bourne/internal/core"
 )
 
-func newActivityCmd() *cobra.Command { return newActivityCmdWith(defaultDeps()) }
-
 func newActivityCmdWith(d deps) *cobra.Command {
 	var (
 		cfgPath string

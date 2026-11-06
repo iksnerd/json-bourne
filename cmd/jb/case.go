@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -268,10 +267,4 @@ func writeCaseTable(w io.Writer, r caseReport) error {
 
 func oneLine(s string) string {
 	return strings.Join(strings.Fields(s), " ")
-}
-
-// caseWindow returns the case's window of that name. The loader guarantees the
-// form (1 to 4 digits, then h or d); a "d" is 24 hours.
-func caseWindow(c *casefile.Case, name string) (time.Duration, bool, error) {
-	return config.CaseWindow(c, name)
 }

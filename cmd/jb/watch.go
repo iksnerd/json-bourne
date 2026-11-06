@@ -25,8 +25,6 @@ const (
 	watchLockFile  = watchrun.LockFile
 )
 
-func watchFile(unnamed, name string) string { return watchrun.File(unnamed, name) }
-
 func newWatchCmdWith(d deps) *cobra.Command {
 	var (
 		cfgPath string
