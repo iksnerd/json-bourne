@@ -2,18 +2,17 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
+	jb "github.com/iksnerd/json-bourne"
+
 	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/app"
-	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
 )
 
@@ -47,54 +46,30 @@ func newDBRenameSourceCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			oldL, newL := args[0], args[1]
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			if caseDir == "" && cfgPath == "" {
-				return usageErrorf("one of --case DIR or --config FILE is required (it names the store)")
-			}
-			if !config.ValidStoredLabel(oldL) {
-				return usageErrorf("OLD %q is not a stored source label: expected a source name (lower case letter first, then a-z 0-9 _ . : -, at most 64) or a default kibana:<index> label", oldL)
-			}
-			if !config.ValidSourceName(newL) {
-				return usageErrorf("NEW %q is not a valid source name: a lower case letter, then a-z 0-9 _ . : -, at most 64 characters", newL)
-			}
-			if oldL == newL {
-				return usageErrorf("OLD and NEW are the same label")
-			}
-			store, err := storePathFor(cmd.ErrOrStderr(), caseDir, cfgPath)
-			if err != nil {
+			res, err := jb.DBRenameSource(cmd.Context(), caseDir, jb.DBRenameSourceOptions{
+				Config: cfgPath, Old: args[0], New: args[1], Merge: merge, Apply: apply,
+			})
+			if res == nil { // a refusal before the store was opened
 				return err
 			}
-			if _, err := os.Stat(store); err != nil {
-				return fmt.Errorf("no evidence database at %s: %w", store, err)
-			}
-			// A dry run opens read-only, so the engine itself guarantees it changes nothing.
-			st, err := duckdb.OpenContext(cmd.Context(), store, !apply, duckdb.OpenOptions{})
-			if err != nil {
-				return fmt.Errorf("open database: %w", err)
-			}
-			defer st.Close()
-			res, rerr := st.RenameSource(cmd.Context(), core.RenameSourceRequest{Old: oldL, New: newL, Merge: merge, DryRun: !apply})
+			printNotes(cmd.ErrOrStderr(), res.Notes)
+			// A refusal that found something (an overlap) still prints what it found.
 			if res.Events > 0 || res.NewEvents > 0 {
 				var werr error
 				if output == "json" {
-					werr = writeIndentedJSON(cmd.OutOrStdout(), renameJSONOf(store, res))
+					werr = writeIndentedJSON(cmd.OutOrStdout(), res)
 				} else {
-					werr = writeRename(cmd.OutOrStdout(), store, res, apply, merge)
+					werr = writeRename(cmd.OutOrStdout(), res.Store, *res, apply, merge)
 				}
 				if werr != nil {
 					return fmt.Errorf("write output: %w", werr)
 				}
 			}
-			switch {
-			case errors.Is(rerr, core.ErrSourceOverlap):
-				return fmt.Errorf("refused: %q already holds %d of the documents under %q; nothing was changed. If they are the same documents, re-run with --merge to drop OLD's copies and relabel the rest", newL, res.Overlap, oldL)
-			case errors.Is(rerr, core.ErrNoSuchSource):
-				return fmt.Errorf("no event in %s carries the source label %q; nothing to do", store, oldL)
-			case rerr != nil:
-				return fmt.Errorf("rename source: %w", rerr)
+			if err != nil {
+				return err
 			}
 			if !apply && output != "json" {
 				fmt.Fprintf(cmd.OutOrStdout(), "dry run: nothing was changed. Add --apply to do it.\n")
@@ -111,48 +86,7 @@ func newDBRenameSourceCmd() *cobra.Command {
 	return cmd
 }
 
-// storePathFor resolves the store path the way the commands that read it do, loading
-// the config only: it reads no credential.
-func storePathFor(stderr io.Writer, caseDir, cfgPath string) (string, error) {
-	if caseDir == "" {
-		cfg, err := config.Load(cfgPath)
-		if err != nil {
-			return "", err
-		}
-		return cfg.StorePath(), nil
-	}
-	plan, err := planCase(stderr, caseDir, cfgPath, "rename-source", true)
-	if err != nil {
-		return "", err
-	}
-	cfg, err := loadCaseConfig(stderr, plan)
-	if err != nil {
-		return "", err
-	}
-	return cfg.StorePath(), nil
-}
-
-// renameJSON is the JSON form of `jb db rename-source`. applied is false for a dry run.
-type renameJSON struct {
-	Store      string `json:"store"`
-	Old        string `json:"old"`
-	New        string `json:"new"`
-	Applied    bool   `json:"applied"`
-	Events     int64  `json:"events"`
-	Runs       int64  `json:"runs"`
-	NewEvents  int64  `json:"new_events"`
-	Overlap    int64  `json:"overlap"`
-	Dropped    int64  `json:"dropped"`
-	Relabelled int64  `json:"relabelled"`
-	NoRaw      int64  `json:"no_raw"`
-}
-
-func renameJSONOf(store string, r core.RenameSourceResult) renameJSON {
-	return renameJSON{Store: store, Old: r.Old, New: r.New, Applied: r.Applied, Events: r.Events, Runs: r.Runs,
-		NewEvents: r.NewEvents, Overlap: r.Overlap, Dropped: r.Dropped, Relabelled: r.Relabelled, NoRaw: r.NoRaw}
-}
-
-func writeRename(w io.Writer, store string, r core.RenameSourceResult, apply, merge bool) error {
+func writeRename(w io.Writer, store string, r jb.DBRenameSourceResult, apply, merge bool) error {
 	mode := "dry run"
 	if apply {
 		mode = "apply"
