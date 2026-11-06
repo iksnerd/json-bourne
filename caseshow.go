@@ -27,7 +27,7 @@ type (
 type CaseShowOptions struct {
 	// Config names one of the case's configs, as in [CaseHuntOptions.Config]. Empty
 	// means the case's only config; a case that lists several needs it.
-	Config string
+	Config string `jb:"config" desc:"One of the case's configs: a name from case.yaml or a file inside the case. Default: the only config."`
 }
 
 // CaseShow describes what one config of a case would run, as `jb case show` does. It

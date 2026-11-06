@@ -183,12 +183,10 @@ Proposed. None of these exists yet.
 
 ## Reference implementations
 
-Shipped: the cobra commands in `cmd/jb`, the option structs in the root package (`jb.go`, `activity.go`, `watch.go`), and the usage error of RFC 0005.
+Shipped: the cobra commands in `cmd/jb`, the option structs in the root package (`jb.go`, `activity.go`, `watch.go`), the usage error of RFC 0005, and steps 1 and 2 of the plan: `internal/ops` (the types, the reflector, the check, the tool projection and the decode step; standard library only, with an archtest rule), and the registry in the root package (`jb.Operations`, `jb.Call`) with `case_show` and `case_check` end to end, `jb operations [--tool]` and the committed `docs/operations.json`.
 
 Proposed, in this order, each step ending in something that runs:
 
-1. `internal/ops`: the types, the reflector, the check and the tool projection. Standard library only.
-2. The registry in the root package, with `case_show` end to end, and `jb operations`.
 3. The flag builder, applied to `case show` first, then to one command at a time.
 4. `jb mcp` with the read-only operations.
 5. The remaining operations, then the mutating ones behind `--allow`.
