@@ -273,13 +273,5 @@ func oneLine(s string) string {
 // caseWindow returns the case's window of that name. The loader guarantees the
 // form (1 to 4 digits, then h or d); a "d" is 24 hours.
 func caseWindow(c *casefile.Case, name string) (time.Duration, bool, error) {
-	v, ok := c.Windows[name]
-	if !ok {
-		return 0, false, nil
-	}
-	d, err := parseWindow(v)
-	if err != nil {
-		return 0, false, fmt.Errorf("windows.%s: %w", name, err)
-	}
-	return d, true, nil
+	return config.CaseWindow(c, name)
 }

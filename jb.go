@@ -100,6 +100,42 @@ func Hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 	if cfg == nil {
 		return nil, errors.New("jb: nil config")
 	}
+	return hunt(ctx, cfg, opts)
+}
+
+// CaseHuntOptions are the options of [HuntCase].
+type CaseHuntOptions struct {
+	HuntOptions
+	// Config names one of the case's configs, as listed in case.yaml, or a file inside
+	// the case. Empty means the case's only config; a case that lists several needs it.
+	Config string
+}
+
+// HuntCase hunts inside a case, with the rules of `jb hunt --case DIR`: the case is
+// loaded and checked, the hunt is refused when its evidence directory is not safe from
+// git, the detectors can read the case's data files (actor files), and the evidence is
+// stored under the case's evidence directory unless the config says otherwise. When
+// Window is zero the case's windows.default is used, else one hour.
+//
+// Like [Hunt], a nil error does not mean the result is clean: check [Result.Complete].
+func HuntCase(ctx context.Context, caseDir string, opts CaseHuntOptions) (*Result, error) {
+	plan, err := config.PlanCase(caseDir, opts.Config, opts.Window != 0)
+	if err != nil {
+		return nil, fmt.Errorf("jb: %w", err)
+	}
+	cfg, err := config.Load(plan.ConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("jb: %w", err)
+	}
+	config.PlaceCaseStore(plan.Case, cfg)
+	cfg.UseCase(plan.Case) // detectors read the case's data files
+	if opts.Window == 0 {
+		opts.Window = plan.Window
+	}
+	return hunt(ctx, cfg, opts.HuntOptions)
+}
+
+func hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 	if opts.Window < 0 {
 		return nil, fmt.Errorf("jb: window must be positive, got %s", opts.Window)
 	}

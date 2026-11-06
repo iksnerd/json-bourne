@@ -1,6 +1,9 @@
 package jb
 
 import (
+	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -34,5 +37,56 @@ func TestPlan(t *testing.T) {
 func TestHuntRefusesNilConfig(t *testing.T) {
 	if _, err := Hunt(t.Context(), nil, HuntOptions{}); err == nil || !strings.Contains(err.Error(), "nil config") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// copyCase copies examples/case to a temp dir. It is not in a git work tree, which the
+// evidence guard accepts (and notes), so no git is needed.
+func copyCase(t *testing.T) string {
+	t.Helper()
+	src := "examples/case"
+	dst := t.TempDir()
+	err := filepath.WalkDir(src, func(p string, e fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, p)
+		if e.IsDir() {
+			return os.MkdirAll(filepath.Join(dst, rel), 0o700)
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(dst, rel), b, 0o600)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dst
+}
+
+func TestHuntCaseStoresEvidenceInTheCaseAndIsNeverCleanWhenTheSourceIsDown(t *testing.T) {
+	dir := copyCase(t)
+	env := func(string) (string, bool) { return "k", true }
+	res, err := HuntCase(t.Context(), dir, CaseHuntOptions{HuntOptions: HuntOptions{Env: env}})
+	if res == nil {
+		t.Fatalf("no result, err = %v", err)
+	}
+	if res.Complete() {
+		t.Fatal("kibana.example.com does not exist: the hunt cannot be complete")
+	}
+	if _, serr := os.Stat(filepath.Join(dir, "evidence", "jb.duckdb")); serr != nil {
+		t.Errorf("the store is not under the case's evidence directory: %v", serr)
+	}
+}
+
+func TestHuntCaseRefusesWhatTheCLIRefuses(t *testing.T) {
+	if _, err := HuntCase(t.Context(), filepath.Join(t.TempDir(), "none"), CaseHuntOptions{}); err == nil {
+		t.Error("a missing case was accepted")
+	}
+	dir := copyCase(t)
+	if _, err := HuntCase(t.Context(), dir, CaseHuntOptions{Config: "../outside.yaml"}); err == nil || !strings.Contains(err.Error(), "config") {
+		t.Errorf("a config outside the case: err = %v", err)
 	}
 }

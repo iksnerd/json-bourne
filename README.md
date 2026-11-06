@@ -81,7 +81,7 @@ for _, f := range res.Findings {
 
 To write a mapper plugin, import `github.com/iksnerd/json-bourne/sdk` (standard library only, none of the host code) and see [docs/PLUGINS.md](docs/PLUGINS.md). Not public yet: the host side of plugins, a protocol conformance corpus, and APIs for `activity`, `watch`, `estate` and `intel`.
 
-The API is v0 and may change between minor versions. It covers `Hunt` only, not `activity`, `watch`, `estate` or `intel`. `Config` and `Result` are aliases of internal types, so their exported fields are part of the API. Importing the package links DuckDB, so it needs cgo and a C compiler.
+The API is v0 and may change between minor versions. It covers `Hunt` and `HuntCase` (a case directory: `jb hunt --case`) only, not `activity`, `watch`, `estate` or `intel`. `Config` and `Result` are aliases of internal types, so their exported fields are part of the API. Importing the package links DuckDB, so it needs cgo and a C compiler.
 
 ### Commands
 
