@@ -1,5 +1,7 @@
 # json-bourne (`jb`)
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/iksnerd/json-bourne.svg)](https://pkg.go.dev/github.com/iksnerd/json-bourne) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 `jb` is an incident-response tool for when you are under attack. It fetches logs for a time window from your own log store, keeps them as evidence in a local DuckDB file, and runs detectors that compare that window with the one before it.
 
 Apache-2.0. Go, DuckDB, cobra.
