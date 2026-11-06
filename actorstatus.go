@@ -15,7 +15,7 @@ import (
 type ActorStatusOptions struct {
 	// Config names one of the case's configs, as in [CaseHuntOptions.Config]. Empty
 	// means the config the case's commands list for `actor`, else its only config.
-	Config string
+	Config string "jb:\"config\" desc:\"one of the case's configs (default: the config whose `commands:` lists this command, else the case's only config)\""
 }
 
 // ActorMatch is when one user agent of an actor last matched in the evidence store. It

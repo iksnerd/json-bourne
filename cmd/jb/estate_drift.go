@@ -262,7 +262,8 @@ func writeDiffTable(w io.Writer, r *jb.EstateDiffResult) error {
 // ---- promote ----
 
 func newEstatePromoteCmd(d deps) *cobra.Command {
-	var caseDir, file, output string
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "promote --case DIR SNAPSHOT-ID",
 		Short: "Adopt a complete snapshot as the baseline estate file (the old baseline is archived first)",
@@ -273,6 +274,7 @@ func newEstatePromoteCmd(d deps) *cobra.Command {
 			"snapshot shows: the next diff will no longer report it.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			caseDir, file := fl.String("case"), fl.String("file")
 			if caseDir == "" {
 				return usageErrorf("--case is required")
 			}
@@ -290,8 +292,7 @@ func newEstatePromoteCmd(d deps) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md) (required)")
-	cmd.Flags().StringVar(&file, "file", jb.EstateDefaultFile, "the baseline estate file to replace")
 	cmd.Flags().StringVar(&output, "output", "table", "output format: table or json")
+	fl = addOperationFlags(cmd, "estate_promote")
 	return cmd
 }

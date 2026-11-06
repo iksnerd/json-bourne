@@ -15,9 +15,8 @@ import (
 )
 
 func newWatchStatusCmd(d deps) *cobra.Command {
-	var (
-		caseDir, cfgPath, name, output string
-	)
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Say whether a case's watchers are alive and what they run",
@@ -34,6 +33,7 @@ func newWatchStatusCmd(d deps) *cobra.Command {
 			"The format is in docs/CASE-SPEC.md section 3.1.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			caseDir, cfgPath, name := fl.String("case"), fl.String("config"), fl.String("name")
 			if caseDir == "" {
 				return usageErrorf("--case is required")
 			}
@@ -57,10 +57,8 @@ func newWatchStatusCmd(d deps) *cobra.Command {
 			return writeWatchStatusTable(cmd.OutOrStdout(), got, o.Now)
 		},
 	}
+	fl = addOperationFlags(cmd, "watch_status")
 	f := cmd.Flags()
-	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md; required)")
-	f.StringVar(&cfgPath, "config", "", "only the watchers that run this one of the case's configs")
-	f.StringVar(&name, "name", "", "only this watcher (\"\" is the unnamed one); default: every watcher found")
 	f.StringVar(&output, "output", "table", "table or json")
 	return cmd
 }

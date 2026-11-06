@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/watchrun"
 )
 
@@ -50,6 +51,11 @@ type WatchStatusOptions struct {
 // so it is safe to call while a watcher runs. The result is ordered by name, the
 // unnamed watcher first; a case with no watcher gives an empty result and no error.
 func WatchStatus(caseDir string, opts WatchStatusOptions) ([]WatcherStatus, error) {
+	for _, n := range opts.Names {
+		if err := app.ValidWatchName(n); err != nil {
+			return nil, usagef("name: %v", err)
+		}
+	}
 	o := watchrun.StatusOptions{Names: opts.Names}
 	if opts.Now != nil {
 		o.Now = opts.Now()

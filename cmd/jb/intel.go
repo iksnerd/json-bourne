@@ -14,11 +14,8 @@ import (
 const maxFailuresShown = 25
 
 func newIntelCmdWith(d deps) *cobra.Command {
-	var (
-		cfgPath string
-		caseDir string
-		output  string
-	)
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "intel [IP ...]",
 		Short: "Look addresses up in a reputation feed and store the snapshots",
@@ -37,6 +34,7 @@ func newIntelCmdWith(d deps) *cobra.Command {
 			"stored for it. \"not_found\" is a real answer from the feed (HTTP 404) and is stored.\n\n" +
 			jb.IntelNote,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			caseDir, cfgPath := fl.String("case"), fl.String("config")
 			if cfgPath == "" && caseDir == "" {
 				return usageErrorf("--config or --case is required")
 			}
@@ -68,9 +66,9 @@ func newIntelCmdWith(d deps) *cobra.Command {
 			return nil
 		},
 	}
+	fl = addOperationFlags(cmd, "intel")
+	cmd.Args = fl.PositionalArgs()
 	f := cmd.Flags()
-	f.StringVar(&cfgPath, "config", "", "path to the YAML config (required without --case; with --case, one of the case's configs)")
-	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md)")
 	f.StringVar(&output, "output", "table", "output format: table or json")
 	return cmd
 }

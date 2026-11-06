@@ -25,11 +25,8 @@ func newActorCmd() *cobra.Command {
 }
 
 func newActorStatusCmd() *cobra.Command {
-	var (
-		cfgPath string
-		caseDir string
-		output  string
-	)
+	var output string
+	var fl *opFlags
 	cmd := &cobra.Command{
 		Use:   "status --case DIR",
 		Short: "When each actor's user agent last matched in the evidence store (read-only)",
@@ -44,6 +41,7 @@ func newActorStatusCmd() *cobra.Command {
 			"matched is reported as such, and an empty store is an error, not \"never matched\".",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			caseDir, cfgPath := fl.String("case"), fl.String("config")
 			if caseDir == "" {
 				return usageErrorf("--case is required")
 			}
@@ -76,9 +74,8 @@ func newActorStatusCmd() *cobra.Command {
 			return nil
 		},
 	}
+	fl = addOperationFlags(cmd, "actor_status")
 	f := cmd.Flags()
-	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); required")
-	f.StringVar(&cfgPath, "config", "", "one of the case's configs (default: the config whose `commands:` lists this command, else the case's only config)")
 	f.StringVar(&output, "output", "table", "output format: table or json")
 	return cmd
 }
