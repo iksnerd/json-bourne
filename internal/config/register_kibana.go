@@ -338,7 +338,7 @@ func isLoopback(host string) bool {
 func (s kibanaSpec) build(env Env) (core.Source, error) {
 	key, ok := env(s.APIKeyEnv)
 	if !ok || key == "" {
-		return nil, fmt.Errorf("environment variable %s is not set", s.APIKeyEnv)
+		return nil, errEnvNotSet(s.APIKeyEnv)
 	}
 	src := &kibana.Source{
 		Client:    kibana.New(s.URL, key),

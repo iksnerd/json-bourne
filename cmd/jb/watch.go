@@ -36,6 +36,7 @@ func newWatchCmdWith(d deps) *cobra.Command {
 		repeat  = app.DefaultHealthRepeat
 		once    bool
 		name    string
+		output  string
 	)
 	cmd := &cobra.Command{
 		Use:   "watch",
@@ -71,11 +72,21 @@ func newWatchCmdWith(d deps) *cobra.Command {
 			"watch has no --until: a watch cycle always ends now, so that what it alerts on is what is\n" +
 			"happening. To examine a past window use `jb hunt --until` or `jb activity --until`.\n\n" +
 			"--once runs one cycle and exits 0 when it was complete (quiet or with findings) and 1 when it\n" +
-			"was incomplete or failed. Without --once, watch runs until interrupted.",
+			"was incomplete or failed. Without --once, watch runs until interrupted.\n\n" +
+			"--output json (only with --once) prints the cycle report as one JSON document on stdout, and the\n" +
+			"alert lines go to stderr instead, so stdout stays parseable; the log and any webhook get them as\n" +
+			"ever. The fields are listed in docs/CONFIG.md (Watch output). A cycle that is not healthy still\n" +
+			"prints its report, then exits 1.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if caseDir == "" {
 				return usageErrorf("--case is required")
+			}
+			if err := checkOutput(output); err != nil {
+				return err
+			}
+			if output == "json" && !once {
+				return usageErrorf("--output json needs --once: a loop has no single result to print")
 			}
 			if err := app.ValidWatchName(name); err != nil {
 				return usageErrorf("--name: %v", err)
@@ -140,9 +151,13 @@ func newWatchCmdWith(d deps) *cobra.Command {
 				defer stop()
 			}
 
+			alertOut := cmd.OutOrStdout()
+			if output == "json" {
+				alertOut = stderr // stdout carries the report alone
+			}
 			deps, webhooks, err := watchrun.Deps(watchrun.Params{
 				Name: name, Evidence: evidence, Cfg: cfg, RT: rt, Env: d.env, Now: d.now,
-				Out: cmd.OutOrStdout(),
+				Out: alertOut,
 				// Advice in the cycle's own output; the cycle's status does not depend on it.
 				AfterHunt: func(ctx context.Context, st core.SourceOverlapReader, win core.Window) {
 					warnSourceOverlap(ctx, stderr, st, win, renameScope(caseDir, cfgPath))
@@ -161,6 +176,11 @@ func newWatchCmdWith(d deps) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if output == "json" {
+				if err := writeCycleJSON(cmd.OutOrStdout(), name, rep); err != nil {
+					return err
+				}
+			}
 			if once && !rep.Status.Healthy() {
 				return fmt.Errorf("watch cycle %s, no clean result: %v %v", rep.Status, rep.Failed, rep.Err)
 			}
@@ -171,12 +191,13 @@ func newWatchCmdWith(d deps) *cobra.Command {
 	f.StringVar(&cfgPath, "config", "", "one of the case's configs (default: the case's only config)")
 	f.StringVar(&caseDir, "case", "", "case directory to watch (docs/CASE-SPEC.md; required)")
 	f.Var((*windowValue)(&every), "every", "time between cycles: 90s, 5m or 1h")
-	f.Var((*windowValue)(&window), "window", "length of each cycle's hunt window, at least --every (defaults to the case's windows.default, else 60m)")
+	f.Var((*windowValue)(&window), "window", "length of each cycle's hunt window, at least --every (default: the case's windows.default when it sets one, else 60m)")
 	f.Var((*windowValue)(&ttl), "ttl", "how long an alerted tag stays quiet unless its severity rises")
 	f.Var((*windowValue)(&keep), "keep", "how long the events and findings of past watch runs stay in the store (at least twice --window; default 48h, or twice --window when longer)")
 	f.Var((*windowValue)(&repeat), "repeat", "least time between alerts for the same unchanged outage; a changed failure or a recovery alerts at once")
 	f.StringVar(&name, "name", "", "name this watcher (^[a-z][a-z0-9_-]{0,31}$): own state, log, lock and run ids, so several can watch one case; default: the unnamed watcher")
 	f.BoolVar(&once, "once", false, "run one cycle and exit; 0 when complete, 1 when incomplete or failed")
+	f.StringVar(&output, "output", "table", "output format: table or json (json needs --once and prints the cycle report)")
 	return cmd
 }
 

@@ -851,11 +851,48 @@ doctor does not inventory external binaries (the ProjectDiscovery tools or any o
 
 The file never holds a credential. A source names an environment variable (`api_key_env`) and `jb` reads it when it builds the sources, in `hunt`. `db status` and `serve` load the file only to find the database path and read no credential.
 
-- Set the variable in your shell or fetch it from your keychain. Do not export it in a file you commit.
+- Set the variable in the environment that starts `jb`: see [Supplying credentials](#supplying-credentials). Do not export it in a file you commit.
 - A missing or empty variable is an error that names the variable and never prints a value.
 - A value pasted into `api_key_env` or `url_env` (lower case, `=`, `:`, `/` and so on) is refused at load without echoing it.
 - The key is sent in an `Authorization: ApiKey` header only. It is not put in URLs, and the HTTP error text omits the response body.
 - `.gitignore` excludes `.env`, `*.duckdb` and `/evidence/`. Keep real configs out of version control anyway: they name your hosts and indexes.
+
+## Supplying credentials
+
+`jb` reads a credential from its process environment and from nowhere else. It has no `--env-file` flag, does not read a `.env` file and does not take a value on the command line. The YAML holds only the variable name (`api_key_env: JB_KIBANA_API_KEY`). Whatever starts `jb` puts the value in the environment. This keeps file permissions, ownership and logging of the secret in the hands of the operator's own launcher.
+
+When a variable is missing or empty, the error names it and says it is read from the process environment. Check the name against the config, then use one of these.
+
+A shell, reading a file you own and keep outside the repository (mode 600):
+
+```sh
+set -a                      # export every variable the file sets
+. "$HOME/.config/jb/secrets.env"
+set +a
+jb hunt --config jb.yaml
+```
+
+The file holds `JB_KIBANA_API_KEY=...` lines and nothing else. The variables reach `jb` and its children only.
+
+One command, from a keychain or secret manager (the second line is an example for macOS):
+
+```sh
+JB_KIBANA_API_KEY="$(security find-generic-password -s jb-kibana -w)" jb hunt --config jb.yaml
+```
+
+A service manager. A systemd unit names the file in `EnvironmentFile=/etc/jb/secrets.env` (mode 600, owned by the service user), and `jb watch --case DIR` inherits it. Cron and containers have an equivalent: set the variable in the job's environment, not in the config.
+
+The Go package takes the lookup as `Env` and does not touch the process environment when it is set:
+
+```go
+env := func(name string) (string, bool) {
+	v, ok := secrets[name] // from your own store
+	return v, ok && v != ""
+}
+res, err := jb.HuntCase(ctx, caseDir, jb.CaseHuntOptions{HuntOptions: jb.HuntOptions{Env: env}})
+```
+
+Rules that hold in every recipe: the YAML never holds the value, a value is never put on a command line (it shows in the process list), and `jb` never prints it.
 
 ## Database path
 
@@ -868,6 +905,28 @@ Resolved in this order:
 In `jb hunt --case DIR` the order is different: an empty `store.path` means `<case>/<paths.evidence>/jb.duckdb` (`JB_DB` is ignored), a relative `store.path` is relative to the case directory, and an absolute or `~/` path is used as written. Without `--case`, a relative `store.path` is relative to the working directory.
 
 `hunt` creates the file and applies schema migrations. `db status` opens it read-only and fails if it does not exist.
+
+### Watch output
+
+`jb watch --once --output json` prints the cycle report as one JSON document on stdout. The alert lines go to stderr instead, so stdout stays parseable; the log file and any webhook get them as always. `--output json` without `--once` is a usage error (exit 2), because a loop has no single result. A cycle that is not healthy still prints its report, then exits 1. The same fields are in the Go package as `jb.CycleReport`.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `run` | string | Run id of the cycle (`watch-<time>`, `watch-NAME-<time>` for a named watcher). |
+| `watcher` | string | The `--name`; absent for the unnamed watcher. |
+| `window` | [from, to] | RFC 3339 times; the hunt window, `[from, to)`. |
+| `status` | string | `quiet`, `findings`, `incomplete` or `failed`. |
+| `healthy` | bool | True only for `quiet` and `findings`. |
+| `failed` | list of string | Sources and detectors that did not finish. Empty, never null. |
+| `new` | int | Finding alerts delivered. |
+| `suppressed` | int | Findings held back by `--ttl`. |
+| `repeated` | int | Outage alerts held back by `--repeat`. |
+| `recovered` | int | Recovery alerts delivered. |
+| `optional_failed` | int | Alerts the log took and a webhook did not. |
+| `gap` | string | Present when time went unexamined before this cycle. |
+| `error` | string | Present when something broke the cycle itself. |
+| `alerts` | list of alert | Everything delivered this cycle, health alerts first. Each has `kind`, `tag`, `severity`, `text`, `at`, and `detector`, `run`, `watcher` when set. |
+| `pruned` | object or null | `runs`, `events`, `findings` removed by retention; null when it did not run or failed. |
 
 ### Several watchers on one case
 

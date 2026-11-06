@@ -11,15 +11,8 @@ import (
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/casefile"
+	"github.com/iksnerd/json-bourne/internal/core"
 )
-
-// UsageError marks an error caused by how a case was asked for (no config named, a
-// config outside the case) rather than by what was found. The CLI exits 2 on it.
-type UsageError struct{ Msg string }
-
-func (e *UsageError) Error() string { return e.Msg }
-
-func usagef(format string, a ...any) error { return &UsageError{Msg: fmt.Sprintf(format, a...)} }
 
 // CasePlan is what a hunt takes from a case once it has passed the checks.
 type CasePlan struct {
@@ -109,7 +102,7 @@ func chooseDeclared(c *casefile.Case, command string) (string, error) {
 	}
 	switch len(c.Config) {
 	case 0:
-		return "", usagef("case %s lists no config: pass --config FILE (a file inside the case)", c.ID)
+		return "", core.Usagef("case %s lists no config: pass --config FILE (a file inside the case)", c.ID)
 	case 1:
 		return abs(c.Config[0]), nil
 	}
@@ -141,7 +134,7 @@ func chooseDeclared(c *casefile.Case, command string) (string, error) {
 		}
 		fmt.Fprintf(&b, "\n  %s  (%s)", rel, list)
 	}
-	return "", usagef("%s", b.String())
+	return "", core.Usagef("%s", b.String())
 }
 
 // ChooseCaseConfig returns the absolute path of the config command (one of
@@ -186,7 +179,7 @@ func ChooseCaseConfig(c *casefile.Case, flag, command string) (string, error) {
 		}
 	}
 	if err != nil {
-		return "", usagef("--config %q is not one of the case's configs (%s) and is not a readable file (looked in %s)", flag, strings.Join(c.Config, ", "), where)
+		return "", core.Usagef("--config %q is not one of the case's configs (%s) and is not a readable file (looked in %s)", flag, strings.Join(c.Config, ", "), where)
 	}
 	root, err := filepath.EvalSymlinks(c.Dir)
 	if err != nil {
@@ -194,7 +187,7 @@ func ChooseCaseConfig(c *casefile.Case, flag, command string) (string, error) {
 	}
 	rel, err := filepath.Rel(root, real)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
-		return "", usagef("--config %q is outside the case directory: a case hunts with its own configs only", flag)
+		return "", core.Usagef("--config %q is outside the case directory: a case hunts with its own configs only", flag)
 	}
 	return real, nil
 }

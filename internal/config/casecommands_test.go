@@ -1,13 +1,13 @@
 package config
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/iksnerd/json-bourne/internal/casefile"
+	"github.com/iksnerd/json-bourne/internal/core"
 )
 
 const commandsTestBody = "sources:\n  - type: kibana\n    url: https://kibana.example.com\n    api_key_env: JB_KIBANA_API_KEY\n    index: logs-*\ndetectors:\n  - type: authspike\n    key_field: client_ip\n    status_field: status\n"
@@ -58,8 +58,7 @@ func TestChooseCaseConfigNoDeclarationListsEveryConfig(t *testing.T) {
 		{"config/plain.yaml", ""},
 	})
 	_, err := ChooseCaseConfig(c, "", "activity")
-	var ue *UsageError
-	if !errors.As(err, &ue) {
+	if !core.IsUsage(err) {
 		t.Fatalf("want a usage error, got %v", err)
 	}
 	for _, want := range []string{"activity", "config/hunt.yaml", "hunt", "config/fp.yaml", "watch, serve", "config/plain.yaml", "no commands"} {
@@ -76,8 +75,7 @@ func TestChooseCaseConfigTwoDeclareTheSameCommand(t *testing.T) {
 		{"config/b.yaml", "commands: [hunt, watch]\n"},
 	})
 	_, err := ChooseCaseConfig(c, "", "hunt")
-	var ue *UsageError
-	if !errors.As(err, &ue) || !strings.Contains(err.Error(), "config/a.yaml") || !strings.Contains(err.Error(), "config/b.yaml") || !strings.Contains(err.Error(), "more than one") {
+	if !core.IsUsage(err) || !strings.Contains(err.Error(), "config/a.yaml") || !strings.Contains(err.Error(), "config/b.yaml") || !strings.Contains(err.Error(), "more than one") {
 		t.Fatalf("want a usage error naming both configs, got %v", err)
 	}
 	if got, err := ChooseCaseConfig(c, "", "watch"); err != nil || got != filepath.Join(c.Dir, "config", "b.yaml") {
@@ -101,8 +99,7 @@ func TestChooseCaseConfigUnreadableListedConfig(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "config/b.yaml") || !strings.Contains(err.Error(), "nope") {
 		t.Fatalf("want an error naming the file and the bad command, got %v", err)
 	}
-	var ue *UsageError
-	if errors.As(err, &ue) {
+	if core.IsUsage(err) {
 		t.Errorf("a broken config is not a usage error: %v", err)
 	}
 }

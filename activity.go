@@ -2,7 +2,6 @@ package jb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -54,7 +53,7 @@ type ActivityOptions struct {
 // result.Verdict.
 func Activity(ctx context.Context, caseDir string, opts ActivityOptions) (*ActivityResult, error) {
 	if opts.Window < 0 {
-		return nil, fmt.Errorf("jb: window must be positive, got %s", opts.Window)
+		return nil, usagef("window must be positive, got %s", opts.Window)
 	}
 	if opts.Window == 0 {
 		opts.Window = DefaultActivityWindow
@@ -93,7 +92,7 @@ func Activity(ctx context.Context, caseDir string, opts ActivityOptions) (*Activ
 		}
 	}
 	if len(dets) == 0 {
-		return nil, errors.New("jb: the config has no enabled fingerprint or behaviour detector, so it cannot say whether an actor is active")
+		return nil, usagef("the config has no enabled fingerprint or behaviour detector, so it cannot say whether an actor is active")
 	}
 	st, err := duckdb.OpenContext(ctx, cfg.StorePath(), false, duckdb.OpenOptions{})
 	if err != nil {

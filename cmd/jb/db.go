@@ -23,7 +23,7 @@ func newDBCmdWith(d deps) *cobra.Command {
 }
 
 func newDBStatusCmd() *cobra.Command {
-	var cfgPath string
+	var cfgPath, output string
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show the database path, schema version and row counts (read-only)",
@@ -31,6 +31,9 @@ func newDBStatusCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if cfgPath == "" {
 				return usageErrorf("--config is required")
+			}
+			if err := checkOutput(output); err != nil {
+				return err
 			}
 			// Load only: status needs the store path, never a credential.
 			cfg, err := config.Load(cfgPath)
@@ -46,6 +49,9 @@ func newDBStatusCmd() *cobra.Command {
 			s, err := st.Stats()
 			if err != nil {
 				return fmt.Errorf("read database stats: %w", err)
+			}
+			if output == "json" {
+				return writeIndentedJSON(cmd.OutOrStdout(), dbStatusJSONOf(s))
 			}
 			tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
 			fmt.Fprintf(tw, "path\t%s\n", s.Path)
@@ -63,5 +69,25 @@ func newDBStatusCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&cfgPath, "config", "", "path to the YAML config (required)")
+	cmd.Flags().StringVar(&output, "output", "table", "output format: table or json")
 	return cmd
+}
+
+// dbStatusJSON is the JSON form of `jb db status`. first_seen and last_seen are null
+// when the store holds no events.
+type dbStatusJSON struct {
+	Path        string     `json:"path"`
+	Schema      int        `json:"schema_version"`
+	BuildSchema int        `json:"build_schema_version"`
+	Runs        int64      `json:"runs"`
+	Events      int64      `json:"events"`
+	Findings    int64      `json:"findings"`
+	Reputation  int64      `json:"reputation"`
+	FirstSeen   *time.Time `json:"first_seen"`
+	LastSeen    *time.Time `json:"last_seen"`
+}
+
+func dbStatusJSONOf(s duckdb.Stats) dbStatusJSON {
+	return dbStatusJSON{Path: s.Path, Schema: s.Version, BuildSchema: duckdb.Version, Runs: s.Runs, Events: s.Events,
+		Findings: s.Findings, Reputation: s.Reputation, FirstSeen: tptr(s.FirstSeen), LastSeen: tptr(s.LastSeen)}
 }

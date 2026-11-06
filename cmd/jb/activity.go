@@ -27,7 +27,10 @@ func newActivityCmdWith(d deps) *cobra.Command {
 		Use:   "activity --case DIR",
 		Short: "Is the actor active from any client? ACTIVE, QUIET or INCOMPLETE",
 		Long: "activity runs the case's fingerprint and behaviour detectors over the last --window\n" +
-			"(default 24h) and the window before it, and answers with one verdict.\n\n" +
+			"and the window before it, and answers with one verdict.\n\n" +
+			"--window defaults to 24h, a fixed value, so the same call always asks the same question.\n" +
+			"The case's windows.default does not apply here: it is the default of `jb hunt --case` and\n" +
+			"`jb watch`, and a case can change it. Pass --window to ask about a different span.\n\n" +
 			"--until TIME asks the same question of a past window, [TIME - window, TIME), with the window\n" +
 			"before it as the baseline. TIME is RFC 3339 with a zone (2026-10-01T00:00:00Z); a time without\n" +
 			"a zone, with fractions of a second, or after now is refused, and so is a window over 31d. The\n" +
@@ -136,7 +139,7 @@ func newActivityCmdWith(d deps) *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); required")
 	f.StringVar(&cfgPath, "config", "", "one of the case's configs (default: the case's only config)")
-	f.Var((*windowValue)(&window), "window", "length of the window, ending now (or at --until): 90m, 24h or 7d")
+	f.Var((*windowValue)(&window), "window", "length of the window, ending now (or at --until): 90m, 24h or 7d (default 24h, never the case's windows.default)")
 	f.StringVar(&untilS, "until", "", "ask about the past window ending at TIME (RFC 3339 with a zone, not after now) instead of the one ending now; not offered on watch, which always ends now")
 	f.StringVar(&output, "output", "table", "output format: table or json")
 	return cmd
