@@ -6,6 +6,10 @@ For a contributor who wants to change a public contract of `jb`. After reading, 
 
 An RFC is a written design that the maintainer accepts before the code is built. It records the problem, the design, the costs and what is left out. It stays in the repository, so the reasons outlive the chat or the pull request where they were first discussed.
 
+## Freeze
+
+Before 1.0 the accepted-but-unbuilt RFCs listed in [CONTRIBUTING.md](../../CONTRIBUTING.md) ("Feature freeze") are the last feature work. A new draft RFC for a feature is parked, not built, until the maintainer lifts the freeze.
+
 ## When you need one
 
 Write an RFC when a change touches a public contract:
@@ -76,5 +80,6 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0012](0012-partial-findings.md) | Partial findings | accepted |
 | [0013](0013-library-surface.md) | Library surface | implemented |
 | [0010](0010-operations.md) | Operations | accepted |
-| [0014](0014-newkey-history.md) | History probe for the newkey detector | draft |
-| [0015](0015-external-tool-runner.md) | Inventory of the operator's own cloud | draft |
+| [0014](0014-newkey-history.md) | History probe for the newkey detector | accepted |
+| [0015](0015-estate-subject.md) | Subject of an estate file | accepted |
+| [0016](0016-own-cloud-inventory.md) | Inventory of the operator's own cloud | draft (parked) |

@@ -2,7 +2,7 @@
 
 [Back to the README](../README.md)
 
-`jb` is a passive tool.
+`jb` is a passive tool, and it is inward-facing: it analyses your own logs and your own infrastructure. Outward reconnaissance (subdomain enumeration, search-engine discovery, URL gathering) and every active scan (port, HTTP, TLS, template scanning) are done by another runner outside `jb`. Their output can enter an estate file only through `jb estate facts import`, which reads a file or standard input and contacts nothing. `jb` runs none of those tools and wraps no external binary.
 
 **It has no action role.** A plugin can only turn a log document into an event. Nothing in `jb` lets a plugin, a detector or an operator command change another system: there is no "block this address", no "rotate this key", no remediation step. So `jb` has no approval step, no record of who approved what, and no scheme for handing a plugin a credential for one action. The credentials `jb` reads are the ones in your config, named by environment variable, used by the sources and feeds you enabled. If a feature that acts is ever proposed, it needs a design of its own for approval and credentials first; it does not arrive as a flag on an existing command. See [adr/0001-relationship-to-other-plugin-specifications.md](adr/0001-relationship-to-other-plugin-specifications.md).
 

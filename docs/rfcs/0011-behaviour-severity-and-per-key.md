@@ -91,7 +91,7 @@ All in `internal/adapters/detectors/behaviour/floor_test.go`: `TestMinSeverityRa
 
 ## Amendment: the floor on newkey
 
-Proposed 2026-11-06, not yet accepted. The rest of this RFC is accepted and merged; this section needs the maintainer's acceptance on its own.
+Proposed and accepted on 2026-11-06 by the maintainer. The rest of this RFC is merged; this section is not built yet.
 
 A downstream rule ported to `newkey` (RFC 0014) needs `critical`. `newkey` reports `high`, or `check` when the preceding window is empty (every key is new then, so the severity drops one step). It has no setting that raises that.
 

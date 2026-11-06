@@ -35,6 +35,10 @@ go test -count=1 ./internal/archtest
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Feature freeze (the stable core)
+
+Decided 2026-11-06. The accepted RFCs that are not built yet are the last feature work before 1.0: the `newkey` severity floor (RFC 0011 amendment), the `newkey` history probe (RFC 0014, after its cost measurement), the estate `subject` key (RFC 0015), and the watch-gap fix. After they are built and released, `jb` takes no new command, port, file format or config key before 1.0. What goes in: bug fixes, hardening, tests and docs. A request for anything else goes on a later list and needs the maintainer to lift the freeze. RFC 0016 (own-cloud inventory) is parked behind it.
+
 ## Compatibility before 1.0
 
 `jb` has two users, both ours, and nothing is public. There is no backward compatibility. Change or remove a flag, a config key, a file format, an exported identifier or the plugin protocol when the design needs it. Write no shim, no alias and no dual loader.

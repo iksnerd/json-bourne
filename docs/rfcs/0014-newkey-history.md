@@ -1,6 +1,11 @@
 # RFC 0014: History probe for the newkey detector
-Status: draft
+Status: accepted
 Scope: add an optional `history` block to the `newkey` detector that asks the sources, once per run, how many events carried each candidate key over a lookback before the window; add the optional source port that answers it.
+Accepted: 2026-11-06 by the maintainer
+
+## Build gate
+
+Accepted with one condition: the cost measurement in open question 6 comes before any code. If an unfiltered 7 day `filters` aggregation is too slow on the real index, this RFC is withdrawn or reshaped, not built as written.
 
 ## Summary
 
