@@ -515,12 +515,33 @@ Each action:
 | `field_patterns` | none | `name: pattern`, anchored as `path_pattern`. A field may not be in both. |
 | `min_events` | `1` rare, `20` common | Events needed in the current window before the action is judged. Negative is an error. |
 | `fail_statuses` | detector's | `common` only. |
+| `min_events_per_key` | `0` (off) | `rare` only. The action fires only when at least one key (`key_field`) has this many matching events in the current window. Both conditions hold together: `cur_events >= min_events` and some key `>= min_events_per_key`. Negative is an error. See the truncation rule below. |
+| `min_severity` | none | `rare` only. A floor, not an override: the severity becomes the greater of the computed one and this one. One of `activity`, `high`, `critical`; `info` and `check` are refused because they can never raise a rare finding. |
+| `note` | none | `rare` only. Text carried in the finding as `Detail["note"]`. Required with `min_severity: critical`. |
 
 There is no unanchored substring matching of an action anywhere. An event is judged against every action independently, so overlapping matchers count the same request twice.
 
 **`rare`**: the platform's own baseline is near zero (a device-code request, an account creation). Any occurrence at or above `min_events` in the current window is a finding tagged `<name>:<action>` at severity `activity`, `check` when the preceding window holds no judged event at all. The summary and `Detail` give the current and preceding counts (`cur_events`, `prev_events`), whether it is new (`new`), and how many distinct keys took part (`keys_cur`, with `unkeyed_cur` events that carried none, and `sole_key` when there is exactly one). One key and many keys mean different things; a single edge address relaying many visitors is why the key field must identify a client.
 
 **`common`**: a large legitimate baseline (a token endpoint carries service traffic all day). A raw count is never a finding. The action's failure share (`cur_failures/cur_events`) must rise by at least `min_failure_share_rise` over the preceding window's, with at least `min_events` events: tag `<name>:<action>`, severity `high`. If the action has no events at all in the preceding window there is nothing to compare, no rise is invented, and it is raised only when it fails at least half the time, one severity step lower (`activity`), `baseline_source` is `none`. `Detail` carries `failing_keys_cur`, the distinct keys behind the failures: failures from one key look like a spray, from many like an outage. This is an action-level rule, not per key; `authspike` is the per-key detector.
+
+**Floor and per-key threshold (`rare` only).** `min_severity` is applied after the empty-baseline drop, so `baseline_empty` still shows in `Detail`, and `Detail["min_severity"]` appears only when the floor raised the result. The tag does not change, so the watch dedupe (`internal/app/watch.go`) treats a raised severity under the same tag as an escalation and alerts again, while a lower one stays held back. With `min_events_per_key` the finding adds `hot_key` (the key with most events, hashed like `sole_key` under `hash_keys`), `hot_key_events` and `min_events_per_key`, beside `keys_cur`. Truncation rule: if keys were dropped at `max_keys` (`keys_truncated`) and no stored key reached `min_events_per_key`, the action cannot be judged. `Detect` and `Activity` then return an error that names the action and says to raise `max_keys`. The hunt records the whole detector as `error` (its findings in that run are not kept), `activity` reports `INCOMPLETE` and `watch` raises an incomplete alert. It is never a quiet result. If a stored key did reach the threshold, the action fires normally.
+
+```yaml
+- type: behaviour
+  key_field: client_ip
+  path_field: path
+  method_field: method
+  status_field: status
+  actions:
+    - name: admin-console-login
+      class: rare
+      path: /admin/login
+      methods: [POST]
+      min_events_per_key: 3          # one client, three attempts
+      min_severity: critical         # never below critical
+      note: the admin console is not reachable from outside the office network
+```
 
 Windows. A current window with no judged event (one with a path that is not ignored) is `no records`, never a clean result; an all-ignored window is `no records` too. A preceding window with no judged event sets `baseline_empty` in `Detail` and lowers every severity one step. A preceding window that fails to read is an error. Every number in a finding was counted from the events read.
 

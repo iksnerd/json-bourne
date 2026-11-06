@@ -127,6 +127,18 @@ type Action struct {
 	MinEvents int `yaml:"min_events"`
 	// FailStatuses overrides Config.FailStatuses for this action (common only).
 	FailStatuses []int `yaml:"fail_statuses"`
+
+	// MinEventsPerKey (rare only): the action fires only when at least one key has
+	// this many matching events in the current window, on top of MinEvents. 0
+	// means no per-key condition.
+	MinEventsPerKey int `yaml:"min_events_per_key"`
+	// MinSeverity (rare only) is a floor: the finding severity becomes the greater
+	// of the computed one and this one. One of activity, high, critical. It never
+	// lowers. critical needs Note.
+	MinSeverity string `yaml:"min_severity"`
+	// Note (rare only) is free text carried in Detail["note"]. Required with
+	// MinSeverity critical.
+	Note string `yaml:"note"`
 }
 
 // Config selects the event fields, the actions and thresholds. Zero values take
@@ -173,6 +185,10 @@ type matcher struct {
 	fieldREs  map[string]*regexp.Regexp
 	minEvents int
 	fail      map[int]struct{}
+
+	minPerKey int
+	floor     core.Severity // 0 (SevInfo) means no floor
+	note      string
 }
 
 // Detector implements core.Detector.
@@ -385,7 +401,43 @@ func buildMatcher(c Config, a Action, defFail map[int]struct{}) (matcher, error)
 	} else if len(a.FailStatuses) > 0 {
 		return m, errors.New(pre + "fail_statuses only applies to a common action")
 	}
+	if err := buildRareOptions(&m, a, pre); err != nil {
+		return m, err
+	}
 	return m, nil
+}
+
+// buildRareOptions validates min_events_per_key, min_severity and note.
+func buildRareOptions(m *matcher, a Action, pre string) error {
+	if a.MinEventsPerKey < 0 {
+		return fmt.Errorf("%smin_events_per_key %d is negative", pre, a.MinEventsPerKey)
+	}
+	if a.Class != ClassRare {
+		switch {
+		case a.MinEventsPerKey != 0:
+			return errors.New(pre + "min_events_per_key only applies to a rare action")
+		case a.MinSeverity != "":
+			return errors.New(pre + "min_severity only applies to a rare action")
+		case a.Note != "":
+			return errors.New(pre + "note only applies to a rare action")
+		}
+		return nil
+	}
+	m.minPerKey = a.MinEventsPerKey
+	m.note = strings.TrimSpace(a.Note)
+	if a.MinSeverity == "" {
+		return nil
+	}
+	sev, ok := core.ParseSeverity(a.MinSeverity)
+	if !ok || sev < core.SevActivity {
+		return fmt.Errorf("%smin_severity %q must be %s, %s or %s: a floor at check or info can never raise a rare finding",
+			pre, a.MinSeverity, core.SeverityName(core.SevActivity), core.SeverityName(core.SevHigh), core.SeverityName(core.SevCritical))
+	}
+	if sev == core.SevCritical && m.note == "" {
+		return errors.New(pre + "min_severity critical needs a note: say why this action is critical")
+	}
+	m.floor = sev
+	return nil
 }
 
 // Name returns the configured detector name.
@@ -394,9 +446,9 @@ func (d *Detector) Name() string { return d.name }
 // actTally is one action's counters for one window.
 type actTally struct {
 	total, fail int
-	unparsable  int // matched on path/method/fields but the status was unreadable
-	keys        map[string]struct{}
-	failKeys    map[string]struct{}
+	unparsable  int            // matched on path/method/fields but the status was unreadable
+	keys        map[string]int // events per distinct key, at most MaxKeys keys
+	failKeys    map[string]int
 	truncated   bool
 	unkeyed     int
 	last        time.Time // latest judged event that counted for the action
@@ -493,18 +545,26 @@ func (d *Detector) scan(ctx context.Context, r core.EventReader, w core.Window, 
 	return t, nil
 }
 
-func (a *actTally) addKey(set *map[string]struct{}, key string, max int) {
+func (a *actTally) addKey(set *map[string]int, key string, max int) {
 	if *set == nil {
-		*set = map[string]struct{}{}
+		*set = map[string]int{}
 	}
-	if _, ok := (*set)[key]; ok {
-		return
-	}
-	if len(*set) >= max {
+	if _, ok := (*set)[key]; !ok && len(*set) >= max {
 		a.truncated = true
 		return
 	}
-	(*set)[key] = struct{}{}
+	(*set)[key]++
+}
+
+// hotKey returns the key with the most events (smallest on a tie) and its count.
+func (a actTally) hotKey() (string, int) {
+	best, n := "", 0
+	for k, c := range a.keys {
+		if c > n || (c == n && k < best) {
+			best, n = k, c
+		}
+	}
+	return best, n
 }
 
 // matchesRequest applies path, method and field matchers. Status is applied by
@@ -543,6 +603,9 @@ type outcome struct {
 	m       *matcher
 	c, p    actTally
 	finding *core.Finding // nil when the action is not raised
+	// incomplete is set when the action could not be judged: keys were dropped at
+	// max_keys before any stored key reached min_events_per_key.
+	incomplete error
 }
 
 // analysis is the shared result of reading both windows.
@@ -591,6 +654,19 @@ func (d *Detector) analyse(ctx context.Context, cur, prev core.EventReader, w co
 			a.acts = append(a.acts, o)
 			continue
 		}
+		var hot string
+		var hotN int
+		if m.minPerKey > 0 {
+			hot, hotN = c.hotKey()
+			if hotN < m.minPerKey {
+				if c.truncated {
+					o.incomplete = fmt.Errorf("%s: action %q cannot be judged: %d distinct keys filled max_keys (%d) before any reached min_events_per_key %d; raise max_keys in the %s config",
+						d.name, m.name, len(c.keys), d.cfg.MaxKeys, m.minPerKey, d.name)
+				}
+				a.acts = append(a.acts, o)
+				continue
+			}
+		}
 		detail := map[string]any{
 			"action":          m.name,
 			"class":           m.class,
@@ -615,6 +691,11 @@ func (d *Detector) analyse(ctx context.Context, cur, prev core.EventReader, w co
 			for k := range c.keys {
 				detail["sole_key"] = piiguard.Shown(k, d.cfg.HashKeys)
 			}
+		}
+		if m.minPerKey > 0 {
+			detail["min_events_per_key"] = m.minPerKey
+			detail["hot_key"] = piiguard.Shown(hot, d.cfg.HashKeys)
+			detail["hot_key_events"] = hotN
 		}
 		var f *core.Finding
 		if m.class == ClassRare {
@@ -644,10 +725,23 @@ func (d *Detector) Detect(ctx context.Context, cur, prev core.EventReader, w cor
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Tag < out[j].Tag })
-	return out, nil
+	// An action that could not be judged makes the whole run incomplete; the
+	// findings of the other actions are returned beside the error.
+	return out, a.incompleteErr()
 }
 
 var _ core.ActivityReporter = (*Detector)(nil)
+
+// incompleteErr joins the reasons any action could not be judged, or nil.
+func (a analysis) incompleteErr() error {
+	var errs []error
+	for _, o := range a.acts {
+		if o.incomplete != nil {
+			errs = append(errs, o.incomplete)
+		}
+	}
+	return errors.Join(errs...)
+}
 
 // Activity answers "was any action active in w" from the same analysis as Detect. An
 // action is active when Detect would raise it: a rare action at or above its
@@ -677,6 +771,9 @@ func (d *Detector) Activity(ctx context.Context, cur, prev core.EventReader, w c
 		}
 		rep.Subjects = append(rep.Subjects, sub)
 	}
+	if err := a.incompleteErr(); err != nil {
+		return core.ActivityReport{}, err
+	}
 	rep.Unparsable = min(rep.Unparsable, rep.Seen)
 	if a.ct.ignored > 0 {
 		rep.Notes = append(rep.Notes, fmt.Sprintf("%d event(s) set aside as ignored infrastructure", a.ct.ignored))
@@ -699,6 +796,13 @@ func (d *Detector) rare(m *matcher, c, p actTally, baselineEmpty bool, detail ma
 	sev := core.SevActivity
 	if baselineEmpty {
 		sev = core.SevCheck
+	}
+	if m.floor > sev { // applied after the drop; baseline_empty stays in Detail
+		sev = m.floor
+		detail["min_severity"] = core.SeverityName(m.floor)
+	}
+	if m.note != "" {
+		detail["note"] = m.note
 	}
 	detail["new"] = p.total == 0
 	how := "new, none in the preceding window"

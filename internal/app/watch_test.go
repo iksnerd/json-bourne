@@ -227,6 +227,26 @@ func TestWatchEscalationBreaksThroughTheTTL(t *testing.T) {
 	}
 }
 
+// A detector that raises a floor on an action keeps its tag. The raised severity
+// alerts again inside the TTL; the lower one does not (watchCycle: f.Severity <=
+// prev.Severity).
+func TestWatchRaisedSeverityUnderUnchangedTagAlertsAndLowerDoesNot(t *testing.T) {
+	r := newRig(t, det("a", finding("a", "behaviour:admin-console-login", core.SevActivity)))
+	if rep := r.cycle(); rep.New != 1 {
+		t.Fatalf("first: new=%d", rep.New)
+	}
+	r.dets = []core.Detector{det("a", finding("a", "behaviour:admin-console-login", core.SevCritical))}
+	r.now = r.now.Add(5 * time.Minute)
+	if rep := r.cycle(); rep.New != 1 || rep.Suppressed != 0 {
+		t.Fatalf("raised severity: new=%d suppressed=%d", rep.New, rep.Suppressed)
+	}
+	r.dets = []core.Detector{det("a", finding("a", "behaviour:admin-console-login", core.SevActivity))}
+	r.now = r.now.Add(5 * time.Minute)
+	if rep := r.cycle(); rep.New != 0 || rep.Suppressed != 1 {
+		t.Fatalf("lower severity: new=%d suppressed=%d", rep.New, rep.Suppressed)
+	}
+}
+
 func TestWatchFutureDatedStateDoesNotMuteATag(t *testing.T) {
 	r := newRig(t, det("a", finding("a", "x", core.SevHigh)))
 	r.state.st = core.WatchState{Seen: map[string]core.SeenTag{"x": {At: t0.Add(100 * 24 * time.Hour), Severity: core.SevCritical}}}
