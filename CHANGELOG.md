@@ -2,7 +2,7 @@
 
 All notable changes are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/). Before 1.0, the Go API (packages `jb` and `sdk`) and the CLI flags may change between minor versions.
 
-## [Unreleased]
+## [0.3.1] - 2026-11-06
 
 ### Fixed
 - `--config` with `--case` (and `Config` in `jb.HuntCase`, `jb.Watch`, `jb.Activity`) now accepts a relative path to a file inside the case, such as `config/drafts/x.yaml`: it is tried against the case directory, then the working directory, and must still resolve inside the case. Before, only an absolute path or a listed config worked.
