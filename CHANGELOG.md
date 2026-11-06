@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-06
+
 ### Added
 - The Estate page filters nodes by kind (an htmx fragment with a repeatable `kind` parameter) and draws edge weight from the number of distinct corroborating sources (line width) and the age of the newest claim (dashed after 90 days), computed at load with nothing stored in the file. The record of an `ip` node loads, on demand, its latest reputation per source and the last time the address appeared in stored events (30 days, 3 second limit, four distinct states, no verdict colour); loading the map never queries the store (RFC 0001). `core.DashboardStore` gains `LastSeen`; `estategraph.Build` takes an `Options` struct.
 - A config whose `commands:` is exactly `[intel]` may omit `sources` and `detectors` and hold only `feeds:`, `intel:` and optionally `store:`, since `jb intel` reads no source. It needs at least one feed, and `jb case check` accepts it. Every other config, including `commands: [intel, hunt]` and one without `commands:`, still fails with `sources: at least one source is required`. `jb hunt`, `jb watch`, `jb activity` and `jb actor status` refuse such a config with a usage error that names the config and the command.
