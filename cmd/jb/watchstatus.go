@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/watchrun"
 )
@@ -43,83 +43,24 @@ func newWatchStatusCmd(d deps) *cobra.Command {
 			if err := app.ValidWatchName(name); err != nil {
 				return usageErrorf("--name: %v", err)
 			}
-			o := watchrun.StatusOptions{Now: d.now()}
+			o := jb.WatchStatusOptions{Config: cfgPath, Now: d.now}
 			if cmd.Flags().Changed("name") {
 				o.Names = []string{name}
 			}
-			got, err := watchrun.CaseStatus(caseDir, cfgPath, o)
+			got, err := jb.WatchStatus(caseDir, o)
 			if err != nil {
 				return err
 			}
 			if output == "json" {
-				return writeWatchStatusJSON(cmd.OutOrStdout(), got, o.Now)
+				return writeJSON(cmd.OutOrStdout(), got)
 			}
-			return writeWatchStatusTable(cmd.OutOrStdout(), got, o.Now)
+			return writeWatchStatusTable(cmd.OutOrStdout(), got.Watchers, got.Checked)
 		},
 	}
 	fl = addOperationFlags(cmd, "watch_status")
 	f := cmd.Flags()
 	f.StringVar(&output, "output", "table", "table or json")
 	return cmd
-}
-
-type watcherJSON struct {
-	Name          string     `json:"name"`
-	State         string     `json:"state"`
-	Reason        string     `json:"reason,omitempty"`
-	LockHeld      bool       `json:"lockHeld"`
-	PID           int        `json:"pid,omitempty"`
-	Started       *time.Time `json:"started,omitempty"`
-	Config        string     `json:"config,omitempty"`
-	EverySeconds  int64      `json:"everySeconds,omitempty"`
-	WindowSeconds int64      `json:"windowSeconds,omitempty"`
-	TTLSeconds    int64      `json:"ttlSeconds,omitempty"`
-	KeepSeconds   int64      `json:"keepSeconds,omitempty"`
-	RepeatSeconds int64      `json:"repeatSeconds,omitempty"`
-	LastCycle     *cycleJSON `json:"lastCycle,omitempty"`
-	NextDue       *time.Time `json:"nextDue,omitempty"`
-}
-
-type cycleJSON struct {
-	Run        string    `json:"run"`
-	Verdict    string    `json:"verdict"`
-	Ended      time.Time `json:"ended"`
-	WindowFrom time.Time `json:"windowFrom"`
-	WindowTo   time.Time `json:"windowTo"`
-	New        int       `json:"new"`
-	Suppressed int       `json:"suppressed"`
-	Repeated   int       `json:"repeated"`
-	Recovered  int       `json:"recovered"`
-	Failed     []string  `json:"failed"`
-}
-
-func writeWatchStatusJSON(w io.Writer, got []watchrun.WatcherStatus, now time.Time) error {
-	out := struct {
-		Checked  time.Time     `json:"checked"`
-		Watchers []watcherJSON `json:"watchers"`
-	}{Checked: now.UTC(), Watchers: make([]watcherJSON, 0, len(got))}
-	for _, s := range got {
-		j := watcherJSON{Name: s.Name, State: string(s.State), Reason: s.Reason, LockHeld: s.LockHeld, PID: s.PID, Config: s.Config,
-			EverySeconds: int64(s.Every / time.Second), WindowSeconds: int64(s.Window / time.Second), TTLSeconds: int64(s.TTL / time.Second),
-			KeepSeconds: int64(s.Keep / time.Second), RepeatSeconds: int64(s.Repeat / time.Second)}
-		if !s.Started.IsZero() {
-			t := s.Started
-			j.Started = &t
-		}
-		if !s.NextDue.IsZero() {
-			t := s.NextDue
-			j.NextDue = &t
-		}
-		if c := s.Last; c != nil {
-			failed := append([]string{}, c.Failed...)
-			j.LastCycle = &cycleJSON{Run: c.Run, Verdict: c.Verdict, Ended: c.Ended, WindowFrom: c.Window.From, WindowTo: c.Window.To,
-				New: c.New, Suppressed: c.Suppressed, Repeated: c.Repeated, Recovered: c.Recovered, Failed: failed}
-		}
-		out.Watchers = append(out.Watchers, j)
-	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
 }
 
 func writeWatchStatusTable(w io.Writer, got []watchrun.WatcherStatus, now time.Time) error {

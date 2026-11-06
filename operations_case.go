@@ -72,11 +72,7 @@ func caseOperations() []registered {
 				if a.has("name") {
 					opts.Names = []string{in.Name}
 				}
-				got, err := WatchStatus(in.Case, opts)
-				if err != nil {
-					return nil, err
-				}
-				return got, nil
+				return both(WatchStatus(in.Case, opts))
 			}),
 		register("doctor", "Check the environment and the config",
 			"Check, before a run, that each config loads, that each environment variable it names is set (never its value), that a case passes the case check and its evidence directory is ignored by git, that the store path is writable and opens, and what each outbound service would send. A failed check is in the result (ok is false). Read-only; it sends nothing unless online is set, and then only a TCP connect per host.",

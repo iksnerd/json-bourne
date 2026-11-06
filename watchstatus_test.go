@@ -30,10 +30,10 @@ func TestWatchStatusReadsTheRecordAndTheLockOfACase(t *testing.T) {
 	opts := WatchStatusOptions{Now: func() time.Time { return now }}
 
 	got, err := WatchStatus(dir, opts)
-	if err != nil || len(got) != 1 {
+	if err != nil || len(got.Watchers) != 1 {
 		t.Fatalf("got %+v, %v", got, err)
 	}
-	if s := got[0]; s.Name != "edge" || s.State != WatcherStopped || s.Last == nil || s.Last.Verdict != "INCOMPLETE" {
+	if s := got.Watchers[0]; s.Name != "edge" || s.State != WatcherStopped || s.Last == nil || s.Last.Verdict != "INCOMPLETE" {
 		t.Errorf("no lock: %+v", s)
 	}
 
@@ -43,13 +43,13 @@ func TestWatchStatusReadsTheRecordAndTheLockOfACase(t *testing.T) {
 	}
 	defer l.Release()
 	got, _ = WatchStatus(dir, opts)
-	if got[0].State != WatcherRunning || got[0].PID != os.Getpid() || got[0].Last.Failed[0] != "source kibana:logs" {
-		t.Errorf("lock held: %+v", got[0])
+	if got.Watchers[0].State != WatcherRunning || got.Watchers[0].PID != os.Getpid() || got.Watchers[0].Last.Failed[0] != "source kibana:logs" {
+		t.Errorf("lock held: %+v", got.Watchers[0])
 	}
 
 	opts.Now = func() time.Time { return now.Add(time.Hour) }
-	if got, _ = WatchStatus(dir, opts); got[0].State != WatcherStale {
-		t.Errorf("an hour on: %+v", got[0])
+	if got, _ = WatchStatus(dir, opts); got.Watchers[0].State != WatcherStale {
+		t.Errorf("an hour on: %+v", got.Watchers[0])
 	}
 
 	if _, err := WatchStatus(filepath.Join(dir, "missing"), opts); err == nil {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -119,7 +118,7 @@ func newActivityCmdWith(d deps) *cobra.Command {
 			if len(res.Sources) > 0 {
 				var perr error
 				if output == "json" {
-					perr = writeActivityJSON(cmd.OutOrStdout(), res)
+					perr = writeJSON(cmd.OutOrStdout(), res)
 				} else {
 					perr = writeActivityTable(cmd.OutOrStdout(), res)
 				}
@@ -314,101 +313,4 @@ func verdictLine(r app.ActivityResult) string {
 		return head + " every " + enabled + "source and detector completed and none found an actor or rare action active; common-action traffic is ordinary unless its failure share moved."
 	}
 	return head + " this is not QUIET because " + strings.Join(r.Reasons, "; ") + "."
-}
-
-type jsonSubject struct {
-	Subject     string     `json:"subject"`
-	Kind        string     `json:"kind"`
-	Active      bool       `json:"active"`
-	Window      int        `json:"window_events"`
-	Preceding   int        `json:"preceding_events"`
-	Last        *time.Time `json:"last_genuine,omitempty"`
-	LastEarlier *time.Time `json:"last_genuine_preceding,omitempty"`
-	Noise       int        `json:"noise,omitempty"`
-	Ignored     int        `json:"ignored,omitempty"`
-	Note        string     `json:"note,omitempty"`
-}
-
-type jsonActivityDetector struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	Error  string `json:"error,omitempty"`
-	// Findings is set when a detector that did not finish returned findings first.
-	Findings   int           `json:"findings_before_stop,omitempty"`
-	Seen       int           `json:"events_read"`
-	Unparsable int           `json:"unparsable"`
-	Subjects   []jsonSubject `json:"subjects"`
-	Notes      []string      `json:"notes,omitempty"`
-}
-
-type jsonActivity struct {
-	Run       string                 `json:"run"`
-	Until     *time.Time             `json:"until,omitempty"` // set only for a historical window (--until)
-	Verdict   string                 `json:"verdict"`
-	Complete  bool                   `json:"complete"`
-	Stored    bool                   `json:"stored"` // false: the run went to a temporary store (--no-store)
-	Reasons   []string               `json:"reasons"`
-	Window    [2]time.Time           `json:"window"`
-	Baseline  [2]time.Time           `json:"baseline"`
-	Sources   []jsonComponent        `json:"sources"`
-	Detectors []jsonActivityDetector `json:"detectors"`
-	// Current and Previous count actor and rare-action events; CommonCurrent and
-	// CommonPrevious count routine common-action traffic, which is not activity by volume.
-	Current        int      `json:"genuine_events_window"`
-	Previous       int      `json:"genuine_events_preceding"`
-	CommonCurrent  int      `json:"common_action_events_window"`
-	CommonPrevious int      `json:"common_action_events_preceding"`
-	Flagged        []string `json:"common_actions_flagged"`
-	// Disabled lists what the config switched off (neither read nor run); present only
-	// when something is.
-	Disabled []jsonDisabled `json:"disabled,omitempty"`
-}
-
-func tptr(t time.Time) *time.Time {
-	if t.IsZero() {
-		return nil
-	}
-	u := t.UTC()
-	return &u
-}
-
-func writeActivityJSON(w io.Writer, r app.ActivityResult) error {
-	out := jsonActivity{
-		Run: r.Run, Verdict: string(r.Verdict), Complete: r.Complete(), Stored: r.Stored, Reasons: append([]string{}, r.Reasons...),
-		Until:    tptr(r.Until),
-		Window:   [2]time.Time{r.Window.From, r.Window.To},
-		Baseline: [2]time.Time{r.Baseline.From, r.Baseline.To},
-		Sources:  []jsonComponent{}, Detectors: []jsonActivityDetector{},
-		Current: r.Current, Previous: r.Previous,
-		CommonCurrent: r.CommonCurrent, CommonPrevious: r.CommonPrevious,
-		Flagged:  append([]string{}, r.Flagged...),
-		Disabled: jsonDisabledOf(r.Disabled),
-	}
-	for _, s := range r.Sources {
-		n := s.Events
-		c := jsonComponent{Name: s.Name, Status: string(s.Status), Events: &n, Error: errText(s.Err)}
-		if s.Duplicates > 0 {
-			dup := s.Duplicates
-			c.Duplicates = &dup
-		}
-		if s.Unparsable > 0 {
-			u, share := s.Unparsable, s.UnparsableShare()
-			c.Unparsable, c.UnparsableShare, c.HighUnparsable = &u, &share, s.HighUnparsable()
-		}
-		out.Sources = append(out.Sources, c)
-	}
-	for _, d := range r.Detectors {
-		jd := jsonActivityDetector{Name: d.Name, Status: string(d.Status), Error: errText(d.Err), Findings: d.Findings,
-			Seen: d.Report.Seen, Unparsable: d.Report.Unparsable, Subjects: []jsonSubject{}, Notes: d.Report.Notes}
-		for _, s := range d.Report.Subjects {
-			jd.Subjects = append(jd.Subjects, jsonSubject{
-				Subject: s.Subject, Kind: s.Kind, Active: s.Active, Window: s.Current, Preceding: s.Previous,
-				Last: tptr(s.Last), LastEarlier: tptr(s.LastEarlier), Noise: s.Noise, Ignored: s.Ignored, Note: s.Note,
-			})
-		}
-		out.Detectors = append(out.Detectors, jd)
-	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
 }

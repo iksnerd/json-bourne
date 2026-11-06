@@ -210,3 +210,11 @@ func (s *WatcherStatus) fill(r watchstatus.Record) {
 			New: c.New, Suppressed: c.Suppressed, Repeated: c.Repeated, Recovered: c.Recovered, Failed: c.Failed}
 	}
 }
+
+// StatusResult is the answer to "are the watchers alive": every watcher found and the
+// instant the answer was judged at. It is what `jb watch status` reports.
+type StatusResult struct {
+	// Checked is the clock the heartbeat was judged against.
+	Checked  time.Time
+	Watchers []WatcherStatus
+}

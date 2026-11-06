@@ -11,6 +11,9 @@ import (
 type (
 	// WatcherStatus is one watcher of a case as [WatchStatus] found it.
 	WatcherStatus = watchrun.WatcherStatus
+	// WatchStatusResult is what [WatchStatus] returns: the watchers and the time they were
+	// judged at. Its JSON is the document of `jb watch status --output json`.
+	WatchStatusResult = watchrun.StatusResult
 	// WatcherState is what a watcher is doing: running, stale, stopped or unknown.
 	WatcherState = watchrun.State
 )
@@ -50,19 +53,20 @@ type WatchStatusOptions struct {
 // lock. It reads two small files per watcher, never takes the lock and writes nothing,
 // so it is safe to call while a watcher runs. The result is ordered by name, the
 // unnamed watcher first; a case with no watcher gives an empty result and no error.
-func WatchStatus(caseDir string, opts WatchStatusOptions) ([]WatcherStatus, error) {
+func WatchStatus(caseDir string, opts WatchStatusOptions) (*WatchStatusResult, error) {
 	for _, n := range opts.Names {
 		if err := app.ValidWatchName(n); err != nil {
 			return nil, usagef("name: %v", err)
 		}
 	}
-	o := watchrun.StatusOptions{Names: opts.Names}
+	now := time.Now
 	if opts.Now != nil {
-		o.Now = opts.Now()
+		now = opts.Now
 	}
+	o := watchrun.StatusOptions{Names: opts.Names, Now: now()}
 	out, err := watchrun.CaseStatus(caseDir, opts.Config, o)
 	if err != nil {
 		return nil, fmt.Errorf("%w", err)
 	}
-	return out, nil
+	return &WatchStatusResult{Checked: o.Now, Watchers: out}, nil
 }

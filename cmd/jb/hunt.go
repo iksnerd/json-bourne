@@ -211,18 +211,6 @@ func sourceNote(s app.SourceResult) string {
 	return errText(s.Err)
 }
 
-var severityNames = map[core.Severity]string{
-	core.SevInfo: "info", core.SevCheck: "check", core.SevActivity: "activity",
-	core.SevHigh: "high", core.SevCritical: "critical",
-}
-
-func severityName(s core.Severity) string {
-	if n, ok := severityNames[s]; ok {
-		return n
-	}
-	return fmt.Sprintf("sev%d", int(s))
-}
-
 func errText(err error) string {
 	if err == nil {
 		return ""
@@ -292,120 +280,18 @@ func writeTable(w io.Writer, r app.Result) error {
 	tw = tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(tw, "SEVERITY\tDETECTOR\tTAG\tSUMMARY")
 	for _, f := range r.Findings {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", severityName(f.Severity), f.Detector, f.Tag, f.Summary)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", core.SeverityName(f.Severity), f.Detector, f.Tag, f.Summary)
 	}
 	return tw.Flush()
 }
 
-type jsonComponent struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	Events *int64 `json:"events,omitempty"`
-	// Outcome, IndexAlive and IndexDocuments are set on a source. IndexDocuments is the
-	// count of the unfiltered liveness probe, present only with IndexAlive.
-	Outcome        string `json:"outcome,omitempty"`
-	IndexAlive     *bool  `json:"index_alive,omitempty"`
-	IndexDocuments *int64 `json:"index_documents,omitempty"`
-	// Unparsable and UnparsableShare are set only when a source reported unparsable documents.
-	// Duplicates is set when documents were dropped because another source of the run
-	// returned them first; they are not in Events.
-	Duplicates      *int64   `json:"duplicates,omitempty"`
-	Unparsable      *int     `json:"unparsable,omitempty"`
-	UnparsableShare *float64 `json:"unparsable_share,omitempty"`
-	HighUnparsable  bool     `json:"high_unparsable,omitempty"`
-	Findings        *int     `json:"findings,omitempty"`
-	Error           string   `json:"error,omitempty"`
-}
-
-type jsonFinding struct {
-	Detector string         `json:"detector"`
-	Tag      string         `json:"tag"`
-	Severity string         `json:"severity"`
-	Summary  string         `json:"summary"`
-	Window   [2]time.Time   `json:"window"`
-	Baseline [2]time.Time   `json:"baseline"`
-	Detail   map[string]any `json:"detail,omitempty"`
-}
-
-// jsonSearch is present only for a run with --search.
-type jsonSearch struct {
-	Terms  []string `json:"terms"`
-	Absent bool     `json:"absent"` // matched nothing, and every index was shown alive
-}
-
-type jsonResult struct {
-	Search    *jsonSearch     `json:"search,omitempty"`
-	Run       string          `json:"run"`
-	Until     *time.Time      `json:"until,omitempty"` // set only for a historical window (--until)
-	Window    [2]time.Time    `json:"window"`
-	Baseline  [2]time.Time    `json:"baseline"`
-	Complete  bool            `json:"complete"`
-	Stored    bool            `json:"stored"` // false: the run went to a temporary store (--no-store)
-	Sources   []jsonComponent `json:"sources"`
-	Detectors []jsonComponent `json:"detectors"`
-	Findings  []jsonFinding   `json:"findings"`
-	// Disabled lists what the config switched off (neither read nor run); present only
-	// when something is, so the output of a config without enabled: false is unchanged.
-	Disabled []jsonDisabled `json:"disabled,omitempty"`
-}
-
-// jsonDisabled names one source or detector the config switched off.
-type jsonDisabled struct {
-	Kind string `json:"kind"` // source or detector
-	Name string `json:"name"`
-}
-
-func jsonDisabledOf(ds []app.Disabled) []jsonDisabled {
-	var out []jsonDisabled
-	for _, d := range ds {
-		out = append(out, jsonDisabled{Kind: d.Kind, Name: d.Name})
-	}
-	return out
-}
-
-func writeJSON(w io.Writer, r app.Result) error {
-	absent := r.SearchAbsent()
-	out := jsonResult{
-		Run: r.Run, Window: [2]time.Time{r.Window.From, r.Window.To},
-		Baseline: [2]time.Time{r.Baseline.From, r.Baseline.To}, Complete: r.Complete() || absent, Stored: r.Stored,
-		Sources: []jsonComponent{}, Detectors: []jsonComponent{}, Findings: []jsonFinding{},
-	}
-	out.Until = tptr(r.Until)
-	out.Disabled = jsonDisabledOf(r.Disabled)
-	if len(r.Search) > 0 {
-		out.Search = &jsonSearch{Terms: r.Search, Absent: absent}
-	}
-	for _, s := range r.Sources {
-		n := s.Events
-		c := jsonComponent{Name: s.Name, Status: string(s.Status), Events: &n, Error: errText(s.Err), Outcome: s.Outcome()}
-		if s.IndexAlive {
-			alive, docs := true, s.IndexDocs
-			c.IndexAlive, c.IndexDocuments = &alive, &docs
-		}
-		if s.Duplicates > 0 {
-			dup := s.Duplicates
-			c.Duplicates = &dup
-		}
-		if s.Unparsable > 0 {
-			u, share := s.Unparsable, s.UnparsableShare()
-			c.Unparsable, c.UnparsableShare, c.HighUnparsable = &u, &share, s.HighUnparsable()
-		}
-		out.Sources = append(out.Sources, c)
-	}
-	for _, d := range r.Detectors {
-		n := d.Findings
-		out.Detectors = append(out.Detectors, jsonComponent{Name: d.Name, Status: string(d.Status), Findings: &n, Error: errText(d.Err)})
-	}
-	for _, f := range r.Findings {
-		out.Findings = append(out.Findings, jsonFinding{
-			Detector: f.Detector, Tag: f.Tag, Severity: severityName(f.Severity), Summary: f.Summary,
-			Window:   [2]time.Time{f.Window.From, f.Window.To},
-			Baseline: [2]time.Time{f.Baseline.From, f.Baseline.To}, Detail: f.Detail,
-		})
-	}
+// writeJSON prints a library result as its `--output json` document: json.Marshal of the
+// value, indented. The keys are the library's (RFC 0013), so the command line, the Go API
+// and the MCP tools cannot disagree.
+func writeJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	return enc.Encode(v)
 }
 
 // writeSearchSummary says what a search came to, source by source, so a zero is never
