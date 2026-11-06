@@ -1,0 +1,26 @@
+# An nginx access line parsed by a configured plugin instead of the built-in
+# nginx_ingress mapper. Same events, same detector. Allowlist the plugin first
+# (examples/plugins.example.yaml). All values are placeholders.
+
+sources:
+  - type: kibana
+    url: https://kibana.example.com
+    api_key_env: JB_KIBANA_API_KEY
+    index: ingress-example
+    mapper: plugin:example.regexlines
+    mapper_config:
+      pattern: '^(?P<ip>\S+) \S+ \S+ \[[^\]]+\] "(?P<method>[A-Z]+) (?P<path>[^?#\s]*)\S* [^"]+" (?P<status>\d{3}) (?:\d+|-) "(?P<referer>[^"]*)" "(?P<ua>[^"]*)"'
+      fields:
+        client_ip:  {from: ip, type: ip, required: true}
+        method:     {from: method, required: true}
+        path:       {from: path, required: true}
+        status:     {from: status, type: int, required: true}
+        user_agent: {from: ua, omit: ["-"]}
+        referer:    {from: referer, omit: ["-"]}
+
+detectors:
+  - type: authspike
+    key_field: client_ip
+    status_field: status
+    path_field: path
+    path_contains: /auth/login

@@ -1,0 +1,32 @@
+# A key=value event line (type=LOGIN_ERROR realmId=... ipAddress=...) parsed by the
+# kvlines plugin. Only the keys mapped below are emitted: the username in the line is
+# personal data and is not mapped, so it never reaches the evidence store.
+# Synthetic names and RFC 5737 addresses only.
+
+sources:
+  - type: kibana
+    url: https://kibana.example.com
+    api_key_env: JB_KIBANA_API_KEY
+    index: auth-events-example
+    mapper: plugin:example.kvlines
+    mapper_config:
+      line_field: message          # default; the document field holding the line
+      separators: ","              # "a=1, b=2"
+      required: [type, realmId]
+      fields:
+        event_type: {from: type, required: true}
+        realm:      {from: realmId}
+        client_id:  {from: clientId}
+        client_ip:  {from: ipAddress, type: ip}
+        error:      {from: error}
+
+detectors:
+  # path_field names any event field, not only a path: here the event type.
+  - type: behaviour
+    key_field: client_ip
+    path_field: event_type
+    actions:
+      - name: failed-logins
+        class: rare
+        path_pattern: LOGIN_ERROR
+        min_events: 20

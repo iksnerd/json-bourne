@@ -1,0 +1,11 @@
+{
+ "fields": {
+  "client_id": "web-app",
+  "error": "user_not_found",
+  "event_type": "LOGIN_ERROR",
+  "outcome": "error",
+  "realm": "realm-1",
+  "username": "x"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "type=\"REGISTER\", realmId=\"realm-a\", realmName=\"demo\", clientId=\"web-app\", userId=\"aaaaaaaa-0000-0000-0000-000000000001\", ipAddress=\"198.51.100.7\", auth_method=\"openid-connect\", register_method=\"form\", email=\"new.user@example.com\", username=\"new.user@example.com\""
+}

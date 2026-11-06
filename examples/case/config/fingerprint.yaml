@@ -1,0 +1,29 @@
+# Hunt config for the fingerprint detector (docs/CONFIG.md, `type: fingerprint`).
+#
+# Not listed under `config:` in case.yaml, because a case with two listed configs asks
+# for --config on every hunt. List it, or pass it:
+#
+#   jb hunt --case examples/case --config config/fingerprint.yaml
+#
+# The source must map its documents to the canonical HTTP fields: user_agent, path,
+# status (plus client_ip and method when known). The default mapper keeps the whole
+# _source as the event's fields, so an index that already uses those names works.
+
+sources:
+  - type: kibana
+    url: https://kibana.example.com
+    api_key_env: JB_KIBANA_API_KEY
+    index: logs-http-*
+
+detectors:
+  # The indicators are not here. They are the actor files in the case's actors
+  # directory (paths.actors), named relative to it.
+  - type: fingerprint
+    actors: [example-actor.yaml]
+    # Our own infrastructure: an event relayed by these is never a suspect. A CDN
+    # edge address is not listed: an edge is not a client, and no address is used to
+    # attribute anything.
+    ignore_ips: [198.51.100.7, 198.51.100.64/28]
+
+store:
+  path: ""

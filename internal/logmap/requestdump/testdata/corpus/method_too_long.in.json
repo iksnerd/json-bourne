@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "=== Request Info ===\nmethod = AAAAAAAAAAAAAAAAA\npath = /v1/example/items\nquery = \n"
+}

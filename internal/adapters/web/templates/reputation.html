@@ -1,0 +1,12 @@
+{{define "body"}}<h1>Reputation snapshots</h1>
+<p class="note ctx">These snapshots are context, not attribution. A reputation answer describes an address as a feed saw it; a CDN or proxy edge address carries the reputation of the edge, not of the visitor. It never moves a finding's severity.</p>
+{{if .Store.Bad}}{{template "note" .Store}}
+{{else if not .Rows}}<p class="empty">no reputation snapshots stored: `jb intel` has not recorded any.</p>
+{{else}}
+<p class="note">Newest first, at most {{.Limit}}.</p>
+<table>
+<tr><th>indicator</th><th>verdict</th><th>source</th><th>observed</th></tr>
+{{range .Rows}}<tr><td class="mono">{{.Indicator}}</td><td>{{.Verdict}}</td><td>{{.Source}}</td><td>{{.Observed}}</td></tr>
+{{end}}</table>
+{{end}}
+{{end}}

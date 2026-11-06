@@ -1,0 +1,30 @@
+/bin/
+/dist/
+*.duckdb
+*.duckdb.wal
+.env
+.DS_Store
+.idea/
+# Evidence never belongs in the repo. See CONTRIBUTING.md.
+/evidence/
+
+# Cases are data, kept in their own private repo (docs/CASE-SPEC.md). Never here.
+/cases/
+/case/
+# Raw exports and anything derived from logs can name a person or an account.
+*.jsonl
+*.csv
+*.log
+*.pcap
+*.har
+*.sqlite
+*.tgz
+*.zip
+# Local tooling output
+/coverage.out
+*.test
+*.prof
+.claude/settings.local.json
+# Synthetic fixtures are the one exception to the data rules above.
+!internal/**/testdata/**
+!examples/**

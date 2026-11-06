@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "type=\"CLIENT_LOGIN_ERROR\", realmId=\"realm-1\", realmName=\"demo\", clientId=\"svc-batch\", ipAddress=\"192.0.2.30\", error=\"invalid_client_credentials\", grant_type=\"client_credentials\""
+}

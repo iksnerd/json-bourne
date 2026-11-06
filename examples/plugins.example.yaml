@@ -1,0 +1,16 @@
+# Plugin allowlist. This file belongs to the operator, never to a case.
+#
+# jb reads it from $JB_PLUGINS_FILE, else ~/.jb/plugins.yaml. It must not be writable by
+# group or others (chmod 600). See docs/PLUGINS.md.
+#
+# Build and pin an example plugin:
+#   go build -o /opt/jb-plugins/regexlines/regexlines ./plugins/regexlines
+#   chmod 755 /opt/jb-plugins/regexlines /opt/jb-plugins/regexlines/regexlines
+#   shasum -a 256 /opt/jb-plugins/regexlines/regexlines
+
+plugins:
+  - name: example.regexlines
+    path: /opt/jb-plugins/regexlines/regexlines
+    sha256: 0000000000000000000000000000000000000000000000000000000000000000   # replace with your digest
+  - name: example.kvlines
+    path: /opt/jb-plugins/kvlines/kvlines          # unpinned: jb doctor shows "pin: none"

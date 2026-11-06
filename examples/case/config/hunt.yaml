@@ -1,0 +1,32 @@
+# Hunt config for the example case. Same format as examples/jb.example.yaml (docs/CONFIG.md).
+#
+# Credentials are never written here. A source names the environment variable that
+# holds its API key, and jb reads it when it starts:
+#
+#   export JB_KIBANA_API_KEY=...        # set in your shell or keychain, not in this file
+
+sources:
+  - type: kibana
+    url: https://kibana.example.com
+    api_key_env: JB_KIBANA_API_KEY
+    index: logs-auth-*
+    # time_field: "@timestamp"
+    # page_size: 1000
+
+detectors:
+  # Raises a finding when a key's share of failed requests rises against the
+  # preceding window of the same length. A raw count would mean nothing.
+  - type: authspike
+    key_field: client_ip
+    status_field: status
+    fail_statuses: [401, 403]
+    min_events: 20
+    min_failure_share_rise: 0.20
+    # A spray that continues into the next window has no rise, so it is also
+    # reported as a lower-severity "sustained" finding (tag <name>:<key>:sustained).
+    # sustained_min_share: 0.5
+    # disable_sustained: true
+
+store:
+  # Empty means $JB_DB, then ~/.jb/jb.duckdb.
+  path: ""

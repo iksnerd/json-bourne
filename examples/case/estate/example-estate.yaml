@@ -1,0 +1,38 @@
+# Synthetic estate map. Everything here is invented: example.com and RFC 5737 addresses.
+apiVersion: jb.estate/v1
+id: example-estate
+caveat: This map shows infrastructure ownership and relationships as public registries and DNS describe them. It does not show who typed the commands, and a CDN edge address says nothing about the visitor behind it.
+nodes:
+  - id: ip:192.0.2.10
+    kind: ip
+    label: 192.0.2.10
+    source: rdns
+    method: "PTR 10.2.0.192.in-addr.arpa via the system resolver"
+    observed: 2026-11-06T10:00:00Z
+  - id: host:edge.example.com
+    kind: host
+    label: edge.example.com
+    source: rdns
+    method: "PTR 10.2.0.192.in-addr.arpa via the system resolver"
+    observed: 2026-11-06T10:00:00Z
+  - id: network:net-192-0-2-0-1
+    kind: network
+    label: "EXAMPLE-NET 192.0.2.0 - 192.0.2.255"
+    source: rdap
+    method: "GET https://rdap.example.com/ip/192.0.2.10"
+    observed: 2026-11-06T10:00:01Z
+edges:
+  - from: ip:192.0.2.10
+    to: host:edge.example.com
+    relation: ptr
+    source: rdns
+    method: "PTR 10.2.0.192.in-addr.arpa via the system resolver"
+    observed: 2026-11-06T10:00:00Z
+    confidence: stated
+  - from: ip:192.0.2.10
+    to: network:net-192-0-2-0-1
+    relation: within
+    source: rdap
+    method: "GET https://rdap.example.com/ip/192.0.2.10"
+    observed: 2026-11-06T10:00:01Z
+    confidence: stated

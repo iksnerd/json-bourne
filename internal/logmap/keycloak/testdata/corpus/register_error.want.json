@@ -1,0 +1,12 @@
+{
+ "fields": {
+  "client_id": "web-app",
+  "client_ip": "198.51.100.8",
+  "email": "dup@example.com",
+  "error": "email_in_use",
+  "event_type": "REGISTER_ERROR",
+  "outcome": "error",
+  "realm": "demo"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

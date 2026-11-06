@@ -1,0 +1,5 @@
+apiVersion: jb.case/v1
+id: evidence-not-ignored
+title: Synthetic case
+status: open
+opened: 2026-11-01

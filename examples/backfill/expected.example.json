@@ -1,0 +1,6 @@
+[
+  {"name": "example-spray-week-1", "until": "2026-09-15T00:00:00Z", "window": "24h",
+   "tags": ["authspike:203.0.113.7"], "findings": 1},
+  {"name": "example-quiet-control", "until": "2026-09-16T00:00:00Z", "window": "24h",
+   "tags": [], "findings": 0}
+]

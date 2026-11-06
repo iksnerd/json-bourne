@@ -1,0 +1,68 @@
+# CI and CD run on version tags only (v1.2.3). Nothing runs on branch pushes or pull
+# requests, so `go vet` and `go test -race -count=1 ./...` locally are the gate before
+# a tag is pushed. A failed test job blocks the release.
+name: release
+on:
+  push:
+    tags: ['v*.*.*']
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]   # duckdb-go uses cgo: test both
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: go.mod
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+
+  build:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-amd64
+          - os: macos-latest
+            target: darwin-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: |
+          mkdir -p dist
+          go build -trimpath \
+            -ldflags "-X main.version=${GITHUB_REF_NAME} -X main.commit=${GITHUB_SHA} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o dist/jb ./cmd/jb
+          tar -C dist -czf "jb_${GITHUB_REF_NAME}_${{ matrix.target }}.tar.gz" jb
+          shasum -a 256 "jb_${GITHUB_REF_NAME}_${{ matrix.target }}.tar.gz" > "jb_${GITHUB_REF_NAME}_${{ matrix.target }}.tar.gz.sha256"
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: jb-${{ matrix.target }}
+          path: jb_*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # create the release; nothing else gets write access
+    steps:
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" assets/* \
+            --repo "${GITHUB_REPOSITORY}" --title "${GITHUB_REF_NAME}" --generate-notes

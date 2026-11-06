@@ -1,0 +1,7 @@
+{
+ "fields": {
+  "method": "POST",
+  "path": "/v1/example/items"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

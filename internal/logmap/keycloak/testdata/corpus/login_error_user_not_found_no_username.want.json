@@ -1,0 +1,11 @@
+{
+ "fields": {
+  "client_id": "web-app",
+  "client_ip": "192.0.2.11",
+  "error": "user_not_found",
+  "event_type": "LOGIN_ERROR",
+  "outcome": "error",
+  "realm": "demo"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

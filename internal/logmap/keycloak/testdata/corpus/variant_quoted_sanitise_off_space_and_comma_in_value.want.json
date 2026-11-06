@@ -1,0 +1,12 @@
+{
+ "fields": {
+  "client_id": "web-app",
+  "client_ip": "192.0.2.10",
+  "error": "invalid_user_credentials",
+  "event_type": "LOGIN_ERROR",
+  "outcome": "error",
+  "realm": "demo",
+  "username": "Alice Example, Jr"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

@@ -1,0 +1,218 @@
+# jb example configuration. Placeholders only: copy, edit, never commit real values.
+#
+# Credentials are never written here. A source names the environment variable that
+# holds its API key, and jb reads it when it starts:
+#
+#   export JB_KIBANA_API_KEY=...        # set in your shell or keychain, not in this file
+
+sources:
+  - type: kibana
+    url: https://kibana.example.com
+    api_key_env: JB_KIBANA_API_KEY
+    index: logs-auth-*
+    # time_field: "@timestamp"
+    # page_size: 1000
+
+detectors:
+  # Raises a finding when a key's share of failed requests rises against the
+  # preceding window of the same length. A raw count would mean nothing.
+  - type: authspike
+    key_field: client_ip
+    status_field: status
+    fail_statuses: [401, 403]
+    min_events: 20
+    min_failure_share_rise: 0.20
+    # A spray that continues into the next window has no rise, so it is also
+    # reported as a lower-severity "sustained" finding (tag <name>:<key>:sustained).
+    # sustained_min_share: 0.5
+    # disable_sustained: true
+
+  # Account-creation burst. Name the endpoint that CREATES the account, not the
+  # form that precedes it; a form render is not an account.
+  # - type: signup
+  #   create_paths: [/account/create]
+  #   path_field: path
+  #   status_field: status
+  #   method_field: method
+  #   min_creations: 5
+  #   factor: 3
+  #   # Failed-attempt spray (off while min_attempts is 0): many failed signups,
+  #   # few accounts. Needs both the count and a rise over the preceding window.
+  #   min_attempts: 10
+  #   attempt_factor: 3
+  #   address_field: email
+  #   disposable_domains: [mail.example]
+
+  # A key with no history in the preceding window that goes to sensitive paths.
+  # A CDN edge address is not a client: key on a field that identifies one.
+  # - type: newkey
+  #   key_field: client_ip
+  #   path_field: path
+  #   sensitive_paths: [/admin/]
+  #   min_hits: 3
+  #   # A key_field of username, email or user_id is refused unless hash_keys: true.
+
+  # Detect by what is done, not by user agent. A "rare" action (near-zero baseline)
+  # is notable on any occurrence; a "common" one only when its failure share rises
+  # against the preceding window. Paths are exact or anchored, never substrings.
+  # List your own gateways in ignore_keys: infrastructure is never a suspect.
+  # - type: behaviour
+  #   key_field: client_ip
+  #   path_field: path
+  #   method_field: method
+  #   status_field: status
+  #   ignore_keys: [192.0.2.1]
+  #   actions:
+  #     - name: device-code
+  #       class: rare
+  #       path: /oauth/device/code
+  #       methods: [POST]
+  #     - name: signup
+  #       class: rare
+  #       path: /signup
+  #       methods: [POST]
+  #       statuses: [200, 201, 302]
+  #     - name: token
+  #       class: common
+  #       path_pattern: /oauth/(token|introspect)
+  #       min_events: 50
+# Reputation lookups for `jb intel` (optional; hunt never reads this). The result is
+# context about an address, not attribution; see docs/CONFIG.md.
+# feeds:
+#   - type: greynoise
+#     api_key_env: JB_GREYNOISE_API_KEY   # omit for the small keyless quota
+#     max_lookups: 10
+#     min_interval: 1s
+#   - type: sans-isc                      # no key; the address goes to isc.sans.edu
+#   - type: dnsbl                         # the address goes to a resolver and the zone operator
+#     zone: bl.example.org                # off until enabled: true
+#     enabled: false
+#     return_codes: {"127.0.0.2": listed}
+# intel:
+#   ip_fields: [client_ip]
+#   max_indicators: 10
+
+# Keycloak event logs (message lines of key="value" pairs, no HTTP status).
+# Add a second source with the keycloak mapper, then judge by outcome and event
+# type instead of status and path. Key on client_ip: a username is personal data
+# and needs hash_keys: true. client_ip is the peer Keycloak saw, which behind a
+# CDN is the edge.
+#
+# sources:
+#   - type: kibana
+#     url: https://kibana.example.com
+#     api_key_env: JB_KIBANA_API_KEY
+#     index: keycloak-events-*
+#     mapper: keycloak
+#
+# detectors:
+#   - type: authspike
+#     name: kc-stuffing
+#     key_field: client_ip
+#     status_field: outcome
+#     fail_values: [error]
+#     path_field: event_type
+#     path_contains: LOGIN
+#   - type: signup
+#     name: kc-signup
+#     event_field: event_type
+#     create_values: [REGISTER]
+#     attempt_values: [REGISTER_ERROR]
+#     min_attempts: 10       # raise a spray of failed signups, tag kc-signup:attempts
+#     attempt_factor: 3
+
+# Two sources, each read by its own detectors. `sources:` limits a detector to the
+# named sources (the `name`, else kibana:<index>), in the current and the preceding
+# window. `empty_is_quiet: true` makes an hour with nothing to judge a quiet answer
+# instead of `no records`; it needs a `filter` on every source the detector reads, so
+# that the liveness check proves the index alive. Events that exist but cannot be read
+# are still `no records`. See docs/CONFIG.md, "Quiet hours".
+#
+# sources:
+#   - {type: kibana, name: ingress, url: "https://kibana.example.com", api_key_env: JB_KIBANA_API_KEY,
+#      index: ingress-example-*, mapper: nginx_ingress,
+#      filter: [{match_phrase: {field: message, value: /auth/login}}]}
+#   - {type: kibana, name: keycloak, url: "https://kibana.example.com", api_key_env: JB_KIBANA_API_KEY,
+#      index: keycloak-example-*, mapper: keycloak,
+#      filter: [{match_phrase: {field: message, value: REGISTER}}]}
+#
+# detectors:
+#   - type: authspike
+#     name: ingress-stuffing
+#     sources: [ingress]
+#     empty_is_quiet: true
+#     key_field: client_ip
+#     status_field: status
+#     path_field: path
+#     path_contains: /auth/login
+#   - type: signup
+#     name: kc-signup
+#     sources: [keycloak]
+#     empty_is_quiet: true
+#     event_field: event_type
+#     create_values: [REGISTER]
+#     attempt_values: [REGISTER_ERROR]
+#     min_attempts: 20
+
+# Gateway and signature over an application request log (mapper request_dump).
+# `gateway` is newkey: an address with no event in the preceding window that sends at
+# least min_hits requests to the listed endpoints with a user agent matching
+# user_agent_matches (whole value, ignoring case, "*" the only wildcard). `signature`
+# flags a request carrying a marker header no legitimate client sets. A hit on a
+# header shows the marker was SENT, not who sent it. Credential headers (authorization,
+# cookie, token...) are never emitted, even if listed. All names here are made up.
+#
+# sources:
+#   - type: kibana
+#     name: app
+#     url: https://kibana.example.com
+#     api_key_env: JB_KIBANA_API_KEY
+#     index: app-example-*
+#     mapper: request_dump
+#     mapper_config:
+#       client_ip_header: x-example-edge-client   # a header your edge sets and overwrites
+#       header_fields:
+#         probe_marker: x-example-probe
+#     filter:
+#       - match_phrase: {field: message, value: "=== Request Info ==="}
+#
+# detectors:
+#   - type: newkey
+#     name: gateway
+#     sources: [app]
+#     empty_is_quiet: true
+#     key_field: client_ip
+#     path_field: path
+#     sensitive_paths: [/v1/example/verify, /v1/example/token]
+#     min_hits: 3
+#     user_agent_field: user_agent
+#     user_agent_matches: ["curl/*", "python-requests/*"]
+#   - type: signature
+#     name: signature
+#     sources: [app]
+#     empty_is_quiet: true
+#     field: probe_marker
+#     present: true
+#     key_field: client_ip
+
+# Extra alert delivery for `jb watch` (optional). The local log stays the source of truth.
+# The webhook URL carries a token: it goes in the variable, never in this file.
+#   export JB_ALERT_WEBHOOK_URL=...
+# alerts:
+#   - type: webhook
+#     url_env: JB_ALERT_WEBHOOK_URL
+#     min_severity: high
+#     timeout: 10s
+#     max_per_cycle: 10
+
+# External services for `jb estate asn|dns|ct` (optional). Each sends the question (an AS
+# number, an address, a domain name) to something that is not your machine, so each is
+# off until it is listed here. See docs/CONFIG.md and docs/POLICY.md.
+# estate:
+#   external: [bgp, crt.sh, dns]
+#   bgp_url: https://stat.ripe.net
+#   crtsh_url: https://crt.sh
+
+store:
+  # Empty means $JB_DB, then ~/.jb/jb.duckdb.
+  path: ""

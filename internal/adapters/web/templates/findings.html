@@ -1,0 +1,8 @@
+{{define "body"}}<h1>Findings</h1>
+{{if .Store.Bad}}{{template "note" .Store}}
+{{else if not .Rows}}<p class="empty">no findings stored: no hunt has produced one. This says nothing about whether a hunt was complete; check <a href="/">Runs</a> for INCOMPLETE ones.</p>
+{{else}}
+<p class="note">Newest runs first, most severe first within a run{{if .Cut}}; showing the first {{.Limit}}, more may exist{{end}}.</p>
+{{template "findingtable" .Rows}}
+{{end}}
+{{end}}

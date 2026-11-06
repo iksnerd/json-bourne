@@ -1,0 +1,10 @@
+{
+ "fields": {
+  "client_ip": "192.0.2.1",
+  "error": "user_not_found",
+  "event_type": "LOGIN_ERROR",
+  "outcome": "error",
+  "username": "bob"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

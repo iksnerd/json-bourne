@@ -1,0 +1,38 @@
+{
+ "rawResponse": {
+  "hits": {
+   "total": {
+    "value": 5,
+    "relation": "eq"
+   },
+   "hits": [
+    {
+     "_index": "logs-example",
+     "_id": "id001",
+     "_source": {
+      "@timestamp": "2026-01-01T00:00:01Z",
+      "client_ip": "192.0.2.1",
+      "host": "www.example.com",
+      "path": "/a"
+     },
+     "sort": [
+      1767225601000
+     ]
+    },
+    {
+     "_index": "logs-example",
+     "_id": "id002",
+     "_source": {
+      "@timestamp": "2026-01-01T00:00:02Z",
+      "client_ip": "192.0.2.2",
+      "host": "www.example.com",
+      "path": "/a"
+     },
+     "sort": [
+      1767225602000
+     ]
+    }
+   ]
+  }
+ }
+}

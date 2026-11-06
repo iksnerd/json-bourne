@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "type=\"LOGIN_ERROR\", realmId=\"realm-1\", realmName=\"demo\", clientId=\"web-app\", userId=\"user-1\", ipAddress=\"192.0.2.10\", error=\"invalid_user_credentials\", auth_method=\"openid-connect\", username=\"alice\", requestUri=\"https://app.example.com/auth/realms/demo/login-actions/authenticate?session_code=SYNTH-SESSION-CODE\", cookies=\"AUTH_SESSION_ID=SYNTH-COOKIE-VALUE, KEYCLOAK_IDENTITY=SYNTH-COOKIE-VALUE-2, KC_RESTART=SYNTH-COOKIE-VALUE-3\""
+}

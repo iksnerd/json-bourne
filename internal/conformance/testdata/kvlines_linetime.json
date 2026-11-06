@@ -1,0 +1,58 @@
+{
+ "plugin": "kvlines",
+ "config": {
+  "fields": {
+   "user_name": {
+    "from": "user"
+   },
+   "attempts": {
+    "from": "n",
+    "type": "int"
+   },
+   "ok": {
+    "from": "ok",
+    "type": "bool"
+   }
+  },
+  "time": {
+   "from": "at",
+   "layout": "2006-01-02 15:04:05"
+  },
+  "required": [
+   "at"
+  ]
+ },
+ "cases": [
+  {
+   "name": "time taken from a key with a layout; int and bool coerced",
+   "doc": {
+    "message": "at=\"2026-11-05 12:00:03\" user=carol n=3 ok=false"
+   },
+   "want": {
+    "ts": "2026-11-05T12:00:03Z",
+    "fields": {
+     "user_name": "carol",
+     "attempts": 3,
+     "ok": false
+    }
+   },
+   "builtin": false
+  },
+  {
+   "name": "time in the wrong layout",
+   "doc": {
+    "message": "at=\"05/11/2026\" user=carol"
+   },
+   "unparsable": true,
+   "builtin": false
+  },
+  {
+   "name": "int that is not an integer",
+   "doc": {
+    "message": "user=carol n=x at=\"2026-11-05 12:00:03\""
+   },
+   "unparsable": true,
+   "builtin": false
+  }
+ ]
+}

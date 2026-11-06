@@ -1,0 +1,36 @@
+# Format jb.actor/v1 (docs/CASE-SPEC.md section 4.4). Synthetic: invented user agent,
+# documentation addresses (RFC 5737), example.com.
+apiVersion: jb.actor/v1
+id: actor-a
+label: Example sprayer A
+confidence: low
+indicators:
+  # The detector matches this one by full-string equality. A shorter form, or a
+  # substring such as "Chrome/9.1.0.0", also matches real customers on the same build.
+  - kind: user_agent
+    value: ExampleBrowser/9.1 (Plan9; Win64; x64) InventedKit/537.36 (like Gecko) Chrome/9.1.0.0 Safari/537.36
+    first_seen: 2026-10-30
+    note: exact string; the same build also runs on customer machines
+  # An address is an observation, not an identity. Nothing matches on it.
+  - kind: ip
+    value: 192.0.2.77
+    first_seen: 2026-10-30
+    note: CDN edge address shared by many clients; not attribution
+  - kind: asn
+    value: 64496
+  - kind: domain
+    value: sprayer.example.com
+  - kind: fingerprint
+    type: jarm
+    method: probe-by-hostname   # a comparison across probe methods invents a change
+    probe_target: portal.example.com:443
+    value: 00000000000000000000000000000000000000000000000000000000000000
+
+# Read by `type: fingerprint` (docs/CONFIG.md). A user agent alone is not a fingerprint.
+detection:
+  # Commodity scanners reuse a user agent on paths no real actor request has used.
+  noise_paths: ["/wp-", "/xmlrpc.php", "/wordpress", "/robots.txt"]
+  # The actor's own "/" is answered with a redirect. A 4xx on "/" is a scanner probe.
+  bare_root_4xx_is_noise: true
+  # A 2xx here for the actor is critical on its own: the actor holds a credential.
+  grant_paths: ["/protocol/openid-connect/token"]

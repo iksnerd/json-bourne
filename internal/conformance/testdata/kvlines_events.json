@@ -1,0 +1,146 @@
+{
+ "plugin": "kvlines",
+ "config": {
+  "separators": ",",
+  "required": [
+   "type",
+   "realmId"
+  ],
+  "fields": {
+   "event_type": {
+    "from": "type",
+    "required": true
+   },
+   "realm": {
+    "from": "realmId"
+   },
+   "client_id": {
+    "from": "clientId"
+   },
+   "client_ip": {
+    "from": "ipAddress",
+    "type": "ip"
+   },
+   "error": {
+    "from": "error"
+   }
+  }
+ },
+ "cases": [
+  {
+   "name": "LOGIN_ERROR; userId=null is not mapped, username (PII) is never emitted",
+   "doc": {
+    "@timestamp": "2026-11-05T12:00:00Z",
+    "message": "type=LOGIN_ERROR, realmId=example-realm, clientId=example-app, userId=null, ipAddress=192.0.2.44, error=invalid_user_credentials, auth_method=openid-connect, username=\"alice@example.com\""
+   },
+   "want": {
+    "ts": "2026-11-05T12:00:00Z",
+    "fields": {
+     "event_type": "LOGIN_ERROR",
+     "realm": "example-realm",
+     "client_id": "example-app",
+     "client_ip": "192.0.2.44",
+     "error": "invalid_user_credentials"
+    }
+   },
+   "builtin": false
+  },
+  {
+   "name": "LOGIN without an error key",
+   "doc": {
+    "@timestamp": "2026-11-05T12:00:00Z",
+    "message": "type=LOGIN, realmId=example-realm, clientId=example-app, userId=0b1c2d3e, ipAddress=198.51.100.7, auth_method=openid-connect, username=bob"
+   },
+   "want": {
+    "ts": "2026-11-05T12:00:00Z",
+    "fields": {
+     "event_type": "LOGIN",
+     "realm": "example-realm",
+     "client_id": "example-app",
+     "client_ip": "198.51.100.7"
+    }
+   },
+   "builtin": false
+  },
+  {
+   "name": "quoted value with a space, IPv6",
+   "doc": {
+    "@timestamp": "2026-11-05T12:00:00Z",
+    "message": "type=CODE_TO_TOKEN_ERROR, realmId=example-realm, clientId=\"example app\", ipAddress=2001:db8::2, error=invalid_code"
+   },
+   "want": {
+    "ts": "2026-11-05T12:00:00Z",
+    "fields": {
+     "event_type": "CODE_TO_TOKEN_ERROR",
+     "realm": "example-realm",
+     "client_id": "example app",
+     "client_ip": "2001:db8::2",
+     "error": "invalid_code"
+    }
+   },
+   "builtin": false
+  },
+  {
+   "name": "required key type is missing",
+   "doc": {
+    "@timestamp": "2026-11-05T12:00:00Z",
+    "message": "realmId=example-realm, ipAddress=192.0.2.1"
+   },
+   "unparsable": true,
+   "builtin": false
+  },
+  {
+   "name": "duplicate key (log content impersonating a field)",
+   "doc": {
+    "@timestamp": "2026-11-05T12:00:00Z",
+    "message": "type=LOGIN, type=LOGIN_ERROR, realmId=r, ipAddress=192.0.2.1"
+   },
+   "unparsable": true,
+   "builtin": false
+  },
+  {
+   "name": "bad ip",
+   "doc": {
+    "@timestamp": "2026-11-05T12:00:00Z",
+    "message": "type=LOGIN, realmId=r, ipAddress=999.1.1.1"
+   },
+   "unparsable": true,
+   "builtin": false
+  },
+  {
+   "name": "unterminated quote",
+   "doc": {
+    "@timestamp": "2026-11-05T12:00:00Z",
+    "message": "type=LOGIN, realmId=r, username=\"unterminated"
+   },
+   "unparsable": true,
+   "builtin": false
+  },
+  {
+   "name": "no pairs",
+   "doc": {
+    "@timestamp": "2026-11-05T12:00:00Z",
+    "message": "nothing to see here"
+   },
+   "unparsable": true,
+   "builtin": false
+  },
+  {
+   "name": "no message",
+   "doc": {
+    "@timestamp": "2026-11-05T12:00:00Z"
+   },
+   "unparsable": true,
+   "builtin": false
+  },
+  {
+   "name": "bad document timestamp is fatal",
+   "doc": {
+    "@timestamp": "nope",
+    "message": "type=LOGIN, realmId=example-realm, clientId=example-app, userId=0b1c2d3e, ipAddress=198.51.100.7, auth_method=openid-connect, username=bob"
+   },
+   "fatal": "bad or missing @timestamp",
+   "builtin": false
+  }
+ ]
+}

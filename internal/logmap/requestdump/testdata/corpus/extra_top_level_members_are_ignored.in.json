@@ -1,0 +1,12 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "=== Request Info ===\nmethod = POST\npath = /v1/example/items\nquery = \nheader = User-Agent    value = ExampleAgent/1.0\nheader = X-Example-Edge-Client    value = 198.51.100.7\n",
+ "kubernetes": {
+  "pod": {
+   "name": "example-pod"
+  }
+ },
+ "event": {
+  "original": "copy"
+ }
+}

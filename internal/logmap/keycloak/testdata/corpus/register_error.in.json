@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "type=\"REGISTER_ERROR\", realmId=\"realm-a\", realmName=\"demo\", clientId=\"web-app\", userId=\"null\", ipAddress=\"198.51.100.8\", error=\"email_in_use\", register_method=\"form\", email=\"dup@example.com\""
+}

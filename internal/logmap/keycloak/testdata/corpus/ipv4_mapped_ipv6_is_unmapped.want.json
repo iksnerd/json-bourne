@@ -1,0 +1,10 @@
+{
+ "fields": {
+  "client_id": "web-app",
+  "client_ip": "192.0.2.9",
+  "event_type": "LOGIN",
+  "outcome": "success",
+  "realm": "demo"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "type=\"LOGIN\", ipAddress=\"192.0.2.1\", scope=\"\", redirect_uri=\"https://app.example.com/cb?a=1, b=2\""
+}

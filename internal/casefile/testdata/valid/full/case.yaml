@@ -1,0 +1,19 @@
+apiVersion: jb.case/v1
+id: full
+title: Synthetic case
+status: open
+opened: 2026-11-01
+classification: restricted
+owners: [incident-lead, analyst]
+scope:
+  domains: [example.com]
+  hosts: [www.example.com, 192.0.2.10]
+  asns: [64496]
+  cidrs: [192.0.2.0/24, 198.51.100.0/24, "2001:db8::/32"]
+windows: {default: 24h, long: 7d}
+retention: {evidence_days: 30, findings_days: 400}
+paths: {assets: a, actors: b, notes: c, reports: d, evidence: e}
+config: [config/hunt.yaml]
+handling:
+  passive_only: true
+  redact_in_reports: [ip, email]

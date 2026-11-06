@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "=== Request Info ===\nmethod = POST\npath = /v1/example/items\nquery = \nheader = user-agent    value = ExampleAgent/1.0\nheader = X-EXAMPLE-EDGE-CLIENT    value = 203.0.113.9\nheader = x-example-PROBE    value = m\n"
+}

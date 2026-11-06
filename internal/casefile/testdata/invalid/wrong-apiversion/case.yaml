@@ -1,0 +1,6 @@
+apiVersion: jb.case/v2
+id: wrong-apiversion
+title: Synthetic case
+status: open
+opened: 2026-11-01
+newer_key: 1

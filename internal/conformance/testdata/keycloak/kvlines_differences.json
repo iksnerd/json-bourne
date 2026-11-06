@@ -1,0 +1,195 @@
+{
+ "duplicate_key_first_wins": {
+  "reason": "Duplicate-key policy: the built-in keeps the first occurrence (Keycloak writes its own keys first); kvlines marks the whole line unparsable rather than choose a winner. kvlines is stricter and loses the event; the built-in keeps it with the header values.",
+  "unparsable": true
+ },
+ "injection_in_username_cannot_override_earlier_pairs": {
+  "reason": "Duplicate-key policy (injected type, ipAddress and error repeat earlier keys): built-in first-wins, kvlines unparsable.",
+  "unparsable": true
+ },
+ "injection_quoted_error_in_username_on_success_event_cannot_make_it_an_error": {
+  "fields": {
+   "client_id": "web-app",
+   "client_ip": "192.0.2.10",
+   "error": "none",
+   "event_type": "LOGIN",
+   "realm": "demo",
+   "username": "x"
+  },
+  "reason": "NOT DEFENDED in kvlines: a successful event has no error key of its own, so the injected error=none is not a duplicate and is emitted as error. The built-in ignores header keys that appear after a detail key. A detector keyed on kvlines' error field would count this success as a failure."
+ },
+ "injection_quoted_ip_after_detail_when_header_has_none_is_ignored": {
+  "fields": {
+   "client_id": "web-app",
+   "client_ip": "198.51.100.99",
+   "error": "user_not_found",
+   "event_type": "LOGIN_ERROR",
+   "username": "x"
+  },
+  "reason": "NOT DEFENDED in kvlines: with no ipAddress in the header, an ipAddress after a detail key is taken as the client address (here an attacker-chosen 198.51.100.99), and the line is not unparsable. The built-in ignores it. Also realm: kvlines reads realmName only."
+ },
+ "injection_quoted_ip_in_username_cannot_override_address": {
+  "reason": "Duplicate-key policy (injected ipAddress repeats the header one): built-in first-wins, kvlines unparsable.",
+  "unparsable": true
+ },
+ "injection_quoted_type_in_email_on_error_event_cannot_override_type": {
+  "reason": "Duplicate-key policy (injected type repeats the header one): built-in first-wins, kvlines unparsable.",
+  "unparsable": true
+ },
+ "injection_unquoted_error_none_in_username_is_unparsable": {
+  "fields": {
+   "client_id": "web-app",
+   "client_ip": "192.0.2.10",
+   "error": "none",
+   "event_type": "LOGIN",
+   "realm": "demo",
+   "username": "bob"
+  },
+  "reason": "Quotes off: the built-in refuses the line (values must be quoted). kvlines parses it with separators ',' and emits the injected error=none on a success event (not a duplicate), a mis-assignment the quoted form does not allow. With quotes off, sanitise on, the comma cannot occur in a value, so this line only arises when sanitising is also off."
+ },
+ "ipv4_mapped_ipv6_is_unmapped": {
+  "fields": {
+   "client_id": "web-app",
+   "client_ip": "::ffff:192.0.2.9",
+   "event_type": "LOGIN",
+   "realm": "demo"
+  },
+  "reason": "kvlines type ip keeps the address as written (::ffff:192.0.2.9); the built-in unmaps it to 192.0.2.9. A key on client_ip would then split one visitor across two spellings."
+ },
+ "limit_65_pairs_is_unparsable": {
+  "fields": {
+   "event_type": "LOGIN"
+  },
+  "reason": "Pair limit: the built-in allows 64, kvlines 128."
+ },
+ "limit_error_129_bytes_is_unparsable": {
+  "fields": {
+   "client_ip": "192.0.2.10",
+   "error": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+   "event_type": "LOGIN_ERROR"
+  },
+  "reason": "The built-in refuses an error string over 128 bytes; kvlines has no such limit and emits it."
+ },
+ "limit_value_2049_bytes_is_unparsable": {
+  "fields": {
+   "client_id": "web-app",
+   "client_ip": "192.0.2.10",
+   "error": "invalid_user_credentials",
+   "event_type": "LOGIN_ERROR",
+   "realm": "demo",
+   "username": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "reason": "The built-in refuses any value over 2048 bytes; kvlines has no per-value limit, only the line limit (set to 16384 here, as the built-in message limit), and emits the value."
+ },
+ "quote_inside_value": {
+  "fields": {
+   "client_ip": "192.0.2.21",
+   "error": "user_not_found",
+   "event_type": "LOGIN_ERROR",
+   "username": "a"
+  },
+  "reason": "An unescaped quote inside a quoted value: the built-in ends a value at a quote followed by end of line or the next ', key=\"' pair, so username is a\"b; kvlines ends it at the first unescaped quote and then skips the rest, so username is a (silently truncated)."
+ },
+ "realm_falls_back_to_realm_id": {
+  "fields": {
+   "client_ip": "192.0.2.1",
+   "event_type": "LOGIN"
+  },
+  "reason": "realm: the built-in uses realmName, else realmId. kvlines maps one key, here realmName, so a line with only realmId has no realm (a second field would be needed, not a fallback)."
+ },
+ "unparsable_document_over_limit": {
+  "fields": {
+   "event_type": "LOGIN"
+  },
+  "reason": "Document limit: the built-in refuses a document over 64 KiB; kvlines reads only the message field and does not look at the rest of the document (the host bounds the whole request), so it maps the line."
+ },
+ "unparsable_error_has_control_char": {
+  "fields": {
+   "error": "a\u0001b",
+   "event_type": "LOGIN_ERROR"
+  },
+  "reason": "The built-in refuses an error string with a control character; kvlines emits it as is."
+ },
+ "unparsable_lowercase_type": {
+  "fields": {
+   "client_ip": "192.0.2.1",
+   "event_type": "login"
+  },
+  "reason": "The built-in requires an upper-case type (A-Z, 0-9, _); kvlines accepts any non-empty type, so a lower-case or odd type is emitted."
+ },
+ "unparsable_newline_between_pairs": {
+  "fields": {
+   "event_type": "LOGIN"
+  },
+  "reason": "A newline between pairs: the built-in refuses the line. kvlines treats only space and tab as whitespace, so the newline sticks to the next key (not a valid key) and that pair is skipped without a trace: the event is emitted without client_ip."
+ },
+ "unparsable_no_separator_between_pairs": {
+  "fields": {
+   "client_ip": "192.0.2.1",
+   "event_type": "LOGIN"
+  },
+  "reason": "Pairs with no ', ' between them: the built-in refuses; kvlines reads each pair."
+ },
+ "unparsable_too_many_pairs": {
+  "fields": {
+   "event_type": "LOGIN"
+  },
+  "reason": "Pair limit: the built-in allows 64, kvlines 128."
+ },
+ "unparsable_unquoted_values": {
+  "fields": {
+   "client_ip": "192.0.2.1",
+   "event_type": "LOGIN"
+  },
+  "reason": "Unquoted values: the built-in refuses the line, never guessing where an unquoted value ends; kvlines parses them (it is the supported route for a Keycloak configured with quoting off)."
+ },
+ "unparsable_value_over_limit": {
+  "fields": {
+   "event_type": "LOGIN"
+  },
+  "reason": "The built-in refuses a value over 2048 bytes; kvlines has no per-value limit."
+ },
+ "variant_no_realm_name_old_version": {
+  "fields": {
+   "client_id": "web-app",
+   "client_ip": "192.0.2.10",
+   "error": "invalid_user_credentials",
+   "event_type": "LOGIN_ERROR",
+   "username": "alice"
+  },
+  "reason": "realm: no realmName, so the built-in falls back to realmId and kvlines emits no realm."
+ },
+ "variant_quotes_off_sanitise_off_space_and_comma_is_unparsable": {
+  "fields": {
+   "client_id": "web-app",
+   "client_ip": "192.0.2.10",
+   "error": "invalid_user_credentials",
+   "event_type": "LOGIN_ERROR",
+   "realm": "demo",
+   "username": "Alice"
+  },
+  "reason": "Quotes off, sanitising off: the value 'Alice Example, Jr' has a space and a comma. The built-in refuses the line. kvlines ends the value at the first space and silently truncates username to Alice (the bare words after it are skipped). No field is taken from the wrong place, but the value is wrong."
+ },
+ "variant_quotes_off_sanitise_on_is_unparsable": {
+  "fields": {
+   "client_id": "web-app",
+   "client_ip": "192.0.2.10",
+   "error": "invalid_user_credentials",
+   "event_type": "LOGIN_ERROR",
+   "realm": "demo",
+   "username": "alice"
+  },
+  "reason": "Quotes off, sanitise on: the built-in refuses the line (values must be quoted); kvlines is the supported route and maps it fully."
+ },
+ "variant_quotes_off_username_with_comma_only_is_unparsable": {
+  "fields": {
+   "client_id": "web-app",
+   "client_ip": "192.0.2.10",
+   "error": "invalid_user_credentials",
+   "event_type": "LOGIN_ERROR",
+   "realm": "demo",
+   "username": "alice"
+  },
+  "reason": "Quotes off, sanitising off, a comma in a value: the built-in refuses; kvlines ends the value at the comma and drops the rest (username alice, not alice,bob)."
+ }
+}

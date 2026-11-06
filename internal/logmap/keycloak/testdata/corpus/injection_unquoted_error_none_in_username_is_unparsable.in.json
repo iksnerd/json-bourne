@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "type=LOGIN, realmId=realm-1, realmName=demo, clientId=web-app, userId=user-1, ipAddress=192.0.2.10, auth_method=openid-connect, username=bob, error=none"
+}

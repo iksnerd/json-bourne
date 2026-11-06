@@ -1,0 +1,150 @@
+{
+ "plugin": "jsondoc",
+ "config": {
+  "time": {
+   "doc_field": "event.created"
+  },
+  "required": [
+   "event.action"
+  ],
+  "fields": {
+   "action": {
+    "from": "event.action",
+    "required": true
+   },
+   "client_ip": {
+    "from": "source.ip",
+    "type": "ip"
+   },
+   "status": {
+    "from": "http.response.status_code",
+    "type": "int"
+   },
+   "first_tag": {
+    "from": "tags.0"
+   },
+   "level": {
+    "from": "log.level"
+   }
+  }
+ },
+ "cases": [
+  {
+   "name": "nested paths, array index, flattened dotted key; user.email (PII) not mapped so not emitted",
+   "doc": {
+    "event": {
+     "created": "2026-11-05T12:00:00Z",
+     "action": "login-failed"
+    },
+    "source": {
+     "ip": "192.0.2.60"
+    },
+    "http": {
+     "response": {
+      "status_code": 401
+     }
+    },
+    "tags": [
+     "auth",
+     "x"
+    ],
+    "log.level": "warn",
+    "user": {
+     "email": "dana@example.com"
+    }
+   },
+   "want": {
+    "ts": "2026-11-05T12:00:00Z",
+    "fields": {
+     "action": "login-failed",
+     "client_ip": "192.0.2.60",
+     "status": 401,
+     "first_tag": "auth",
+     "level": "warn"
+    }
+   },
+   "builtin": false
+  },
+  {
+   "name": "optional fields absent; numeric string coerced to int",
+   "doc": {
+    "event": {
+     "created": "2026-11-05T12:00:00Z",
+     "action": "login-ok"
+    },
+    "source": {
+     "ip": "198.51.100.9"
+    },
+    "http": {
+     "response": {
+      "status_code": "200"
+     }
+    }
+   },
+   "want": {
+    "ts": "2026-11-05T12:00:00Z",
+    "fields": {
+     "action": "login-ok",
+     "client_ip": "198.51.100.9",
+     "status": 200
+    }
+   },
+   "builtin": false
+  },
+  {
+   "name": "required event.action missing",
+   "doc": {
+    "event": {
+     "created": "2026-11-05T12:00:00Z"
+    },
+    "source": {
+     "ip": "192.0.2.1"
+    }
+   },
+   "unparsable": true,
+   "builtin": false
+  },
+  {
+   "name": "bad ip",
+   "doc": {
+    "event": {
+     "created": "2026-11-05T12:00:00Z",
+     "action": "a"
+    },
+    "source": {
+     "ip": "not-an-ip"
+    }
+   },
+   "unparsable": true,
+   "builtin": false
+  },
+  {
+   "name": "object where an int is expected",
+   "doc": {
+    "event": {
+     "created": "2026-11-05T12:00:00Z",
+     "action": "a"
+    },
+    "http": {
+     "response": {
+      "status_code": {
+       "x": 1
+      }
+     }
+    }
+   },
+   "unparsable": true,
+   "builtin": false
+  },
+  {
+   "name": "missing event.created is fatal",
+   "doc": {
+    "event": {
+     "action": "a"
+    }
+   },
+   "fatal": "bad or missing event.created",
+   "builtin": false
+  }
+ ]
+}

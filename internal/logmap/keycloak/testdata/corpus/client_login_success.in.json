@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "type=\"CLIENT_LOGIN\", realmId=\"realm-a\", realmName=\"demo\", clientId=\"web-app\", userId=\"bbbbbbbb-0000-0000-0000-000000000002\", ipAddress=\"203.0.113.5\", grant_type=\"client_credentials\", username=\"service-account-demo\""
+}

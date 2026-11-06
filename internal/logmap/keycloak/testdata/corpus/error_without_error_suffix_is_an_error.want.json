@@ -1,0 +1,9 @@
+{
+ "fields": {
+  "client_ip": "192.0.2.1",
+  "error": "boom",
+  "event_type": "CUSTOM",
+  "outcome": "error"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

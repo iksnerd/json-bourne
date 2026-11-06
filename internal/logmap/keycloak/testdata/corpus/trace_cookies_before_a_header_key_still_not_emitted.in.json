@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "type=\"LOGIN_ERROR\", realmId=\"realm-1\", realmName=\"demo\", clientId=\"web-app\", userId=\"user-1\", ipAddress=\"192.0.2.10\", error=\"invalid_user_credentials\", cookies=\"AUTH_SESSION_ID=SYNTH-COOKIE-VALUE\", username=\"alice\""
+}

@@ -1,0 +1,10 @@
+{
+ "fields": {
+  "client_ip": "203.0.113.9",
+  "method": "POST",
+  "path": "/v1/example/items",
+  "probe_marker": "m",
+  "user_agent": "ExampleAgent/1.0"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

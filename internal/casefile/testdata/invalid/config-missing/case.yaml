@@ -1,0 +1,6 @@
+apiVersion: jb.case/v1
+id: config-missing
+title: Synthetic case
+status: open
+opened: 2026-11-01
+config: [config/nope.yaml]

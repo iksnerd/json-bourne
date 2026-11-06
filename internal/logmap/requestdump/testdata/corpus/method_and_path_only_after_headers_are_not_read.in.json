@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-05T12:00:00Z",
+ "message": "=== Request Info ===\nheader = User-Agent    value = ExampleAgent/1.0\nmethod = GET\npath = /v1/admin\n"
+}

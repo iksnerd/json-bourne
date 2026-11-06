@@ -1,0 +1,9 @@
+{
+ "fields": {
+  "client_ip": "192.0.2.10",
+  "error": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "event_type": "LOGIN_ERROR",
+  "outcome": "error"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

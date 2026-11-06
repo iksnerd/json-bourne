@@ -1,0 +1,12 @@
+{
+ "fields": {
+  "client_id": "web-app",
+  "client_ip": "198.51.100.7",
+  "email": "new.user@example.com",
+  "event_type": "REGISTER",
+  "outcome": "success",
+  "realm": "demo",
+  "username": "new.user@example.com"
+ },
+ "time": "2026-11-05T12:00:00Z"
+}

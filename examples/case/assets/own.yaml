@@ -1,0 +1,12 @@
+# Proposed format jb.assets/v1 (docs/CASE-SPEC.md section 4.3). Not read by code yet.
+apiVersion: jb.assets/v1
+never_suspects:
+  - kind: ip
+    value: 198.51.100.7
+    why: our API gateway; it appears as the client in upstream logs
+  - kind: cidr
+    value: 198.51.100.64/28
+    why: our scanner pool
+  - kind: user_agent
+    value: example-gateway/2.1
+    why: gateway health checks

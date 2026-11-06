@@ -1,0 +1,24 @@
+# Synthetic example case. Everything here is invented: example.com, RFC 5737 addresses.
+apiVersion: jb.case/v1
+id: example-login-spray
+title: Example login spray against the demo portal
+status: monitoring
+opened: 2026-11-01
+classification: internal
+owners: [incident-lead, analyst]
+scope:
+  domains: [example.com]
+  hosts: [portal.example.com, 192.0.2.10]
+  asns: [64496]
+  cidrs: [192.0.2.0/24]
+windows:
+  default: 24h
+  week: 7d
+retention:
+  evidence_days: 90
+  findings_days: 365
+config:
+  - config/hunt.yaml
+handling:
+  passive_only: true
+  redact_in_reports: [email, account_id]

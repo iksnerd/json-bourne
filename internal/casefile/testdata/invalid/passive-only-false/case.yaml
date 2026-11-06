@@ -1,0 +1,6 @@
+apiVersion: jb.case/v1
+id: passive-only-false
+title: Synthetic case
+status: open
+opened: 2026-11-01
+handling: {passive_only: false}

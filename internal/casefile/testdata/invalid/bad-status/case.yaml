@@ -1,0 +1,5 @@
+apiVersion: jb.case/v1
+id: bad-status
+title: Synthetic case
+status: paused
+opened: 2026-11-01

@@ -1,0 +1,23 @@
+{{define "body"}}<h1>Node <span class="mono">{{.Node.Label}}</span></h1>
+<p class="note">Caveat: {{.Caveat}}</p>
+<table>
+<tr><th>id</th><td class="mono">{{.Node.ID}}</td></tr>
+<tr><th>kind</th><td>{{.Node.Kind}}</td></tr>
+<tr><th>source</th><td>{{.Node.Source}}</td></tr>
+<tr><th>method</th><td class="mono">{{.Node.Method}}</td></tr>
+<tr><th>observed</th><td>{{.Node.Observed}}</td></tr>
+<tr><th>map</th><td>{{.GraphID}}</td></tr>
+</table>
+<h2>Edges out</h2>
+{{if .Out}}<table><tr><th>relation</th><th>to</th><th>source</th><th>method</th></tr>
+{{range .Out}}<tr><td><a href="/estate/edge?g={{.G}}&i={{.I}}">{{.Relation}}</a></td><td class="mono"><a href="/estate/node?g={{.G}}&id={{.To}}">{{.To}}</a></td><td>{{.Source}}</td><td class="mono">{{.Method}}</td></tr>
+{{end}}</table>{{else}}<p class="empty">no edge leaves this node</p>{{end}}
+<h2>Edges in</h2>
+{{if .In}}<table><tr><th>from</th><th>relation</th><th>source</th><th>method</th></tr>
+{{range .In}}<tr><td class="mono"><a href="/estate/node?g={{.G}}&id={{.From}}">{{.From}}</a></td><td><a href="/estate/edge?g={{.G}}&i={{.I}}">{{.Relation}}</a></td><td>{{.Source}}</td><td class="mono">{{.Method}}</td></tr>
+{{end}}</table>{{else}}<p class="empty">no edge arrives at this node</p>{{end}}
+<h2>Absences</h2>
+{{if .Absences}}<table><tr><th>source</th><th>method</th><th>observed</th><th>answer</th></tr>
+{{range .Absences}}<tr><td>{{.Source}}</td><td class="mono">{{.Method}}</td><td>{{.Observed}}</td><td>{{.Answer}}</td></tr>
+{{end}}</table>{{else}}<p class="empty">no recorded absence about this node</p>{{end}}
+{{end}}
