@@ -17,7 +17,9 @@
 //
 // There is no authentication. The default is to bind loopback and to refuse a
 // request whose Host header is not a loopback name (DNS rebinding); a non-loopback
-// bind is an explicit, loudly warned decision of the caller (CheckAddr).
+// bind is an explicit, loudly warned decision of the caller (CheckAddr). Behind a
+// reverse proxy that rewrites Host, Options.AllowedHosts names the Host values to
+// accept instead.
 package web
 
 import (
@@ -74,6 +76,103 @@ type Options struct {
 	// header must then be a loopback name, which stops a web page in the operator's
 	// browser reaching the dashboard through DNS rebinding.
 	Loopback bool
+
+	// AllowedHosts, when not empty, replaces the loopback Host rule: a request is
+	// served only if its Host header equals one of these values, and any other Host
+	// gets 421, whatever Loopback says. Use it behind a reverse proxy that presents
+	// the dashboard under its own name. Each value is a host name, an IP address or
+	// a bracketed IPv6 address, with an optional ":port". Matching is exact and
+	// ASCII case-insensitive: "dash.example.com" matches only a header without a port,
+	// "dash.example.com:8443" only that port. There are no wildcards, at most
+	// maxAllowedHosts values, and an empty or malformed value is refused (see
+	// Validate). Empty keeps the default: loopback names when Loopback is true, no
+	// Host filter when it is false.
+	//
+	// The list does not add authentication. The proxy must authenticate, and must
+	// not forward a Host header the visitor chose.
+	AllowedHosts []string
+}
+
+// maxAllowedHosts bounds Options.AllowedHosts.
+const maxAllowedHosts = 16
+
+// Errors a caller can match with errors.Is. Their text names no command-line flag, so
+// a library caller can show them as they are; the CLI adds its own hint.
+var (
+	// ErrBadAddr is a listen address that is not HOST:PORT with a port 0-65535.
+	ErrBadAddr = errors.New("invalid listen address")
+	// ErrNotLoopback is a non-loopback listen address that remote binding was not
+	// allowed for.
+	ErrNotLoopback = errors.New("address is not a loopback address; remote binding must be allowed explicitly")
+	// ErrBadAllowedHosts is an invalid Options.AllowedHosts.
+	ErrBadAllowedHosts = errors.New("invalid allowed hosts")
+)
+
+// Validate reports whether the options can build a handler. New panics on options
+// that fail it, so a caller that takes the list from configuration calls Validate
+// first. The error wraps ErrBadAllowedHosts.
+func (o Options) Validate() error {
+	if len(o.AllowedHosts) > maxAllowedHosts {
+		return fmt.Errorf("%w: %d values, at most %d", ErrBadAllowedHosts, len(o.AllowedHosts), maxAllowedHosts)
+	}
+	for _, h := range o.AllowedHosts {
+		if err := checkAllowedHost(h); err != nil {
+			return fmt.Errorf("%w: %q: %s", ErrBadAllowedHosts, h, err)
+		}
+	}
+	return nil
+}
+
+// checkAllowedHost accepts name, name:port, a.b.c.d, a.b.c.d:port, [v6] and [v6]:port.
+func checkAllowedHost(v string) error {
+	if v == "" {
+		return errors.New("empty")
+	}
+	host, port := v, ""
+	if strings.HasPrefix(v, "[") {
+		end := strings.Index(v, "]")
+		if end < 0 {
+			return errors.New("unclosed bracket")
+		}
+		host, port = v[1:end], v[end+1:]
+		if a, err := netip.ParseAddr(host); err != nil || !a.Is6() {
+			return errors.New("not an IPv6 address")
+		}
+		if port != "" && !strings.HasPrefix(port, ":") {
+			return errors.New("text after the bracket")
+		}
+	} else if i := strings.LastIndex(v, ":"); i >= 0 {
+		host, port = v[:i], v[i:]
+	}
+	if port != "" {
+		n, err := strconv.Atoi(port[1:])
+		if err != nil || n < 1 || n > 65535 || port[1] == '+' || port[1] == '-' {
+			return errors.New("port is not 1-65535")
+		}
+	}
+	if strings.HasPrefix(v, "[") {
+		return nil
+	}
+	if strings.Contains(host, ":") {
+		return errors.New("an IPv6 address needs brackets")
+	}
+	if _, err := netip.ParseAddr(host); err == nil {
+		return nil
+	}
+	if host == "" || len(host) > 253 {
+		return errors.New("empty or too long host")
+	}
+	for _, label := range strings.Split(host, ".") {
+		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return errors.New("bad host label")
+		}
+		for _, c := range []byte(label) {
+			if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-') {
+				return errors.New("host may hold letters, digits, dots and hyphens only (no wildcard)")
+			}
+		}
+	}
+	return nil
 }
 
 // csp lets a page load script, style and image from this origin only, and fetch from
@@ -99,7 +198,18 @@ type server struct {
 }
 
 // New returns the dashboard handler.
+//
+// It panics if o.Validate() fails: a bad AllowedHosts is a programming error, and a
+// handler that silently dropped the list would filter Host on a different rule than
+// the caller asked for.
 func New(d Deps, o Options) http.Handler {
+	if err := o.Validate(); err != nil {
+		panic("web: " + err.Error())
+	}
+	allowed := make(map[string]struct{}, len(o.AllowedHosts))
+	for _, h := range o.AllowedHosts {
+		allowed[strings.ToLower(h)] = struct{}{}
+	}
 	if d.Now == nil {
 		d.Now = time.Now
 	}
@@ -139,7 +249,12 @@ func New(d Deps, o Options) http.Handler {
 			http.Error(w, "read-only dashboard: GET and HEAD only", http.StatusMethodNotAllowed)
 			return
 		}
-		if o.Loopback && !loopbackHost(r.Host) {
+		if len(allowed) > 0 {
+			if _, ok := allowed[strings.ToLower(r.Host)]; !ok {
+				http.Error(w, "unexpected Host header: this dashboard answers on its configured host names only", http.StatusMisdirectedRequest)
+				return
+			}
+		} else if o.Loopback && !loopbackHost(r.Host) {
 			http.Error(w, "unexpected Host header: this dashboard answers on loopback names only", http.StatusMisdirectedRequest)
 			return
 		}
@@ -163,14 +278,16 @@ func loopbackHost(host string) bool {
 // CheckAddr validates the listen address. A loopback address is returned as is
 // ("localhost" becomes 127.0.0.1, so no name lookup decides where we bind). Anything
 // else, including ":8090" and "0.0.0.0:8090", which listen on every interface, is
-// refused unless allowRemote is set; remote is then true and the caller must warn.
+// refused with an error that wraps ErrNotLoopback unless allowRemote is set; remote is
+// then true and the caller must warn. A malformed address wraps ErrBadAddr. The
+// messages name no command-line flag.
 func CheckAddr(addr string, allowRemote bool) (listen string, remote bool, err error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		return "", false, fmt.Errorf("--addr %q: want HOST:PORT: %w", addr, err)
+		return "", false, fmt.Errorf("%w %q: want HOST:PORT: %w", ErrBadAddr, addr, err)
 	}
 	if n, perr := strconv.Atoi(port); perr != nil || n < 0 || n > 65535 {
-		return "", false, fmt.Errorf("--addr %q: port %q is not 0-65535", addr, port)
+		return "", false, fmt.Errorf("%w %q: port %q is not 0-65535", ErrBadAddr, addr, port)
 	}
 	if strings.EqualFold(host, "localhost") {
 		return net.JoinHostPort("127.0.0.1", port), false, nil
@@ -179,7 +296,7 @@ func CheckAddr(addr string, allowRemote bool) (listen string, remote bool, err e
 		return addr, false, nil
 	}
 	if !allowRemote {
-		return "", false, fmt.Errorf("--addr %q is not a loopback address: the dashboard has no authentication and shows evidence; use 127.0.0.1, or pass --allow-remote to accept that risk", addr)
+		return "", false, fmt.Errorf("%w: %q (the dashboard has no authentication and shows evidence)", ErrNotLoopback, addr)
 	}
 	return addr, true, nil
 }

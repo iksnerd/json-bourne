@@ -519,8 +519,8 @@ func TestCheckAddr(t *testing.T) {
 		}
 	}
 	for _, in := range []string{":8090", "0.0.0.0:8090", "[::]:8090", "192.0.2.1:8090", "example.com:8090", "10.0.0.5:80"} {
-		if _, _, err := CheckAddr(in, false); err == nil || !strings.Contains(err.Error(), "--allow-remote") {
-			t.Errorf("CheckAddr(%q) = %v: a non-loopback address must be refused and name --allow-remote", in, err)
+		if _, _, err := CheckAddr(in, false); !errors.Is(err, ErrNotLoopback) || strings.Contains(err.Error(), "--") {
+			t.Errorf("CheckAddr(%q) = %v: a non-loopback address must be refused with ErrNotLoopback and a flag-neutral message", in, err)
 		}
 		got, remote, err := CheckAddr(in, true)
 		if err != nil || !remote || got != in {
@@ -528,8 +528,8 @@ func TestCheckAddr(t *testing.T) {
 		}
 	}
 	for _, in := range []string{"", "8090", "127.0.0.1", "127.0.0.1:notaport", "127.0.0.1:99999", "127.0.0.1:-1"} {
-		if _, _, err := CheckAddr(in, true); err == nil {
-			t.Errorf("CheckAddr(%q) accepted", in)
+		if _, _, err := CheckAddr(in, true); !errors.Is(err, ErrBadAddr) || strings.Contains(err.Error(), "--") {
+			t.Errorf("CheckAddr(%q) = %v: want ErrBadAddr and a flag-neutral message", in, err)
 		}
 	}
 }
@@ -558,5 +558,122 @@ func TestServeStopsWhenContextEnds(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Serve did not stop")
+	}
+}
+
+func hostStatus(t *testing.T, o Options, host string) (int, http.Header) {
+	t.Helper()
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Host = host
+	rec := httptest.NewRecorder()
+	New(newDeps(hostileFake()), o).ServeHTTP(rec, req)
+	return rec.Code, rec.Header()
+}
+
+func TestAllowedHostsReplacesTheLoopbackRule(t *testing.T) {
+	o := Options{Loopback: true, AllowedHosts: []string{"Dash.Example.com", "198.51.100.7:8443", "[2001:db8::1]:8090"}}
+	for _, host := range []string{"dash.example.com", "DASH.example.COM", "198.51.100.7:8443", "[2001:db8::1]:8090"} {
+		if code, _ := hostStatus(t, o, host); code != http.StatusOK {
+			t.Errorf("allowed Host %q = %d, want 200", host, code)
+		}
+	}
+	// Exact match: another port, a missing port, a suffix, a prefix, loopback (replaced), empty.
+	for _, host := range []string{"dash.example.com:8090", "198.51.100.7", "198.51.100.7:8444", "evil.dash.example.com", "dash.example.com.evil.test", "dash.example.co", "127.0.0.1:8090", "localhost", ""} {
+		if code, _ := hostStatus(t, o, host); code != http.StatusMisdirectedRequest {
+			t.Errorf("Host %q = %d, want 421", host, code)
+		}
+	}
+	// With the list set, Loopback=false does not switch the check off.
+	o.Loopback = false
+	if code, _ := hostStatus(t, o, "evil.example.com"); code != http.StatusMisdirectedRequest {
+		t.Errorf("AllowedHosts with Loopback=false: foreign Host = %d, want 421", code)
+	}
+	if code, _ := hostStatus(t, o, "dash.example.com"); code != http.StatusOK {
+		t.Errorf("AllowedHosts with Loopback=false: allowed Host = %d, want 200", code)
+	}
+}
+
+func TestEmptyAllowedHostsKeepsTodaysBehaviour(t *testing.T) {
+	for _, hosts := range [][]string{nil, {}} {
+		if code, _ := hostStatus(t, Options{Loopback: true, AllowedHosts: hosts}, "evil.example.com"); code != http.StatusMisdirectedRequest {
+			t.Errorf("loopback, empty list: foreign Host = %d, want 421", code)
+		}
+		if code, _ := hostStatus(t, Options{Loopback: true, AllowedHosts: hosts}, "localhost:8090"); code != http.StatusOK {
+			t.Errorf("loopback, empty list: localhost = %d, want 200", code)
+		}
+		if code, _ := hostStatus(t, Options{Loopback: false, AllowedHosts: hosts}, "evil.example.com"); code != http.StatusOK {
+			t.Errorf("remote, empty list: Host must not be filtered, got %d", code)
+		}
+	}
+}
+
+func TestAllowedHostsRefusedAtConstruction(t *testing.T) {
+	long := make([]string, 17)
+	for i := range long {
+		long[i] = fmt.Sprintf("h%d.example.com", i)
+	}
+	bad := map[string][]string{
+		"wildcard":         {"*.example.com"},
+		"bare wildcard":    {"*"},
+		"empty string":     {""},
+		"blank":            {"  "},
+		"too many":         long,
+		"scheme":           {"https://dash.example.com"},
+		"path":             {"dash.example.com/x"},
+		"userinfo":         {"a@dash.example.com"},
+		"space":            {"dash example.com"},
+		"port zero":        {"dash.example.com:0"},
+		"port too big":     {"dash.example.com:70000"},
+		"port not number":  {"dash.example.com:http"},
+		"empty port":       {"dash.example.com:"},
+		"bare ipv6":        {"2001:db8::1"},
+		"empty label":      {"a..example.com"},
+		"leading dash":     {"-a.example.com"},
+		"one good one bad": {"dash.example.com", "*"},
+	}
+	for name, hosts := range bad {
+		o := Options{AllowedHosts: hosts}
+		if err := o.Validate(); !errors.Is(err, ErrBadAllowedHosts) {
+			t.Errorf("%s: Validate = %v, want ErrBadAllowedHosts", name, err)
+		}
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("%s: New accepted the list", name)
+				}
+			}()
+			New(newDeps(hostileFake()), o)
+		}()
+	}
+	good := make([]string, 16)
+	for i := range good {
+		good[i] = fmt.Sprintf("h%d.example.com:8090", i)
+	}
+	for _, hosts := range [][]string{good, {"localhost"}, {"dash.example.com:443"}, {"[::1]:8090"}, {"203.0.113.9"}} {
+		if err := (Options{AllowedHosts: hosts}).Validate(); err != nil {
+			t.Errorf("Validate(%v) = %v", hosts, err)
+		}
+	}
+}
+
+func TestAllowedHostsKeepsHeadersAndReadOnly(t *testing.T) {
+	o := Options{AllowedHosts: []string{"dash.example.com"}}
+	code, hd := hostStatus(t, o, "dash.example.com")
+	if code != http.StatusOK || hd.Get("Content-Security-Policy") != csp || hd.Get("X-Content-Type-Options") != "nosniff" || hd.Get("Cache-Control") != "no-store" {
+		t.Errorf("allowed host: %d %v", code, hd)
+	}
+	code, hd = hostStatus(t, o, "evil.example.com")
+	if code != http.StatusMisdirectedRequest || hd.Get("Content-Security-Policy") != csp {
+		t.Errorf("refused host: %d %v", code, hd)
+	}
+	h := New(newDeps(hostileFake()), o)
+	for _, m := range []string{"POST", "PUT", "DELETE", "PATCH"} {
+		req := httptest.NewRequest(m, "/", nil)
+		req.Host = "dash.example.com"
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusMethodNotAllowed {
+			t.Errorf("%s with an allowed Host = %d, want 405", m, rec.Code)
+		}
 	}
 }
