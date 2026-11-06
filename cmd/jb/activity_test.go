@@ -86,7 +86,7 @@ func TestActivityActiveWhenTheActorIsSeen(t *testing.T) {
 		"ACTIVE: window 2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z (1h0m0s)",
 		"sources read: kibana:logs-http-* (5 events fetched)",
 		"judged: fingerprint read 4 events in the window, actor/rare-action events: 2 (window), 1 (preceding)",
-		"last activity 2026-11-05T11:09:00Z",
+		"last activity 2026-11-05T11:09:00Z (51m ago)",
 	} {
 		if !strings.Contains(last, want) {
 			t.Errorf("verdict line lacks %q:\n%s", want, last)
@@ -477,6 +477,26 @@ func TestActivityQuietLineDoesNotCallRoutineTrafficGenuine(t *testing.T) {
 	} {
 		if !strings.Contains(last, want) {
 			t.Errorf("line lacks %q:\n%s", want, last)
+		}
+	}
+}
+
+func TestAgeTextCountsFromTheEndOfTheWindow(t *testing.T) {
+	end := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		ago  time.Duration
+		want string
+	}{
+		{18*time.Hour + 12*time.Minute + 40*time.Second, "18h12m ago"},
+		{51 * time.Minute, "51m ago"},
+		{2 * time.Hour, "2h0m ago"},
+		{30 * time.Second, "under 1m ago"},
+		{0, "under 1m ago"},
+		{-5 * time.Minute, "under 1m ago"}, // a clock skew never prints a negative age
+		{50 * time.Hour, "50h0m ago"},
+	} {
+		if got := ageText(end.Add(-c.ago), end); got != c.want {
+			t.Errorf("ageText(%v before end) = %q, want %q", c.ago, got, c.want)
 		}
 	}
 }

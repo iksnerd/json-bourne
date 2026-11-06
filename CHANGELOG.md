@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+- `jb activity` (table output) says how long before the end of the window the last genuine event was, beside the verdict: `ACTIVE: ... last activity 2026-11-05T11:09:00Z (51m ago)`. The age counts from the window end (the `--until` time for a historical window), not the wall clock. JSON output is unchanged.
+
 ## [0.4.0] - 2026-11-06
 
 ### Breaking

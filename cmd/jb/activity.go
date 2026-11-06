@@ -162,6 +162,20 @@ func lastText(s core.ActivitySubject) string {
 	return "none"
 }
 
+// ageText says how long before end the last genuine event was, e.g. "18h12m ago". It
+// counts from the end of the run's window (the injected clock, or --until), never from the
+// wall clock, so the same question gives the same answer. Hours do not roll into days.
+func ageText(last, end time.Time) string {
+	d := end.Sub(last).Truncate(time.Minute)
+	if d < time.Minute {
+		return "under 1m ago"
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm ago", int(d/time.Minute))
+	}
+	return fmt.Sprintf("%dh%dm ago", int(d/time.Hour), int(d%time.Hour/time.Minute))
+}
+
 func subjectNote(s core.ActivitySubject) string {
 	var parts []string
 	if s.Noise > 0 {
@@ -293,7 +307,7 @@ func verdictLine(r app.ActivityResult) string {
 			tail = "; common action(s) flagged by a moved failure share: " + strings.Join(r.Flagged, ", ")
 		}
 		if last, ok := r.Last(); ok {
-			return head + " last activity " + stamp(last) + tail + "."
+			return head + " last activity " + stamp(last) + " (" + ageText(last, r.Window.To) + ")" + tail + "."
 		}
 		return head + strings.TrimPrefix(tail, ";") + "."
 	case app.VerdictQuiet:
