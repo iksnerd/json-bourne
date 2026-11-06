@@ -39,13 +39,18 @@ templ estateView(p estatePage) {
 
 // estateGraphs is the part of the page the kind filter swaps: every map, filtered.
 templ estateGraphs(p estatePage) {
-	for _, g := range p.Graphs {
-		@graphBlock(g)
+	for _, l := range p.Layers {
+		<section aria-label={ l.Heading }>
+			<h2>{ l.Heading }</h2>
+			for _, g := range l.Graphs {
+				@graphBlock(g)
+			}
+		</section>
 	}
 }
 
 templ graphBlock(g graphView) {
-	<h2>{ g.ID }</h2>
+	<h3>{ g.ID }</h3>
 	<p class="note">Caveat: { g.Caveat }</p>
 	if g.SVG {
 		<div class="graph" data-src={ g.Src }></div>

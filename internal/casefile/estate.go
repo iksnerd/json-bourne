@@ -25,6 +25,9 @@ const EstateAPIVersion = "jb.estate/v2"
 const estateV1APIVersion = "jb.estate/v1"
 
 // EstateRequiredKeys are the top-level keys that must be present.
+// EstateSubjects are the allowed values of the optional top-level subject (RFC 0015).
+var EstateSubjects = []string{"operated", "adversary"}
+
 var EstateRequiredKeys = []string{"apiVersion", "id", "caveat", "nodes"}
 
 // NodeRequiredKeys, EdgeRequiredKeys and AbsenceRequiredKeys: every claim in an
@@ -91,6 +94,7 @@ var (
 type Estate struct {
 	APIVersion  string       `yaml:"apiVersion"`
 	ID          string       `yaml:"id"`
+	Subject     string       `yaml:"subject,omitempty"`
 	Caveat      string       `yaml:"caveat"`
 	Nodes       []Node       `yaml:"nodes"`
 	Edges       []Edge       `yaml:"edges,omitempty"`
@@ -208,10 +212,34 @@ func ParseEstate(data []byte) (*Estate, error) {
 	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return nil, errors.New("more than one YAML document")
 	}
+	if err := checkSubjectKey(&root, &e); err != nil {
+		return nil, err
+	}
 	if err := e.validate(); err != nil {
 		return nil, err
 	}
 	return &e, nil
+}
+
+// errSubject names the two valid values. The subject is untrusted text, so it is not
+// echoed.
+func errSubject() error {
+	return fmt.Errorf("subject must be %s (or left out for an unclassified file)", strings.Join(EstateSubjects, " or "))
+}
+
+// checkSubjectKey rejects a subject key that is present but empty: absent means
+// unclassified, and an empty value is neither that nor a valid one.
+func checkSubjectKey(root *yaml.Node, e *Estate) error {
+	if e.Subject != "" || len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
+		return nil
+	}
+	m := root.Content[0].Content
+	for i := 0; i+1 < len(m); i += 2 {
+		if m[i].Value == "subject" {
+			return errSubject()
+		}
+	}
+	return nil
 }
 
 func checkLine(field, v string, max int) error {
@@ -261,6 +289,9 @@ func (e *Estate) validate() error {
 	}
 	if err := checkLine("caveat", e.Caveat, maxCaveat); err != nil {
 		bad("%v: an estate file must state that it maps infrastructure ownership and relationships, not who typed the commands", err)
+	}
+	if e.Subject != "" && !slices.Contains(EstateSubjects, e.Subject) {
+		bad("%v", errSubject())
 	}
 	if n := len(e.Nodes); n < 1 || n > maxEstateNodes {
 		bad("nodes must hold 1 to %d entries, has %d", maxEstateNodes, n)

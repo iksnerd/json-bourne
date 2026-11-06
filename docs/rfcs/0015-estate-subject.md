@@ -86,9 +86,7 @@ The Estate page already draws one graph per file. It groups the graphs under thr
 
 ## Reference implementations
 
-Shipped: none.
-
-Proposed: the key in `internal/casefile` (loader and schema), the diff and snapshot rules in `internal/app`, the grouping in `internal/adapters/web`, and the table in [CASE-SPEC.md](../CASE-SPEC.md) 4.5.
+Built, not yet released: the key in `internal/casefile` (loader and schema), the diff and snapshot rules in `internal/app`, the grouping in `internal/adapters/web`, and the table in [CASE-SPEC.md](../CASE-SPEC.md) 4.5.
 
 ## Open questions
 
@@ -100,4 +98,4 @@ Decided by the author on 2026-11-06 when the maintainer chose to take the subjec
 
 ## Changes
 
-None yet.
+- Build note: `subject: ""` (key present, empty) is a load error, like any other value. The dashboard prints a layer heading only when it holds a graph, and a graph whose subject is not one of the two valid values (possible only for a caller that bypasses the loader) falls under Unclassified without printing the value.
