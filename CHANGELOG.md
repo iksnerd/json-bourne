@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-06
+
 ### Breaking
 - `jb hunt` can list findings while a detector's status is not `ok`; read `complete` first. `jb activity` can read ACTIVE with `complete` false, and then exits 1; before, ACTIVE with an incomplete source exited 0. `jb watch` alerts an incomplete detector's findings (RFC 0012).
 - `jb case check DIR` is now `jb case check --case DIR`; the positional directory is removed (RFC 0007).
