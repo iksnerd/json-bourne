@@ -59,14 +59,16 @@ my-case/                 # its own private repository is typical; never inside t
     watch-state.json     #   jb watch: what it has already alerted (section 3.1)
     watch.log            #   jb watch: every alert and cycle line, append-only
     watch.lock           #   jb watch: the single-instance lock (section 3.1)
-                         #   with --name NAME: watch-state.NAME.json, watch.NAME.log, watch.NAME.lock
+    watch-status.json    #   jb watch: the status record a program reads (section 3.1)
+                         #   with --name NAME: watch-state.NAME.json, watch.NAME.log, watch.NAME.lock,
+                         #   watch-status.NAME.json
 ```
 
 Only `case.yaml` is required. Every directory name is the default of a key in `paths` and can be changed. A tool MUST NOT read `evidence/` for documentation, indexing or search; only an explicit hunt or import reads it.
 
 ### 3.1 Files `jb watch` keeps in `evidence/`
 
-`jb watch` writes three small files next to the store. Both are evidence in the sense of this section: they name addresses and tags from the logs, so they stay inside the ignored directory and a tool MUST NOT read them for documentation or search.
+`jb watch` writes four small files next to the store. All are evidence in the sense of this section: they name addresses and tags from the logs, so they stay inside the ignored directory and a tool MUST NOT read them for documentation or search.
 
 **`watch-state.json`** is the dedupe memory, replaced atomically (temp file in the same directory, sync, rename) after every cycle. It is strict JSON: an unknown field, trailing data, a different `version`, an unknown severity, an empty key or a missing time all make it corrupt. A corrupt file is renamed to `watch-state.json.corrupt`, the cycle raises a `watch-state-load` alert, and the watch carries on with an empty memory, so the cost is repeated alerts and never a stopped watcher. A missing file is a cold start.
 
@@ -86,7 +88,43 @@ Only `case.yaml` is required. Every directory name is the default of a key in `p
 
 **`watch.lock`** is the single-instance lock: an exclusive `flock(2)` held for as long as the watcher runs, with the holder's PID written in it. A second `jb watch` for the same case is refused, naming that PID. The kernel drops the lock when the holder exits however it dies, so a file that still holds a dead PID is stale and is taken over; the file is never removed. It is emptied when the holder ends normally. Where `flock` is not available the lock is an exclusive-create file that a crash leaves behind.
 
-**Named watchers.** `jb watch --name NAME` (`^[a-z][a-z0-9_-]{0,31}$`) replaces the three names above with `watch-state.NAME.json`, `watch.NAME.log` and `watch.NAME.lock`, all in the same `evidence/` directory, and names its runs `watch-NAME-<UTC time>`. Every format in this section is unchanged; only the file names and run ids differ, and each alert line and `CYCLE` line carries `[w:NAME]`. Dedupe memory is per file, so the same finding may alert once per named watcher. Without `--name` the files and run ids are exactly the ones above.
+**`watch-status.json`** (`apiVersion: jb.watch-status/v1`) is the machine-readable health record, for a program that needs to know whether the watcher is alive and what it runs without parsing `watch.log` or running `ps`. `jb watch` writes it when it starts and again when every cycle ends, replaced atomically like the state file (temp file in the same directory, sync, rename; mode 0600). It holds names, counts and times, never an error text or a credential. A reader MUST accept only the version it knows and MUST treat an unknown field, trailing data, no `pid`, no `started` or a non-positive `everySeconds` as an unreadable record.
+
+```json
+{
+  "apiVersion": "jb.watch-status/v1",
+  "name": "edge",
+  "pid": 4242,
+  "started": "2026-11-05T09:00:00Z",
+  "updated": "2026-11-05T12:00:03Z",
+  "config": "config/hunt.yaml",
+  "everySeconds": 300,
+  "windowSeconds": 3600,
+  "ttlSeconds": 10800,
+  "keepSeconds": 172800,
+  "repeatSeconds": 1800,
+  "lastCycle": {
+    "run": "watch-edge-20261105T120000Z",
+    "verdict": "INCOMPLETE",
+    "ended": "2026-11-05T12:00:03Z",
+    "windowFrom": "2026-11-05T11:00:00Z",
+    "windowTo": "2026-11-05T12:00:00Z",
+    "new": 1, "suppressed": 0, "repeated": 2, "recovered": 0,
+    "failed": ["source kibana:logs-auth-*"]
+  },
+  "nextDue": "2026-11-05T12:05:00Z"
+}
+```
+
+- `name` is the watcher name, `""` for the unnamed one; it MUST equal the name in the file name. `pid` is the process that wrote the record. `config` is the config's path relative to the case with `/` separators, `""` when it is not inside the case. The five `...Seconds` keys are the run's `--every`, `--window`, `--ttl`, `--keep` and `--repeat`.
+- `lastCycle` is absent until the first cycle ends. `verdict` is `QUIET`, `FINDINGS`, `INCOMPLETE` or `FAILED` (the `CYCLE` line's word, section 9). `failed` lists the components that did not finish and is `[]`, never `null`. `ended` is when the cycle finished, not when its window ended.
+- `nextDue` is when the next cycle starts: the start of the previous cycle plus `--every`, or now when that has passed. It is absent for `--once`. Before the first cycle it is the start time.
+- The record outlives the process. A record with no process behind it means the watcher stopped, not that it is healthy; judge liveness with the lock as `jb watch status` does.
+- A failed write of the record raises a `watch-status-save` alert and does not stop the watcher or change the cycle's verdict.
+
+**Is a watcher alive?** `jb watch status` (section 9) decides it, and a program MAY apply the same rule: the lock is held (a non-blocking shared `flock(2)` request on `watch.lock` is refused; the probe takes no exclusive lock and drops its own at once, and a file that does not exist is free) and the last cycle ended no more than 3 x `everySeconds` ago (before the first cycle, counted from `started`). Held and recent is `running`; held and not recent is `stale`; not held, with a record, is `stopped`; no readable record is `unknown`. A PID in `watch.lock` is not proof of a live holder, because a killed watcher leaves it behind.
+
+**Named watchers.** `jb watch --name NAME` (`^[a-z][a-z0-9_-]{0,31}$`) replaces the four names above with `watch-state.NAME.json`, `watch.NAME.log`, `watch.NAME.lock` and `watch-status.NAME.json`, all in the same `evidence/` directory, and names its runs `watch-NAME-<UTC time>`. Every format in this section is unchanged; only the file names and run ids differ, and each alert line and `CYCLE` line carries `[w:NAME]`. Dedupe memory is per file, so the same finding may alert once per named watcher. Without `--name` the files and run ids are exactly the ones above.
 
 **`jb.duckdb`** grows by a window and its baseline per cycle. `--keep` removes watch runs older than it (section 9).
 
@@ -297,6 +335,8 @@ Without `--case`, `hunt --config FILE` is unchanged: no guard, relative paths ag
 - The last line states the window, the sources read with the events each fetched (which cover the window and the one before it), the detectors, and per detector what it judged: `judged: <detector> read N events in the window, actor/rare-action events: M (window), K (preceding)`, plus `common-action events (ordinary traffic): X (window), Y (preceding)` when it read any. Routine traffic of a common action is never called a genuine event: a QUIET line can carry a large common-action count. A common action that the detector marked active (its failure share rose) is named at the end of an ACTIVE line. Then the last activity, or why the answer is not QUIET. Every number is counted from the events read. The JSON keeps `genuine_events_window` and `genuine_events_preceding` for the actor and rare-action counts only, and adds `common_action_events_window`, `common_action_events_preceding` and `common_actions_flagged`. A source that returned documents another source of the run already returned reports them as `duplicates` and does not count them in `events`.
 
 **`jb actor status --case DIR [--config FILE] [--output table|json]`.** Builds the config's detectors without reading the environment, opens the case's store read-only, and for each user agent of each fingerprint actor reads stored events newest first through one fixed parameterised query until the first genuine one (same noise and `ignore_ips` rules as the detector). Prints the time, or `never`, with the count of newer events set aside. A store with no events is an error. A scan that hit its cap (100000 events) before a genuine one is `INCOMPLETE` and exits 1. Indicators other than user agents (addresses, ASNs, domains, probe fingerprints) are not matched against events and are not listed.
+
+**`jb watch status --case DIR [--config FILE] [--name NAME] [--output table|json]`.** Says whether the case's watchers are alive and what they run. It loads `case.yaml` (no evidence guard: it writes nothing), finds every watcher in the evidence directory from its `watch*.lock` and `watch-status*.json` files, reads each status record (section 3.1) and probes each lock without taking it, so it is safe while a watcher runs. Each watcher is `running`, `stale`, `stopped` or `unknown`, by the rule in section 3.1 ("Is a watcher alive?"); the reason is printed for every state but `running`. `--name NAME` reports one watcher (`--name ""` the unnamed one; a named watcher with neither lock nor record is `unknown`); `--config` keeps the watchers whose record names that config. A record that cannot be read (another `apiVersion`, a damaged file, or a name that is not the file's) makes that watcher `unknown` with the error as the reason. `--output json` prints `{"checked": ..., "watchers": [...]}`, each entry carrying `name`, `state`, `reason`, `lockHeld`, `pid`, `started`, `config`, the five `...Seconds` options, `lastCycle` and `nextDue` as the record spells them; `watchers` is `[]` when none is found. The exit status is 0 whatever the states, 2 for a usage error and 1 when the case cannot be loaded. The Go package offers the same as `jb.WatchStatus`.
 
 **`jb hunt --search TERM`** is described in [docs/CONFIG.md](CONFIG.md#ad-hoc-search). It changes nothing about the case checks above.
 

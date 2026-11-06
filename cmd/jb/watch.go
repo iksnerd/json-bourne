@@ -156,7 +156,7 @@ func newWatchCmdWith(d deps) *cobra.Command {
 				alertOut = stderr // stdout carries the report alone
 			}
 			deps, webhooks, err := watchrun.Deps(watchrun.Params{
-				Name: name, Evidence: evidence, Cfg: cfg, RT: rt, Env: d.env, Now: d.now,
+				Name: name, Evidence: evidence, CaseDir: plan.c.Dir, ConfigPath: plan.configPath, Cfg: cfg, RT: rt, Env: d.env, Now: d.now,
 				Out: alertOut,
 				// Advice in the cycle's own output; the cycle's status does not depend on it.
 				AfterHunt: func(ctx context.Context, st core.SourceOverlapReader, win core.Window) {
@@ -198,6 +198,7 @@ func newWatchCmdWith(d deps) *cobra.Command {
 	f.StringVar(&name, "name", "", "name this watcher (^[a-z][a-z0-9_-]{0,31}$): own state, log, lock and run ids, so several can watch one case; default: the unnamed watcher")
 	f.BoolVar(&once, "once", false, "run one cycle and exit; 0 when complete, 1 when incomplete or failed")
 	f.StringVar(&output, "output", "table", "output format: table or json (json needs --once and prints the cycle report)")
+	cmd.AddCommand(newWatchStatusCmd(d))
 	return cmd
 }
 
