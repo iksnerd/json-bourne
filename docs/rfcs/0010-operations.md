@@ -75,11 +75,11 @@ A property MAY carry `description` and `default`. The check never fills a defaul
 
 ### The reflector
 
-The reflector reads a Go option struct and its tags and returns the input schema. It maps `string`, `int`, `bool` and `[]string` to the four shapes. It refuses any other field type, an untagged exported field and a name that breaks the rules. A tag spells out what a field means, for example `jb:"window,default=1h,desc=Size of the window"`. The exact tag syntax is an open question.
+The reflector reads a Go option struct and its tags and returns the input schema. It maps `string`, `int`, `bool` and `[]string` to the four shapes. It refuses any other field type, an untagged exported field and a name that breaks the rules. Separate tags spell out what a field means, in the style of `encoding/json`: `jb:"window" default:"1h" desc:"Size of the window, e.g. 1h"`. A comma or an equals sign in a description cannot break the parse. Further tags carry `enum:"a,b"`, `min:"1"` and `max:"31"`.
 
 ### The flag builder
 
-A builder registers one cobra flag per property, with the type, default and help text from the operation. A cobra command that is not built this way is an error in a test. The named exceptions are `serve`, `watch`, `version` and the generated `help` and `completion`. A second test compares every built command's flags with its operation's properties.
+A builder registers one cobra flag per property, with the type, default and help text from the operation. If `cli.positional` ends with an array property, the remaining arguments fill it, so `jb intel 192.0.2.1 192.0.2.2` keeps working and a tool call sends `{"ips": [...]}`. Only the last positional may be an array. A cobra command that is not built this way is an error in a test. The named exceptions are `serve`, `watch`, `version` and the generated `help` and `completion`. A second test compares every built command's flags with its operation's properties.
 
 ### One check
 
@@ -106,7 +106,7 @@ The proposal for the operations that return one result:
 
 | Operation | Command | Read-only |
 |---|---|---|
-| `activity`, `hunt` | `jb activity`, `jb hunt` | see open question 3 |
+| `activity`, `hunt` | `jb activity`, `jb hunt` | yes over MCP (below) |
 | `actor_status`, `case_check`, `case_show`, `doctor` | `jb actor status`, `jb case check`, `jb case show`, `jb doctor` | yes |
 | `intel`, `estate_ip`, `estate_asn`, `estate_dns`, `estate_ct` | `jb intel`, `jb estate ...` | yes |
 | `estate_refresh`, `estate_diff` | `jb estate refresh`, `jb estate diff` | yes |
@@ -114,7 +114,11 @@ The proposal for the operations that return one result:
 | `db_status`, `db_usage` | `jb db status`, `jb db usage` | yes |
 | `estate_promote`, `db_prune`, `db_compact`, `db_rename_source` | the same commands | no |
 
-`jb watch` and `jb serve` run until stopped and are not operations. `hunt` and `activity` write a run to the evidence store unless `store` is false (RFC 0009), so their read-only status is an open question.
+`jb watch` and `jb serve` run until stopped and are not operations.
+
+`hunt` and `activity` write a run to the evidence store unless `store` is false (RFC 0009). On the command line they keep storing by default. Over MCP the `store` property is a `cli.only`-style exception in reverse: the tool projection removes it and fixes it to false, so the tool provably leaves no evidence and is listed in the read-only default set. A caller who wants a stored run uses the command line or the Go API.
+
+A tool entry carries MCP's `readOnlyHint` and `destructiveHint`, derived from `readOnly`, so a client can tell the operations apart without reading the descriptions.
 
 ## Non-goals
 
@@ -135,6 +139,9 @@ The proposal for the operations that return one result:
 ## Alternatives and prior art
 
 - **Replace cobra with a parser that follows the spec's grammar.** This was the first draft. It needs a second implementation of the grammar to be worth it, breaks `--x=false`, comma lists and completion, and was declined.
+- **One comma-separated tag.** Shorter, but a comma in a description needs quoting rules that must be designed and tested. Declined for separate tags.
+- **A repeated `--ip` flag only, or hand-written flags for the variadic commands.** The first breaks the form a person types. The second leaves drift in two commands. Declined for the last-positional-array rule.
+- **List `hunt` and `activity` as mutating tools, or not at all.** The first stops an agent asking the central question without opening a mutating tool. The second removes the reason for the server. Declined for the forced `store=false` projection.
 - **Hand-written schemas as JSON-shaped literals.** Explicit, but they copy every field of the option structs and drift from them. Declined.
 - **A separate MCP program on the public Go API.** It keeps the protocol out of `jb`, but it cannot see the operation registry unless that is public, and it adds a second thing to version. Declined for now.
 - **Expose everything over MCP with a dry-run default.** Simpler, but one injected `apply: true` from deleting evidence. Declined.
@@ -183,13 +190,11 @@ Proposed, in this order, each step ending in something that runs:
 
 ## Open questions
 
-1. **The tag syntax.** One tag with comma-separated parts, or several tags (`jb`, `desc`, `default`)? Decides: the author, after trying it on `HuntOptions`.
-2. **Variadic positionals.** Is a hand-written flag for `intel` and `estate IP...` acceptable, or should they take repeated `--ip`? Decides: the maintainer, with the other user.
-3. **Read-only status of hunt and activity.** They write a run unless `store` is false. Are they listed over MCP by default, and with `store` forced to false? Decides: the maintainer.
-4. **Annotations.** Should a tool entry carry MCP's `readOnlyHint` and `destructiveHint` from `readOnly`? Decides: the author.
-5. **A published tool-definition standard to compare with.** Which one should the next draft read? Decides: the reviewer.
+1. **Prior art.** The author has read the spec text and no MCP implementation. Before acceptance the author reads the MCP tools specification and one published server, and records what differs. Decides: the author, with the maintainer reviewing.
+2. **A stored run over MCP.** If a client later needs a stored hunt, is a separate allowlisted tool better than lifting the forced `store=false`? Decides: the maintainer, when a client needs it.
 
 ## Changes
 
 - 2026-11-06: first draft.
+- 2026-11-06: second grill: separate struct tags; the last positional may be an array; `hunt` and `activity` are listed over MCP with `store` forced to false; MCP annotations come from `readOnly`.
 - 2026-11-06: revised after a Hashimoto-rigor grill with the owner. Cobra stays, the option struct is the source of truth, `jb mcp` is built in, and the default exposure is read-only.

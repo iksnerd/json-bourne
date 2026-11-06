@@ -10,7 +10,7 @@ This RFC replaces `jb.estate/v1` with `jb.estate/v2`, which keeps the v1 data mo
 
 The file stays factual. Judgements never sit on a node, and the viewer marks them as opinion. Live signals, such as whether an address is on a blocklist or when it last appeared in the evidence, are not written into the file. The dashboard reads them from the evidence store when it draws the page.
 
-One limit stays. The usual sources of host facts, such as port and vulnerability data, are not on the passive-source list. Until the maintainer decides that (open question 1), a v2 file can cite only the eight listed sources, so those facts cannot yet be written. The format ships first, and the policy decision decides when they can be.
+One limit stays. The usual sources of host facts, such as port and vulnerability data, are not on the passive-source list. The maintainer decided on 2026-11-06 that such a store is passive when the target observes nothing from `jb` ([POLICY.md](../POLICY.md), "The test for a source"). The first one is a role, `scan-cache`, and `jb` ships no network code for it. The operator imports an export file they obtained, with `jb estate facts import FILE`. Nothing leaves the machine, so the import needs no `estate.external` switch. A collector for a named service can come later as a plugin, behind the same switch as the other external services.
 
 `jb.estate/v1` is removed. There is no compatibility path, because `jb` and one other program are the only users. The loader reads only v2. The example files and the snapshot code move to v2 in the same change. A v1 file gets an error that says to rewrite it. The drift check covers facts too.
 
@@ -249,7 +249,7 @@ Proposed:
 
 ## Open questions
 
-1. **A cached third-party database as a source.** Decided on 2026-11-06 by the maintainer: it is passive when the target observes nothing from `jb`, and a store of past scan results passes. The test is in [POLICY.md](../POLICY.md), section "The test for a source". Each such source joins the list under its own name, is off by default, and needs the `estate.external` switch. Still open: what the first one is called. Decides: the maintainer.
+1. **The shape of `facts import`.** What does the import file look like, and does `jb` accept a vendor's export directly or only a small neutral JSON that the operator converts? Decides: the author, after reading one real export format for the shape only.
 2. **Edges in `basis`.** Edges have no ids. Should an assessment be able to cite an edge, and by what address? Decides: the maintainer, with the author.
 3. **The strength table.** Are the values in the table right, and who may change them? Decides: the maintainer.
 4. **Set comparison for facts.** Is comparing the set of values per group right for keys where order or multiplicity matters? Decides: the author, after a test on a synthetic port history.
