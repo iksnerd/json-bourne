@@ -10,7 +10,22 @@
   var W = 960, H = 480;
   var DENSE = 40; // above this many connections, labels show on hover or focus only
 
-  document.querySelectorAll("div.graph[data-src]").forEach(load);
+  // Stroke width by corroboration: 1, 2, or 3 and more distinct sources. They are set
+  // through the style object (allowed by the CSP), not as markup, so no stylesheet change
+  // is needed. A connection whose newest claim is older than 90 days is dashed.
+  var WIDTH = { 1: 1.25, 2: 2.5, 3: 4 };
+  var STALE_DASH = "6 4";
+
+  drawAll();
+  // The kind filter swaps the graph boxes through htmx; draw the new ones.
+  document.addEventListener("htmx:afterSwap", drawAll);
+
+  function drawAll() {
+    document.querySelectorAll("div.graph[data-src]:not([data-drawn])").forEach(function (box) {
+      box.setAttribute("data-drawn", "1");
+      load(box);
+    });
+  }
 
   function load(box) {
     fetch(box.getAttribute("data-src"), { credentials: "same-origin" })
@@ -43,10 +58,14 @@
   function draw(box, g) {
     var nodes = g.nodes.map(function (n) { return Object.assign({}, n); });
     var links = g.edges.map(function (e) { return Object.assign({}, e); });
-    if (nodes.length === 0) { return; }
+    if (nodes.length === 0) {
+      box.textContent = g.filtered ? "No node of the chosen kinds." : "";
+      return;
+    }
 
     var info = d3.select(box).append("p").attr("class", "note");
-    info.text(g.nodeTotal + " nodes, " + g.edgeTotal + " connections, " + g.components + " connected piece(s). Drag a node, scroll to zoom, select a node or a connection label for its record." +
+    info.text(g.nodeTotal + " nodes, " + g.edgeTotal + " connections, " + g.components + " connected piece(s). Drag a node, scroll to zoom, select a node or a connection label for its record. Line width is the number of distinct sources (1, 2, 3 or more); a dashed line has no claim newer than 90 days." +
+      (g.filtered ? " Filtered by node kind: showing " + nodes.length + " of " + g.nodeTotal + " nodes." : "") +
       (g.cut ? " Showing the " + nodes.length + " most connected nodes; the tables list every one." : ""));
 
     var legend = d3.select(box).append("p").attr("class", "legend");
@@ -61,7 +80,9 @@
     var detail = d3.select(box).append("p").attr("class", "detail").attr("aria-live", "polite").text("Hover or focus a node or a connection for its details.");
 
     var edgeG = root.append("g").selectAll("g").data(links).join("g").attr("class", "edge-g");
-    var link = edgeG.append("line").attr("class", "edge").classed("inferred", function (d) { return d.confidence === "inferred"; });
+    var link = edgeG.append("line").attr("class", "edge").classed("inferred", function (d) { return d.confidence === "inferred"; })
+      .style("stroke-width", function (d) { return (WIDTH[d.weight] || WIDTH[1]) + "px"; })
+      .style("stroke-dasharray", function (d) { return d.stale ? STALE_DASH : null; });
     var elabel = edgeG.append("a").attr("class", "edge-label").attr("tabindex", 0);
     elabel.append("text").text(function (d) { return d.relation; });
     elabel.each(function (d) {
@@ -70,7 +91,9 @@
     });
     function describeEdge(_, d) {
       detail.text("connection " + (d.source.id || d.source) + " -[" + d.relation + "]-> " + (d.target.id || d.target) +
-        " (source " + d.sourceName + (d.confidence ? ", " + d.confidence : "") + ")");
+        " (source " + d.sourceName + (d.confidence ? ", " + d.confidence : "") + "; " +
+        (d.sources ? d.sources.length : 0) + " distinct source(s): " + (d.sources || []).join(", ") +
+        (d.newest ? "; newest claim " + d.newest : "") + (d.stale ? "; stale, older than 90 days" : "") + ")");
     }
     edgeG.on("mouseover", describeEdge);
     elabel.on("focus", describeEdge);
@@ -97,6 +120,7 @@
       .force("collide", d3.forceCollide(34));
 
     function ticked() {
+      if (!box.isConnected) { sim.stop(); return; } // the filter replaced this drawing
       link.attr("x1", function (d) { return d.source.x; }).attr("y1", function (d) { return d.source.y; })
         .attr("x2", function (d) { return d.target.x; }).attr("y2", function (d) { return d.target.y; });
       elabel.attr("transform", function (d) {

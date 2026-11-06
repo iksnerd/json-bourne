@@ -34,6 +34,18 @@ type fake struct {
 	limits    map[string]int
 	closed    int
 	summaryFn func(core.DashboardFields)
+
+	// The estate overlays. overlayCalls counts the questions asked of the store for them.
+	overlayCalls int
+	repErr       error
+	repFilter    core.ReputationFilter
+	seenAt       time.Time
+	seenOK       bool
+	seenErr      error
+	seenBlock    bool // wait for the caller's context, as a slow query does
+	seenField    string
+	seenValue    string
+	seenSince    time.Time
 }
 
 func (f *fake) note(k string, n int) {

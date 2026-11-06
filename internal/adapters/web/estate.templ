@@ -12,9 +12,18 @@ templ estateView(p estatePage) {
 		} else if p.Note.Bad() {
 			@noteView(p.Note)
 		} else {
-			for _, g := range p.Graphs {
-				@graphBlock(g)
-			}
+			<form class="filters" role="search" action="/estate" method="get" hx-get="/estate" hx-trigger="change" hx-target="#estate-graphs" hx-swap="innerHTML" hx-push-url="false">
+				<fieldset>
+					<legend class="label">node kind (none chosen shows all)</legend>
+					for _, o := range p.KindOptions() {
+						<label class="label"><input type="checkbox" name="kind" value={ o.Kind } checked?={ o.Checked }/> { o.Kind }</label>
+					}
+				</fieldset>
+				<noscript><button class="btn btn-primary" type="submit">filter</button></noscript>
+			</form>
+			<div id="estate-graphs">
+				@estateGraphs(p)
+			</div>
 			@sheet(sheetProps{ID: "estate-sheet", Title: "Record", Description: "The record of the selected node or connection: where it came from, how it was observed, and what it connects to."}) {
 				<div id="estate-detail" aria-live="polite">
 					<p class="note">Select a node or a connection to see its record here.</p>
@@ -28,15 +37,26 @@ templ estateView(p estatePage) {
 	}
 }
 
+// estateGraphs is the part of the page the kind filter swaps: every map, filtered.
+templ estateGraphs(p estatePage) {
+	for _, g := range p.Graphs {
+		@graphBlock(g)
+	}
+}
+
 templ graphBlock(g graphView) {
 	<h2>{ g.ID }</h2>
 	<p class="note">Caveat: { g.Caveat }</p>
 	if g.SVG {
-		<div class="graph" data-src={ graphHref(g.ID) }></div>
+		<div class="graph" data-src={ g.Src }></div>
 		<figure class="static-graph">
 			<svg viewBox={ "0 0 " + str(g.SVGW) + " " + str(g.SVGH) } role="img" aria-label={ "estate graph " + g.ID }>
 				for _, e := range g.SVGEdges {
-					<line x1={ str(e.X1) } y1={ str(e.Y1) } x2={ str(e.X2) } y2={ str(e.Y2) }></line>
+					if e.Stale {
+						<line x1={ str(e.X1) } y1={ str(e.Y1) } x2={ str(e.X2) } y2={ str(e.Y2) } stroke-dasharray="6 4"></line>
+					} else {
+						<line x1={ str(e.X1) } y1={ str(e.Y1) } x2={ str(e.X2) } y2={ str(e.Y2) }></line>
+					}
 				}
 				for _, n := range g.SVGNodes {
 					<a href={ templ.URL(nodeHref(n.G, n.ID)) }>
@@ -50,7 +70,11 @@ templ graphBlock(g graphView) {
 			}
 		</figure>
 	}
-	<h3>Nodes ({ str(g.NodeTotal) })</h3>
+	if g.Filtered {
+		<h3>Nodes ({ str(g.NodeShown) } of { str(g.NodeTotal) }, filtered by kind)</h3>
+	} else {
+		<h3>Nodes ({ str(g.NodeTotal) })</h3>
+	}
 	<table>
 		<tr><th>kind</th><th>label</th><th>source</th><th>method</th><th>observed</th><th>facts</th></tr>
 		for _, n := range g.Nodes {
@@ -66,7 +90,11 @@ templ graphBlock(g graphView) {
 			</tr>
 		}
 	</table>
-	<h3>Edges ({ str(g.EdgeTotal) })</h3>
+	if g.Filtered {
+		<h3>Edges ({ str(g.EdgeShown) } of { str(g.EdgeTotal) }, between the nodes shown)</h3>
+	} else {
+		<h3>Edges ({ str(g.EdgeTotal) })</h3>
+	}
 	if len(g.Edges) > 0 {
 		<table>
 			<tr><th>from</th><th>relation</th><th>to</th><th>source</th><th>method</th><th>observed</th><th>confidence</th></tr>
@@ -247,8 +275,36 @@ templ nodeRecord(p nodePage, panel bool) {
 	<h2>Assessments (opinion)</h2>
 	<p class="note">{ assessmentNotice }</p>
 	@assessmentTable(p.Assess, false, "no assessment about this node")
+	if p.OverlayHref != "" {
+		if panel {
+			<div hx-get={ p.OverlayHref } hx-trigger="load" hx-swap="innerHTML">
+				<p class="note">Reading reputation and last seen from the evidence store...</p>
+			</div>
+		} else {
+			<p class="note"><a href={ templ.URL(p.OverlayHref) }>read reputation and last seen for this address</a></p>
+		}
+	}
 	if panel {
 		<p class="note"><a href={ templ.URL(nodeHref(p.Node.G, p.Node.ID)) }>open this record as a page</a></p>
+	}
+}
+
+// overlayFragment is the overlay of an ip node: plain text lines, no verdict colour. The
+// record's panel asks for it when the record opens; the map load never does.
+templ overlayFragment(p overlayPage) {
+	<h2>Reputation and logs</h2>
+	<p class="note">{ overlayNotice }</p>
+	<ul>
+		for _, l := range p.Lines {
+			<li>{ l }</li>
+		}
+	</ul>
+}
+
+templ overlayView(p overlayPage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Overlay <span class="mono">{ p.Label }</span></h1>
+		@overlayFragment(p)
 	}
 }
 
@@ -273,6 +329,11 @@ templ edgeRecord(p edgePage, panel bool) {
 		<tr><th>method</th><td class="mono">{ p.Edge.Method }</td></tr>
 		<tr><th>observed</th><td>{ p.Edge.Observed }</td></tr>
 		<tr><th>confidence</th><td>{ p.Edge.Confidence }</td></tr>
+		<tr><th>corroboration</th><td>{ p.Corr.Plural() }: <span class="mono">{ p.Corr.Sources }</span></td></tr>
+		<tr><th>newest claim</th><td>{ p.Corr.Newest }</td></tr>
+		if p.Corr.Stale {
+			<tr><th>age</th><td>stale: the newest claim is older than 90 days</td></tr>
+		}
 		if p.Edge.InferredFrom != "" {
 			<tr><th>inferred from</th><td>{ p.Edge.InferredFrom }</td></tr>
 		}

@@ -239,10 +239,13 @@ Shipped:
 - Reputation snapshots: `jb intel` writes them and the dashboard's `LatestReputation` reads them (`internal/core/dashboard.go`).
 - A way to find the events that carry a given field value, newest first: `FieldEventFinder` in `internal/core/activity.go`, used today by `jb actor status`.
 
+- Edge weight on the Estate page (`estategraph.Weigh`, `internal/estategraph/estategraph.go`): distinct sources give line width (1, 2, 3 or more), the newest claim older than 90 days gives a dashed line, and the edge record lists the sources and the newest time. The graph JSON carries `weight`, `stale`, `newest` and `sources`; the file stores nothing. The earlier strength table was never built.
+- The node-kind filter of the Estate page: a repeatable `kind` query parameter, an htmx fragment that swaps `#estate-graphs` (`internal/adapters/web/views.go`), filtering the graph JSON, the drawing and the tables.
+- The overlays of an `ip` node, loaded when its record opens (`GET /estate/overlay?g=MAP&id=NODE`, `internal/adapters/web/overlay.go`): the latest reputation row per source through `core.ReputationReader`, and the last-seen time through `DashboardStore.LastSeen` (`internal/adapters/duckdb/dashboard.go`, one `max(ts)` over the last 30 days, bound parameters, a 3 second context deadline). `FieldEventFinder` did not fit: it streams every match without a time bound.
+
 Proposed:
 
-- The strength table, edge weight and the filter by node kind in the Estate page.
-- The overlays (reputation verdict and last-seen time on an `ip` node), and a read port for them if `FieldEventFinder` does not fit.
+- Nothing from this section remains. Open questions 3 and 7 still stand.
 
 ## Open questions
 

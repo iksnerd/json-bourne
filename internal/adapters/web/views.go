@@ -484,10 +484,16 @@ type svgNode struct {
 	Label    string
 	G, ID    string
 }
-type svgEdge struct{ X1, Y1, X2, Y2 int }
+type svgEdge struct {
+	X1, Y1, X2, Y2 int
+	Stale          bool
+}
 
 type graphView struct {
 	ID, Caveat           string
+	Src                  string // where the browser fetches the graph data
+	Filtered             bool
+	NodeShown, EdgeShown int
 	Nodes                []nodeRow
 	Edges                []edgeRow
 	Absences             []absenceRow
@@ -508,20 +514,28 @@ func edgeRowOf(g string, i int, e core.EstateEdge) edgeRow {
 	return edgeRow{c(g), i, c(e.From), c(e.To), c(e.Relation), c(e.Source), c(e.Method), c(e.Observed), c(e.Confidence), c(e.InferredFrom)}
 }
 
-func buildGraph(g core.EstateGraph) graphView {
+func buildGraph(g core.EstateGraph, kinds []string, now time.Time) graphView {
 	v := graphView{ID: c(g.ID), Caveat: c(g.Caveat), NodeTotal: len(g.Nodes), EdgeTotal: len(g.Edges),
-		Assessments: assessmentsOf(g, ""), AssessmentTotal: len(g.Assessments)}
-	for i, n := range g.Nodes {
-		if i == tableCap {
-			break
+		Assessments: assessmentsOf(g, ""), AssessmentTotal: len(g.Assessments), Filtered: len(kinds) > 0}
+	v.Src = graphHref(v.ID, kinds)
+	chosen := kindSet(kinds)
+	shown := map[string]bool{} // node ids that pass the filter
+	for _, n := range g.Nodes {
+		if !v.Filtered || chosen[n.Kind] {
+			shown[n.ID] = true
+			v.NodeShown++
+			if len(v.Nodes) < tableCap {
+				v.Nodes = append(v.Nodes, nodeRowOf(g.ID, n))
+			}
 		}
-		v.Nodes = append(v.Nodes, nodeRowOf(g.ID, n))
 	}
 	for i, e := range g.Edges {
-		if i == tableCap {
-			break
+		if !v.Filtered || shown[e.From] && shown[e.To] {
+			v.EdgeShown++
+			if len(v.Edges) < tableCap {
+				v.Edges = append(v.Edges, edgeRowOf(g.ID, i, e))
+			}
 		}
-		v.Edges = append(v.Edges, edgeRowOf(g.ID, i, e))
 	}
 	for i, a := range g.Absences {
 		if i == tableCap {
@@ -530,7 +544,7 @@ func buildGraph(g core.EstateGraph) graphView {
 		v.Absences = append(v.Absences, absenceRow{c(a.Subject), c(a.Source), c(a.Method), c(a.Observed), c(a.Answer)})
 	}
 	// The drawing that needs no script: the most connected nodes in columns by kind.
-	l := estategraph.Build(g, graphNodes)
+	l := estategraph.Build(g, estategraph.Options{Limit: graphNodes, Now: now, Kinds: kinds})
 	if len(l.Nodes) > 0 {
 		v.SVG, v.SVGCut, v.SVGW, v.SVGH = true, l.Cut, l.Width, l.Height
 		for _, n := range l.Nodes {
@@ -542,7 +556,7 @@ func buildGraph(g core.EstateGraph) graphView {
 		}
 		for _, e := range l.Edges {
 			a, b := xy[e.From], xy[e.To]
-			v.SVGEdges = append(v.SVGEdges, svgEdge{a[0], a[1], b[0], b[1]})
+			v.SVGEdges = append(v.SVGEdges, svgEdge{a[0], a[1], b[0], b[1], e.Stale})
 		}
 	}
 	return v
@@ -554,6 +568,47 @@ type estatePage struct {
 	NotWired   bool
 	Graphs     []graphView
 	Cap        int
+	Kinds      []string // the kinds the filter keeps; empty means all
+}
+
+// kindOptions are the node kinds the filter offers, each with whether it is chosen.
+type kindOption struct {
+	Kind    string
+	Checked bool
+}
+
+func (p estatePage) KindOptions() []kindOption {
+	chosen := kindSet(p.Kinds)
+	out := make([]kindOption, 0, len(estategraph.Kinds))
+	for _, k := range estategraph.Kinds {
+		out = append(out, kindOption{k, chosen[k]})
+	}
+	return out
+}
+
+func kindSet(kinds []string) map[string]bool {
+	m := make(map[string]bool, len(kinds))
+	for _, k := range kinds {
+		m[k] = true
+	}
+	return m
+}
+
+// kindsOf reads the repeatable kind parameter. A value that is not a known node kind is
+// dropped, never reflected and never an error, as an unknown severity is for the
+// findings filter. The result is in the filter's own order, without repeats.
+func kindsOf(r *http.Request) []string {
+	asked := map[string]bool{}
+	for _, k := range r.URL.Query()["kind"] {
+		asked[k] = true
+	}
+	var out []string
+	for _, k := range estategraph.Kinds {
+		if asked[k] {
+			out = append(out, k)
+		}
+	}
+	return out
 }
 
 func (s *server) loadEstates(ctx context.Context) ([]core.EstateGraph, note, bool) {
@@ -571,8 +626,13 @@ func (s *server) estate(w http.ResponseWriter, r *http.Request) {
 	if !n.Bad() && !notWired && len(gs) == 0 {
 		p.Note = note{Absent: "estate dir absent or empty: no estate file has been collected for this case (see `jb estate`)"}
 	}
+	p.Kinds = kindsOf(r)
 	for _, g := range gs {
-		p.Graphs = append(p.Graphs, buildGraph(g))
+		p.Graphs = append(p.Graphs, buildGraph(g, p.Kinds, s.d.Now()))
+	}
+	if isHX(r) {
+		s.send(w, r, http.StatusOK, estateGraphs(p))
+		return
 	}
 	s.send(w, r, http.StatusOK, estateView(p))
 }
@@ -595,6 +655,8 @@ type nodePage struct {
 	Absences   []absenceRow
 	Facts      []factRow
 	Assess     []assessRow
+	// OverlayHref is set for an ip node: where its reputation and last-seen overlay is read.
+	OverlayHref string
 }
 
 func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
@@ -610,6 +672,9 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		p := nodePage{Nav: "estate", Title: "Node " + c(x.Label), Caveat: c(g.Caveat), GraphID: c(g.ID), Node: nodeRowOf(g.ID, x), Assess: assessmentsOf(g, id)}
+		if x.Kind == "ip" {
+			p.OverlayHref = overlayHref(g.ID, x.ID)
+		}
 		for _, f := range x.Facts {
 			p.Facts = append(p.Facts, factRowOf(f))
 		}
@@ -638,6 +703,23 @@ type edgePage struct {
 	GraphID    string
 	Edge       edgeRow
 	From, To   *nodeRow
+	Corr       corroboration
+}
+
+// corroboration is what the file counts about an edge: how many distinct sources claim it
+// and how recent the newest claim is. Sources is the list as text.
+type corroboration struct {
+	Count   int
+	Sources string
+	Newest  string
+	Stale   bool
+}
+
+func (c corroboration) Plural() string {
+	if c.Count == 1 {
+		return "1 distinct source"
+	}
+	return str(c.Count) + " distinct sources"
 }
 
 func (s *server) estateEdge(w http.ResponseWriter, r *http.Request) {
@@ -654,6 +736,15 @@ func (s *server) estateEdge(w http.ResponseWriter, r *http.Request) {
 	}
 	e := g.Edges[i]
 	p := edgePage{Nav: "estate", Title: "Edge " + c(e.Relation), Caveat: c(g.Caveat), GraphID: c(g.ID), Edge: edgeRowOf(g.ID, i, e)}
+	wt := estategraph.Weigh(g, s.d.Now())[i]
+	srcs := make([]string, 0, len(wt.Sources))
+	for _, x := range wt.Sources {
+		srcs = append(srcs, c(x))
+	}
+	p.Corr = corroboration{Count: len(wt.Sources), Sources: strings.Join(srcs, ", "), Newest: tm(wt.Newest), Stale: wt.Stale}
+	if wt.Newest.IsZero() {
+		p.Corr.Newest = "unknown"
+	}
 	for _, x := range g.Nodes {
 		row := nodeRowOf(g.ID, x)
 		if x.ID == e.From {
@@ -723,6 +814,13 @@ type jsonEdge struct {
 	SourceName string `json:"sourceName"`
 	Confidence string `json:"confidence"`
 	Href       string `json:"href"`
+	// Weight is 1 to 3 from the distinct sources that claim the edge; Stale is true when
+	// the newest claim is older than 90 days; Newest is that claim's time (RFC 3339, or
+	// empty when it cannot be read). The file stores none of them.
+	Weight  int      `json:"weight"`
+	Stale   bool     `json:"stale"`
+	Newest  string   `json:"newest"`
+	Sources []string `json:"sources"`
 }
 
 type jsonGraph struct {
@@ -731,6 +829,7 @@ type jsonGraph struct {
 	EdgeTotal  int        `json:"edgeTotal"`
 	Components int        `json:"components"`
 	Cut        bool       `json:"cut"`
+	Filtered   bool       `json:"filtered"`
 	Nodes      []jsonNode `json:"nodes"`
 	Edges      []jsonEdge `json:"edges"`
 }
@@ -746,14 +845,22 @@ func (s *server) estateGraphJSON(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no such estate map", http.StatusNotFound)
 		return
 	}
-	l := estategraph.Build(g, graphJSONNodes)
-	out := jsonGraph{ID: c(g.ID), NodeTotal: l.NodeTotal, EdgeTotal: len(g.Edges), Components: l.Components, Cut: l.Cut,
+	l := estategraph.Build(g, estategraph.Options{Limit: graphJSONNodes, Now: s.d.Now(), Kinds: kindsOf(r)})
+	out := jsonGraph{ID: c(g.ID), NodeTotal: l.NodeTotal, EdgeTotal: len(g.Edges), Components: l.Components, Cut: l.Cut, Filtered: l.Filtered,
 		Nodes: []jsonNode{}, Edges: []jsonEdge{}}
 	for _, x := range l.Nodes {
 		out.Nodes = append(out.Nodes, jsonNode{ID: c(x.ID), Kind: c(x.Kind), Label: c(x.Label), Degree: x.Degree, Component: x.Component, Href: nodeHref(g.ID, x.ID)})
 	}
 	for _, e := range l.Edges {
-		out.Edges = append(out.Edges, jsonEdge{Source: c(e.From), Target: c(e.To), Relation: c(e.Relation), SourceName: c(e.Source), Confidence: c(e.Confidence), Href: edgeHref(g.ID, e.Index)})
+		je := jsonEdge{Source: c(e.From), Target: c(e.To), Relation: c(e.Relation), SourceName: c(e.Source), Confidence: c(e.Confidence), Href: edgeHref(g.ID, e.Index),
+			Weight: e.Weight, Stale: e.Stale, Sources: []string{}}
+		for _, x := range e.Sources {
+			je.Sources = append(je.Sources, c(x))
+		}
+		if !e.Newest.IsZero() {
+			je.Newest = tm(e.Newest)
+		}
+		out.Edges = append(out.Edges, je)
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(out)

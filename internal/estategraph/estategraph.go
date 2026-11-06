@@ -13,6 +13,7 @@ import (
 	"errors"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/dominikbraun/graph"
 
@@ -37,6 +38,87 @@ type Node struct {
 type Edge struct {
 	From, To, Relation, Source, Confidence string
 	Index                                  int
+	// Weight (1 to 3), Sources, Newest and Stale describe the corroboration and age of
+	// the edge this claim belongs to (see Weigh).
+	Weight  int
+	Sources []string
+	Newest  time.Time
+	Stale   bool
+}
+
+// StaleAfter is how old the newest claim of an edge may be before the viewer draws it
+// dashed. It is a viewer default, not a part of the file.
+const StaleAfter = 90 * 24 * time.Hour
+
+// Weight is what the file counts about one edge: the distinct sources that claim the
+// same two nodes with the same relation (in the same direction), and how recent the
+// newest of those claims is. It judges nothing about the relation itself.
+type Weight struct {
+	// Weight is 1 for one distinct source, 2 for two and 3 for three or more.
+	Weight int
+	// Sources are the distinct sources, sorted. Two claims by one source count once.
+	Sources []string
+	// Newest is the latest observed time among the claims; zero when none can be read.
+	Newest time.Time
+	// Stale is true when Newest is older than StaleAfter before now. An edge whose time
+	// cannot be read is not called stale: an unknown age is not an old one.
+	Stale bool
+}
+
+// Weigh returns the weight of every edge claim of g, indexed like g.Edges. Claims of one
+// edge share the same value. It reads no clock: now is the caller's.
+func Weigh(g core.EstateGraph, now time.Time) []Weight {
+	type key struct{ from, to, rel string }
+	type acc struct {
+		sources map[string]bool
+		newest  time.Time
+	}
+	groups := map[key]*acc{}
+	for _, e := range g.Edges {
+		k := key{e.From, e.To, e.Relation}
+		a := groups[k]
+		if a == nil {
+			a = &acc{sources: map[string]bool{}}
+			groups[k] = a
+		}
+		a.sources[e.Source] = true
+		if t, err := time.Parse(time.RFC3339, e.Observed); err == nil && t.After(a.newest) {
+			a.newest = t
+		}
+	}
+	done := map[key]Weight{}
+	out := make([]Weight, len(g.Edges))
+	for i, e := range g.Edges {
+		k := key{e.From, e.To, e.Relation}
+		w, ok := done[k]
+		if !ok {
+			a := groups[k]
+			for s := range a.sources {
+				w.Sources = append(w.Sources, s)
+			}
+			sort.Strings(w.Sources)
+			w.Weight = min(len(w.Sources), 3)
+			w.Newest = a.newest
+			w.Stale = !a.newest.IsZero() && now.Sub(a.newest) > StaleAfter
+			done[k] = w
+		}
+		out[i] = w
+	}
+	return out
+}
+
+// Kinds are the node kinds a file may hold, in the order a filter lists them.
+var Kinds = []string{"ip", "host", "domain", "asn", "org", "network", "service"}
+
+// Options say what Build draws.
+type Options struct {
+	// Limit is the most nodes drawn; a negative value means no limit.
+	Limit int
+	// Now is the time edge age is measured against.
+	Now time.Time
+	// Kinds, when not empty, keeps only nodes of these kinds. The caller validates them
+	// against Kinds.
+	Kinds []string
 }
 
 // Layout is the drawn part of a graph.
@@ -44,7 +126,8 @@ type Layout struct {
 	Nodes         []Node
 	Edges         []Edge
 	NodeTotal     int  // nodes in the file
-	Cut           bool // some nodes were left out
+	Filtered      bool // a kind filter was applied
+	Cut           bool // some nodes were left out by the limit
 	Components    int  // connected pieces of the whole graph
 	Width, Height int  // the canvas the layout fits in
 }
@@ -60,9 +143,12 @@ const (
 // first, what answers on it last. A kind not listed goes after the last one.
 var kindOrder = []string{"asn", "org", "network", "ip", "host", "domain"}
 
-// Build draws at most limit nodes of g. When there are more, it keeps the most
-// connected ones (ties keep file order), because a hub says more than a leaf.
-func Build(g core.EstateGraph, limit int) Layout {
+// Build draws at most o.Limit nodes of g, of the kinds in o.Kinds when that is not
+// empty. When there are more, it keeps the most connected ones (ties keep file order),
+// because a hub says more than a leaf. Degree and component describe the whole graph,
+// not the filtered part.
+func Build(g core.EstateGraph, o Options) Layout {
+	limit := o.Limit
 	topo := graph.New(graph.StringHash)
 	pos := map[string]int{} // node id -> index of its first appearance
 	var nodes []core.EstateNode
@@ -107,7 +193,21 @@ func Build(g core.EstateGraph, limit int) Layout {
 
 	l := Layout{NodeTotal: len(nodes), Components: components}
 	keep := nodes
-	if limit >= 0 && len(nodes) > limit {
+	if len(o.Kinds) > 0 {
+		want := map[string]bool{}
+		for _, k := range o.Kinds {
+			want[k] = true
+		}
+		keep = nil
+		for _, n := range nodes {
+			if want[n.Kind] {
+				keep = append(keep, n)
+			}
+		}
+		l.Filtered = true
+	}
+	if limit >= 0 && len(keep) > limit {
+		nodes := keep
 		order := make([]int, len(nodes))
 		for i := range order {
 			order[i] = i
@@ -126,9 +226,12 @@ func Build(g core.EstateGraph, limit int) Layout {
 		drawn[n.ID] = true
 		l.Nodes = append(l.Nodes, Node{ID: n.ID, Kind: n.Kind, Label: n.Label, Degree: degree[n.ID], Component: comp[n.ID]})
 	}
+	weights := Weigh(g, o.Now)
 	for _, e := range edges {
 		if drawn[e.From] && drawn[e.To] {
-			l.Edges = append(l.Edges, Edge{From: e.From, To: e.To, Relation: e.Relation, Source: e.Source, Confidence: e.Confidence, Index: e.i})
+			w := weights[e.i]
+			l.Edges = append(l.Edges, Edge{From: e.From, To: e.To, Relation: e.Relation, Source: e.Source, Confidence: e.Confidence, Index: e.i,
+				Weight: w.Weight, Sources: w.Sources, Newest: w.Newest, Stale: w.Stale})
 		}
 	}
 	place(&l)

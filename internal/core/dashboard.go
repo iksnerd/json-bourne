@@ -90,6 +90,12 @@ type DashboardStore interface {
 	RunFindings(ctx context.Context, group string, limit int) ([]StoredFinding, error)
 	LatestFindings(ctx context.Context, limit int) ([]StoredFinding, error)
 	LatestReputation(ctx context.Context, limit int) ([]Reputation, error)
+	// ReputationReader answers the estate overlay: the latest row per source for one address.
+	ReputationReader
+	// LastSeen returns the newest time at or after since at which a stored event carried
+	// value in the named field, and false when none did. It is one bounded aggregate; the
+	// caller sets the time limit with ctx.
+	LastSeen(ctx context.Context, field, value string, since time.Time) (time.Time, bool, error)
 	Close() error
 }
 

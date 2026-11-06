@@ -223,6 +223,7 @@ func New(d Deps, o Options) http.Handler {
 	mux.HandleFunc("/estate", s.estate)
 	mux.HandleFunc("/estate/node", s.estateNode)
 	mux.HandleFunc("/estate/edge", s.estateEdge)
+	mux.HandleFunc("/estate/overlay", s.estateOverlay)
 	mux.HandleFunc("/estate/graph.json", s.estateGraphJSON)
 	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	for name, ctype := range staticFiles {

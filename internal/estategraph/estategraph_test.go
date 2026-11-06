@@ -30,7 +30,7 @@ func byID(l Layout) map[string]Node {
 }
 
 func TestDegreeAndComponents(t *testing.T) {
-	l := Build(twoIslands(), 100)
+	l := Build(twoIslands(), Options{Limit: 100})
 	n := byID(l)
 	if l.Components != 2 {
 		t.Errorf("components = %d, want 2", l.Components)
@@ -51,7 +51,7 @@ func TestDegreeAndComponents(t *testing.T) {
 func TestTwoObservationsOfOnePairKeepBothEdgesAndCountOneNeighbour(t *testing.T) {
 	g := core.EstateGraph{Nodes: []core.EstateNode{node("ip:a", "ip"), node("host:a", "host")},
 		Edges: []core.EstateEdge{edge("ip:a", "host:a", "ptr"), edge("host:a", "ip:a", "resolves_to"), edge("ip:a", "host:a", "ptr")}}
-	l := Build(g, 10)
+	l := Build(g, Options{Limit: 10})
 	if len(l.Edges) != 3 {
 		t.Fatalf("edges = %d, want 3 (every observation is kept)", len(l.Edges))
 	}
@@ -68,14 +68,14 @@ func TestTwoObservationsOfOnePairKeepBothEdgesAndCountOneNeighbour(t *testing.T)
 func TestDanglingAndSelfEdgesAreIgnoredNotFatal(t *testing.T) {
 	g := core.EstateGraph{Nodes: []core.EstateNode{node("ip:a", "ip")},
 		Edges: []core.EstateEdge{edge("ip:a", "host:missing", "ptr"), edge("ip:a", "ip:a", "self")}}
-	l := Build(g, 10)
+	l := Build(g, Options{Limit: 10})
 	if len(l.Edges) != 0 || len(l.Nodes) != 1 || byID(l)["ip:a"].Degree != 0 {
 		t.Errorf("got %d nodes, %d edges, degree %d", len(l.Nodes), len(l.Edges), byID(l)["ip:a"].Degree)
 	}
 }
 
 func TestEmptyGraph(t *testing.T) {
-	l := Build(core.EstateGraph{}, 10)
+	l := Build(core.EstateGraph{}, Options{Limit: 10})
 	if len(l.Nodes) != 0 || len(l.Edges) != 0 || l.Cut || l.NodeTotal != 0 {
 		t.Errorf("empty graph gave %+v", l)
 	}
@@ -86,7 +86,7 @@ func TestOverTheLimitKeepsTheMostConnectedNodesAndSaysSo(t *testing.T) {
 	for _, leaf := range []string{"host:leaf1", "host:leaf2", "host:leaf3"} {
 		g.Edges = append(g.Edges, edge("ip:hub", leaf, "ptr"))
 	}
-	l := Build(g, 2)
+	l := Build(g, Options{Limit: 2})
 	if !l.Cut || l.NodeTotal != 5 || len(l.Nodes) != 2 {
 		t.Fatalf("cut=%v total=%d kept=%d", l.Cut, l.NodeTotal, len(l.Nodes))
 	}
@@ -111,14 +111,14 @@ func TestOverTheLimitKeepsTheMostConnectedNodesAndSaysSo(t *testing.T) {
 }
 
 func TestLayoutIsDeterministic(t *testing.T) {
-	a, b := Build(twoIslands(), 100), Build(twoIslands(), 100)
+	a, b := Build(twoIslands(), Options{Limit: 100}), Build(twoIslands(), Options{Limit: 100})
 	if !reflect.DeepEqual(a, b) {
 		t.Errorf("two builds differ:\n%+v\n%+v", a, b)
 	}
 }
 
 func TestLayoutPutsKindsInColumnsInOrderWithoutOverlap(t *testing.T) {
-	l := Build(twoIslands(), 100)
+	l := Build(twoIslands(), Options{Limit: 100})
 	colX := map[string]int{}
 	seen := map[[2]int]string{}
 	for _, n := range l.Nodes {
@@ -145,7 +145,7 @@ func TestManyNodesStayInsideTheCanvas(t *testing.T) {
 	for i := range 60 {
 		g.Nodes = append(g.Nodes, node(fmt.Sprintf("ip:10.0.0.%d", i), "ip"))
 	}
-	l := Build(g, 100)
+	l := Build(g, Options{Limit: 100})
 	for _, n := range l.Nodes {
 		if n.Y > l.Height {
 			t.Fatalf("%s at y=%d is below the canvas (%d)", n.ID, n.Y, l.Height)

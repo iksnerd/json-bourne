@@ -345,3 +345,29 @@ func (d *Dashboard) LatestReputation(ctx context.Context, limit int) ([]core.Rep
 	}
 	return out, rows.Err()
 }
+
+// LastSeen returns the newest event time at or after since whose JSON field equals value
+// exactly, and false when there is none. It is one aggregate over the window, not a
+// stream of events, so the work is bounded by since and by the caller's context. The
+// value is a bound parameter, and the field name is validated before it is bound as a JSON
+// path.
+func (d *Dashboard) LastSeen(ctx context.Context, field, value string, since time.Time) (time.Time, bool, error) {
+	path, err := jsonPath(field)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if value == "" {
+		return time.Time{}, false, errors.New("last seen: the value is required")
+	}
+	var ts sql.NullTime
+	err = d.s.db.QueryRowContext(ctx, `
+		SELECT max(ts) FROM events
+		WHERE ts >= ? AND json_extract_string(fields, ?) = ?`, since.UTC(), path, value).Scan(&ts)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if !ts.Valid {
+		return time.Time{}, false, nil
+	}
+	return ts.Time.UTC(), true, nil
+}

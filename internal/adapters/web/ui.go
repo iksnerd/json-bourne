@@ -43,7 +43,22 @@ func nodeHref(g, id string) string {
 func edgeHref(g string, i int) string {
 	return "/estate/edge?g=" + escQuery(g) + "&i=" + strconv.Itoa(i)
 }
-func graphHref(g string) string { return "/estate/graph.json?g=" + escQuery(g) }
+func graphHref(g string, kinds []string) string {
+	return "/estate/graph.json?g=" + escQuery(g) + kindQuery(kinds)
+}
+func overlayHref(g, id string) string {
+	return "/estate/overlay?g=" + escQuery(g) + "&id=" + escQuery(id)
+}
+
+// kindQuery is the kind filter as query-string text. The kinds were checked against the
+// known list before they got here, and are encoded anyway.
+func kindQuery(kinds []string) string {
+	var b strings.Builder
+	for _, k := range kinds {
+		b.WriteString("&kind=" + escQuery(k))
+	}
+	return b.String()
+}
 
 // str prints any of the counters and ids a view model carries.
 func str(v any) string { return fmt.Sprint(v) }
