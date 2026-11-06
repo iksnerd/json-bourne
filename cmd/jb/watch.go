@@ -6,39 +6,26 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/iksnerd/json-bourne/internal/adapters/alertlog"
-	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/adapters/runlock"
-	"github.com/iksnerd/json-bourne/internal/adapters/watchstate"
 	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/watchrun"
 )
 
-// The unnamed watcher's files, as they have always been. A named watcher inserts its
-// name before the extension (watchFile).
+// The unnamed watcher's files and their per-name variants live in internal/watchrun,
+// shared with the Go package jb.
 const (
-	watchStateFile = "watch-state.json"
-	watchLogFile   = "watch.log"
-	watchLockFile  = "watch.lock"
+	watchStateFile = watchrun.StateFile
+	watchLogFile   = watchrun.LogFile
+	watchLockFile  = watchrun.LockFile
 )
 
-// watchFile is the evidence-directory file of one kind for the watcher called name:
-// "watch-state.json" unnamed, "watch-state.a.json" for --name a, and likewise for
-// "watch.log" and "watch.lock". The unnamed names are unchanged.
-func watchFile(unnamed, name string) string {
-	if name == "" {
-		return unnamed
-	}
-	ext := filepath.Ext(unnamed)
-	return strings.TrimSuffix(unnamed, ext) + "." + name + ext
-}
+func watchFile(unnamed, name string) string { return watchrun.File(unnamed, name) }
 
 func newWatchCmdWith(d deps) *cobra.Command {
 	var (
@@ -132,7 +119,7 @@ func newWatchCmdWith(d deps) *cobra.Command {
 			}
 			// One watcher per name and case, taken before anything is built or read: a second
 			// process with the same name would share this one's state file and alert twice.
-			lock, err := runlock.Acquire(filepath.Join(evidence, watchFile(watchLockFile, name)))
+			lock, err := watchrun.Acquire(evidence, name)
 			if err != nil {
 				var held *runlock.HeldError
 				if errors.As(err, &held) {
@@ -155,55 +142,19 @@ func newWatchCmdWith(d deps) *cobra.Command {
 				defer stop()
 			}
 
-			// The local log is the required sink and is written first; a webhook is extra.
-			logSink := &alertlog.Sink{Out: cmd.OutOrStdout(), Path: filepath.Join(evidence, watchFile(watchLogFile, name))}
-			var alerts core.AlertSink = logSink
-			extra, aerr := cfg.BuildAlerts(d.env)
-			if aerr != nil {
-				return aerr
-			}
-			if len(extra) > 0 {
-				alerts = core.FanOut{Required: logSink, Optional: extra}
-			}
-
-			deps := app.WatchDeps{
-				Name:     name,
-				Disabled: disabledOf(rt),
-				Hunt: func(ctx context.Context, run string, w core.Window) (app.Result, error) {
-					// The store is opened for one hunt and closed again: DuckDB admits one
-					// process at a time, and `jb db` must still work between cycles.
-					st, err := duckdb.OpenContext(ctx, cfg.StorePath(), false, duckdb.OpenOptions{})
-					if err != nil {
-						return app.Result{Run: run, Window: w, Baseline: w.Previous()}, fmt.Errorf("open database: %w", err)
-					}
-					defer st.Close()
-					if _, err := st.Migrate(); err != nil {
-						return app.Result{Run: run, Window: w, Baseline: w.Previous()}, fmt.Errorf("migrate database: %w", err)
-					}
-					res, herr := app.Hunt(ctx, runDeps(rt, rt.Detectors, st), run, w)
-					// Advice in the cycle's own output; the cycle's status does not depend on it.
-					warnSourceOverlap(ctx, stderr, st, core.Window{From: w.Previous().From, To: w.To}, renameScope(caseDir, cfgPath))
-					return res, herr
+			deps, webhooks, err := watchrun.Deps(watchrun.Params{
+				Name: name, Evidence: evidence, Cfg: cfg, RT: rt, Env: d.env, Now: d.now,
+				Out: cmd.OutOrStdout(),
+				// Advice in the cycle's own output; the cycle's status does not depend on it.
+				AfterHunt: func(ctx context.Context, st core.SourceOverlapReader, win core.Window) {
+					warnSourceOverlap(ctx, stderr, st, win, renameScope(caseDir, cfgPath))
 				},
-				Prune: func(ctx context.Context, before time.Time) (core.PruneResult, error) {
-					st, err := duckdb.OpenContext(ctx, cfg.StorePath(), false, duckdb.OpenOptions{})
-					if err != nil {
-						return core.PruneResult{}, fmt.Errorf("open database: %w", err)
-					}
-					defer st.Close()
-					if _, err := st.Migrate(); err != nil {
-						return core.PruneResult{}, fmt.Errorf("migrate database: %w", err)
-					}
-					// Only this watcher's runs: prefix + a stamp, so "watch-a-" never reaches
-					// "watch-ab-" and the unnamed "watch-" never reaches a named watcher's.
-					return st.PruneRuns(ctx, app.WatchRunPrefixFor(name)+"-", before)
-				},
-				State:  watchstate.Store{Path: filepath.Join(evidence, watchFile(watchStateFile, name))},
-				Alerts: alerts,
-				Now:    d.now,
+			})
+			if err != nil {
+				return err
 			}
 			fmt.Fprintf(stderr, "watching case %s%s every %s over a %s window, ttl %s, keep %s, repeat %s, %d source(s), %d detector(s), %d webhook(s)\n",
-				plan.c.ID, nameClause(name), every, window, ttl, keep, repeat, len(rt.Sources), len(rt.Detectors), len(extra))
+				plan.c.ID, nameClause(name), every, window, ttl, keep, repeat, len(rt.Sources), len(rt.Detectors), webhooks)
 			if note := app.DisabledNote(deps.Disabled); note != "" {
 				fmt.Fprintln(stderr, note)
 			}

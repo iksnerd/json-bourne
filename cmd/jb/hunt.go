@@ -14,6 +14,7 @@ import (
 	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/watchrun"
 )
 
 // runDeps is the one place a built config becomes the ports of app.Hunt and app.Activity,
@@ -22,26 +23,11 @@ import (
 // for a detector left out is dropped with it, because Hunt refuses a scope that names no
 // detector.
 func runDeps(rt *config.Runtime, dets []core.Detector, st *duckdb.Store) app.Deps {
-	scopes := map[string][]string{}
-	for _, d := range dets {
-		if sc, ok := rt.Scopes[d.Name()]; ok {
-			scopes[d.Name()] = sc
-		}
-	}
-	return app.Deps{Sources: rt.Sources, Detectors: dets, Scopes: scopes, Sink: st, Reader: st, Disabled: disabledOf(rt)}
+	return watchrun.RunDeps(rt, dets, st)
 }
 
 // disabledOf is what the config switched off, as the use cases carry it into a result.
-func disabledOf(rt *config.Runtime) []app.Disabled {
-	var out []app.Disabled
-	for _, n := range rt.DisabledSources {
-		out = append(out, app.Disabled{Kind: "source", Name: n})
-	}
-	for _, n := range rt.DisabledDetectors {
-		out = append(out, app.Disabled{Kind: "detector", Name: n})
-	}
-	return out
-}
+func disabledOf(rt *config.Runtime) []app.Disabled { return watchrun.Disabled(rt) }
 
 func newHuntCmd() *cobra.Command { return newHuntCmdWith(defaultDeps()) }
 

@@ -1,12 +1,15 @@
 package jb
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/iksnerd/json-bourne/internal/watchrun"
 )
 
 func TestPlan(t *testing.T) {
@@ -88,5 +91,46 @@ func TestHuntCaseRefusesWhatTheCLIRefuses(t *testing.T) {
 	dir := copyCase(t)
 	if _, err := HuntCase(t.Context(), dir, CaseHuntOptions{Config: "../outside.yaml"}); err == nil || !strings.Contains(err.Error(), "config") {
 		t.Errorf("a config outside the case: err = %v", err)
+	}
+}
+
+func TestWatchOnceIsIncompleteNotQuietWhenTheSourceIsDown(t *testing.T) {
+	dir := copyCase(t)
+	var out strings.Builder
+	rep, err := Watch(t.Context(), dir, WatchOptions{Once: true, Name: "t1", Out: &out,
+		Env: func(string) (string, bool) { return "k", true }})
+	if rep == nil {
+		t.Fatalf("no report, err = %v", err)
+	}
+	if rep.Status.Healthy() || rep.Status == CycleQuiet {
+		t.Fatalf("status = %s: a dead source must not read as quiet", rep.Status)
+	}
+	for _, f := range []string{"watch-state.t1.json", "watch.t1.log"} {
+		if _, serr := os.Stat(filepath.Join(dir, "evidence", f)); serr != nil {
+			t.Errorf("%s was not written in the evidence directory: %v", f, serr)
+		}
+	}
+}
+
+func TestWatchRefusesBadNamesAndTooShortWindows(t *testing.T) {
+	dir := copyCase(t)
+	if _, err := Watch(t.Context(), dir, WatchOptions{Name: "Bad Name!", Once: true}); err == nil {
+		t.Error("a bad watcher name was accepted")
+	}
+	if _, err := Watch(t.Context(), dir, WatchOptions{Every: time.Hour, Window: time.Minute, Once: true}); err == nil {
+		t.Error("a window shorter than the interval was accepted")
+	}
+}
+
+func TestWatchRefusesASecondWatcherOfTheSameName(t *testing.T) {
+	dir := copyCase(t)
+	lock, err := watchrun.Acquire(filepath.Join(dir, "evidence"), "dup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Release()
+	_, err = Watch(t.Context(), dir, WatchOptions{Once: true, Name: "dup", Env: func(string) (string, bool) { return "k", true }})
+	if !errors.Is(err, ErrWatcherRunning) {
+		t.Fatalf("err = %v, want ErrWatcherRunning", err)
 	}
 }
