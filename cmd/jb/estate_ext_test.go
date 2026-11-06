@@ -163,7 +163,7 @@ func TestEstateASNWritesAFileTheCheckAccepts(t *testing.T) {
 	if len(st.nap) != 1 || st.nap[0] != time.Second {
 		t.Errorf("the second request waits the default interval: %v", st.nap)
 	}
-	if code, out, errs := run(t, testDeps(nil), "case", "check", dir); code != 0 {
+	if code, out, errs := run(t, testDeps(nil), "case", "check", "--case", dir); code != 0 {
 		t.Fatalf("case check: %d\n%s\n%s", code, out, errs)
 	}
 	// A second identical run changes nothing.

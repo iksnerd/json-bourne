@@ -226,7 +226,7 @@ func TestEstateDriftEndToEnd(t *testing.T) {
 	if code, d, raw, _ = runDiff(t, w, dir); code != 0 || len(d.Changes) != 0 {
 		t.Errorf("after promotion there is no drift: %d\n%s", code, raw)
 	}
-	if code, out, _ := run(t, testDeps(nil), "case", "check", dir); code != 0 {
+	if code, out, _ := run(t, testDeps(nil), "case", "check", "--case", dir); code != 0 {
 		t.Errorf("case check with snapshots and archive present: %d\n%s", code, out)
 	}
 }

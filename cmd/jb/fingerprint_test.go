@@ -25,7 +25,7 @@ func listFingerprintConfig(t *testing.T, dir string) {
 }
 
 func TestCaseCheckReportsActors(t *testing.T) {
-	code, stdout, stderr := run(t, testDeps(nil), "case", "check", exampleCase)
+	code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", exampleCase)
 	if code != 0 {
 		t.Fatalf("exit %d\n%s\n%s", code, stdout, stderr)
 	}
@@ -33,7 +33,7 @@ func TestCaseCheckReportsActors(t *testing.T) {
 		t.Errorf("stdout lacks the actors line:\n%s", stdout)
 	}
 
-	code, stdout, _ = run(t, testDeps(nil), "case", "check", exampleCase, "--output", "json")
+	code, stdout, _ = run(t, testDeps(nil), "case", "check", "--case", exampleCase, "--output", "json")
 	var rep caseReport
 	if err := json.Unmarshal([]byte(stdout), &rep); err != nil || code != 0 {
 		t.Fatalf("%v\n%s", err, stdout)
@@ -52,7 +52,7 @@ func TestCaseCheckFailsOnABrokenActorFile(t *testing.T) {
 	_, _ = f.WriteString("surprise: 1\n")
 	f.Close()
 
-	code, stdout, stderr := run(t, testDeps(nil), "case", "check", dir)
+	code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", dir)
 	if code != exitFailure {
 		t.Fatalf("exit = %d, want 1\n%s\n%s", code, stdout, stderr)
 	}
@@ -68,7 +68,7 @@ func TestCaseCheckValidatesTheFingerprintConfig(t *testing.T) {
 	t.Run("example config is valid", func(t *testing.T) {
 		dir := copyExampleCase(t, "")
 		listFingerprintConfig(t, dir)
-		code, stdout, stderr := run(t, testDeps(nil), "case", "check", dir)
+		code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", dir)
 		if code != 0 || !strings.Contains(stdout, fpConfigRel+": OK") {
 			t.Fatalf("exit %d\n%s\n%s", code, stdout, stderr)
 		}
@@ -77,7 +77,7 @@ func TestCaseCheckValidatesTheFingerprintConfig(t *testing.T) {
 		dir := copyExampleCase(t, "")
 		listFingerprintConfig(t, dir)
 		editFile(t, filepath.Join(dir, fpConfigRel), "example-actor.yaml", "missing-actor.yaml")
-		code, stdout, stderr := run(t, testDeps(nil), "case", "check", dir)
+		code, stdout, stderr := run(t, testDeps(nil), "case", "check", "--case", dir)
 		if code != exitFailure || !strings.Contains(stdout, fpConfigRel+": FAIL") || !strings.Contains(stdout, "missing-actor.yaml") {
 			t.Fatalf("exit %d\n%s\n%s", code, stdout, stderr)
 		}
