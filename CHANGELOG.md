@@ -7,6 +7,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ### Fixed
 - `--config` with `--case` (and `Config` in `jb.HuntCase`, `jb.Watch`, `jb.Activity`) now accepts a relative path to a file inside the case, such as `config/drafts/x.yaml`: it is tried against the case directory, then the working directory, and must still resolve inside the case. Before, only an absolute path or a listed config worked.
 
+### Added
+- `jb db prune --run ID` (repeatable, at most 20) removes the events of exactly the named hunt, activity or search runs, whatever their age, for a one-off run that `--keep-latest` would keep. The id is matched whole, watch ids and unknown ids are refused (an unknown id deletes nothing), and it cannot be combined with `--kind`, `--older-than` or `--keep-latest`. Same dry run, one transaction and checked counts as the existing prune.
+
 ## [0.3.0] - 2026-11-06
 
 ### Changed

@@ -163,8 +163,54 @@ type StoreUsageReader interface {
 	StoreUsage(ctx context.Context) (StoreUsage, error)
 }
 
-// EventPruneRequest asks to remove the events of old runs of the named kinds.
+// MaxPruneRunIDs is the most run ids one `jb db prune --run` may name.
+const MaxPruneRunIDs = 20
+
+// ParseRunIDs checks the values of `--run`: each is one hunt id, compared whole (no
+// prefix, no pattern, no "/source" suffix). Watch ids are refused as --kind watch is,
+// and so is any id that is not a hunt, activity or search id (ClassifyRun says "other").
+// A repeated id is kept once. At most MaxPruneRunIDs values are accepted.
+func ParseRunIDs(values []string) ([]string, error) {
+	if len(values) == 0 {
+		return nil, errors.New("--run needs at least one run id")
+	}
+	if len(values) > MaxPruneRunIDs {
+		return nil, fmt.Errorf("--run given %d times; at most %d run ids at once", len(values), MaxPruneRunIDs)
+	}
+	var out []string
+	seen := map[string]bool{}
+	for _, id := range values {
+		if id == "" {
+			return nil, errors.New("--run has an empty run id")
+		}
+		if strings.ContainsAny(id, "*?%") {
+			return nil, fmt.Errorf("--run %q: there is no wildcard; name the exact run id", id)
+		}
+		kind, _ := ClassifyRun(id)
+		if kind == KindWatch {
+			return nil, ErrWatchKind
+		}
+		if strings.Contains(id, "/") {
+			return nil, fmt.Errorf("--run %q: name the hunt id (the part before the first \"/\"), not one source of it", id)
+		}
+		if kind == KindOther {
+			return nil, fmt.Errorf("--run %q is not a hunt, activity or search run id (%s)", id, kindList(PrunableKinds))
+		}
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+// EventPruneRequest asks to remove the events of old runs of the named kinds, or of the
+// runs named exactly in RunIDs.
 type EventPruneRequest struct {
+	// RunIDs, when set, selects exactly these hunts (see ParseRunIDs) and replaces the
+	// selection by kind and age: Kinds, Before and KeepLatest must then be unset. A
+	// named id that is not in the store is an error and nothing is changed.
+	RunIDs       []string
 	Kinds        []RunKind // only PrunableKinds; the adapter refuses anything else
 	Before       time.Time // a hunt is old when its newest runs.created_at is before this
 	KeepLatest   int       // the N newest hunts of each kind are kept whatever their age
@@ -207,6 +253,7 @@ type PruneTotals struct {
 // before the commit; a difference rolls everything back.
 type EventPruneResult struct {
 	Applied      bool        `json:"applied"`
+	ByRunID      bool        `json:"by_run_id"` // the runs were named with --run; the age and keep-latest rules did not apply
 	DropFindings bool        `json:"drop_findings"`
 	Before       time.Time   `json:"older_than_cutoff"`
 	KeepLatest   int         `json:"keep_latest"`

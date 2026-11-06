@@ -246,28 +246,48 @@ type huntInfo struct {
 // everything back.
 func (s *Store) PruneRunEvents(ctx context.Context, req core.EventPruneRequest) (core.EventPruneResult, error) {
 	res := core.EventPruneResult{DropFindings: req.DropFindings, Before: req.Before.UTC(), KeepLatest: req.KeepLatest}
-	if len(req.Kinds) == 0 {
-		return res, errors.New("prune: no run kind named; refusing to match every run")
-	}
-	if req.KeepLatest < 0 {
-		return res, errors.New("prune: keep-latest is negative")
-	}
-	if req.Before.IsZero() {
-		return res, errors.New("prune: no age cutoff")
-	}
+	byRun := len(req.RunIDs) > 0
 	want := map[core.RunKind]bool{}
-	for _, k := range req.Kinds {
-		ok := false
-		for _, pk := range core.PrunableKinds {
-			ok = ok || pk == k
+	named := map[string]bool{}
+	kindOrder := req.Kinds
+	if byRun {
+		if len(req.Kinds) > 0 || req.KeepLatest != 0 || !req.Before.IsZero() {
+			return res, errors.New("prune: run ids cannot be combined with kinds, an age cutoff or keep-latest")
 		}
-		if !ok {
-			if k == core.KindWatch {
-				return res, core.ErrWatchKind
+		ids, err := core.ParseRunIDs(req.RunIDs)
+		if err != nil {
+			return res, err
+		}
+		res.ByRunID = true
+		kindOrder = core.PrunableKinds
+		for _, id := range ids {
+			named[id] = true
+			k, _ := core.ClassifyRun(id)
+			want[k] = true
+		}
+	} else {
+		if len(req.Kinds) == 0 {
+			return res, errors.New("prune: no run kind named; refusing to match every run")
+		}
+		if req.KeepLatest < 0 {
+			return res, errors.New("prune: keep-latest is negative")
+		}
+		if req.Before.IsZero() {
+			return res, errors.New("prune: no age cutoff")
+		}
+		for _, k := range req.Kinds {
+			ok := false
+			for _, pk := range core.PrunableKinds {
+				ok = ok || pk == k
 			}
-			return res, fmt.Errorf("prune: %q is not a prunable run kind", k)
+			if !ok {
+				if k == core.KindWatch {
+					return res, core.ErrWatchKind
+				}
+				return res, fmt.Errorf("prune: %q is not a prunable run kind", k)
+			}
+			want[k] = true
 		}
-		want[k] = true
 	}
 	if !req.DryRun && s.readOnly {
 		return res, errors.New("prune: the store is open read-only")
@@ -293,6 +313,9 @@ func (s *Store) PruneRunEvents(ctx context.Context, req core.EventPruneRequest) 
 			continue
 		}
 		id := core.HuntID(r.id)
+		if byRun && !named[id] {
+			continue
+		}
 		h := hunts[id]
 		if h == nil {
 			h = &huntInfo{id: id, kind: kind, pruned: true}
@@ -302,6 +325,18 @@ func (s *Store) PruneRunEvents(ctx context.Context, req core.EventPruneRequest) 
 		h.pruned = h.pruned && r.pruned
 		if r.created.After(h.newest) {
 			h.newest = r.created
+		}
+	}
+
+	if byRun {
+		var missing []string
+		for _, id := range req.RunIDs {
+			if hunts[id] == nil {
+				missing = append(missing, id)
+			}
+		}
+		if len(missing) > 0 {
+			return core.EventPruneResult{}, fmt.Errorf("prune: no such run in the store: %s; nothing was changed", strings.Join(missing, ", "))
 		}
 	}
 
@@ -317,7 +352,7 @@ func (s *Store) PruneRunEvents(ctx context.Context, req core.EventPruneRequest) 
 	}
 	selected := map[string]bool{}
 	var all []*huntInfo
-	for _, k := range req.Kinds {
+	for _, k := range kindOrder {
 		hs := byKind[k]
 		sort.Slice(hs, func(i, j int) bool {
 			if !hs[i].newest.Equal(hs[j].newest) {
@@ -328,9 +363,9 @@ func (s *Store) PruneRunEvents(ctx context.Context, req core.EventPruneRequest) 
 		for i, h := range hs {
 			all = append(all, h)
 			switch {
-			case i < req.KeepLatest:
+			case !byRun && i < req.KeepLatest:
 				res.Runs = append(res.Runs, core.PruneRun{ID: h.id, Kind: k, Created: h.newest, Action: core.ActionKeepLatest})
-			case !h.newest.Before(req.Before):
+			case !byRun && !h.newest.Before(req.Before):
 				res.Runs = append(res.Runs, core.PruneRun{ID: h.id, Kind: k, Created: h.newest, Action: core.ActionKeepRecent})
 			default:
 				res.Runs = append(res.Runs, core.PruneRun{ID: h.id, Kind: k, Created: h.newest, Action: core.ActionPrune})

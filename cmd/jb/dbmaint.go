@@ -260,11 +260,12 @@ type pruneOut struct {
 func newDBPruneCmd(d deps) *cobra.Command {
 	var (
 		cfgPath, caseDir, kinds, olderThan, output string
+		runIDs                                     []string
 		keepLatest                                 int
 		dropFindings, apply                        bool
 	)
 	cmd := &cobra.Command{
-		Use:   "prune (--config FILE | --case DIR) --kind K[,K...] --older-than DURATION [--keep-latest N] [--drop-findings] [--apply]",
+		Use:   "prune (--config FILE | --case DIR) (--kind K[,K...] --older-than DURATION [--keep-latest N] | --run ID [--run ID ...]) [--drop-findings] [--apply]",
 		Short: "Delete the stored events of old hunt/activity/search runs (dry run unless --apply)",
 		Long: "prune removes the bulk of the evidence store that nothing else prunes: the events (and so the raw\n" +
 			"documents) of one-off runs. It is a DRY RUN by default: it opens the store read-only, prints what\n" +
@@ -277,6 +278,11 @@ func newDBPruneCmd(d deps) *cobra.Command {
 			"--keep-latest N (default 1) keeps the N newest hunts of EACH selected kind whatever their age, so the\n" +
 			"latest hunt that `jb intel` reads and the latest activity check are never pruned by accident. 0 is\n" +
 			"accepted only when you pass --keep-latest 0.\n\n" +
+			"--run ID (repeatable, at most 20) is the other way to choose: it removes exactly the runs you name,\n" +
+			"whatever their age, and cannot be combined with --kind, --older-than or --keep-latest. The id is\n" +
+			"compared whole (never a prefix or pattern) and is the hunt id as the dry run prints it. Watch ids are\n" +
+			"refused. An id that is not in the store is an error that names it, and then nothing is deleted. A\n" +
+			"repeated id counts once. Everything below applies to it too.\n\n" +
 			"By default FINDINGS and RUN RECORDS stay: only events are deleted, and the run record is marked\n" +
 			"pruned_at so `jb db usage` can say the events are gone. --drop-findings also deletes those hunts'\n" +
 			"findings and run records. Reputation rows are never touched.\n\n" +
@@ -288,22 +294,41 @@ func newDBPruneCmd(d deps) *cobra.Command {
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			ks, err := core.ParsePrunableKinds(kinds)
-			if err != nil {
-				return usageErrorf("%v", err)
-			}
-			if olderThan == "" {
-				return usageErrorf("--older-than is required (for example 14d or 72h)")
-			}
-			age, err := parseAge(olderThan)
-			if err != nil {
-				return usageErrorf("--older-than: %v", err)
-			}
-			if age <= 0 {
-				return usageErrorf("--older-than must be positive")
-			}
-			if keepLatest < 0 {
-				return usageErrorf("--keep-latest must be 0 or more")
+			var (
+				ks     []core.RunKind
+				ids    []string
+				cutoff time.Time
+			)
+			if cmd.Flags().Changed("run") {
+				for _, f := range []string{"kind", "older-than", "keep-latest"} {
+					if cmd.Flags().Changed(f) {
+						return usageErrorf("--run selects exact runs and cannot be combined with --%s (--kind, --older-than and --keep-latest are the other way to choose)", f)
+					}
+				}
+				var err error
+				if ids, err = core.ParseRunIDs(runIDs); err != nil {
+					return usageErrorf("%v", err)
+				}
+				keepLatest = 0 // the default of 1 is the by-age rule; named runs are not ranked
+			} else {
+				var err error
+				if ks, err = core.ParsePrunableKinds(kinds); err != nil {
+					return usageErrorf("%v", err)
+				}
+				if olderThan == "" {
+					return usageErrorf("--older-than is required (for example 14d or 72h)")
+				}
+				age, err := parseAge(olderThan)
+				if err != nil {
+					return usageErrorf("--older-than: %v", err)
+				}
+				if age <= 0 {
+					return usageErrorf("--older-than must be positive")
+				}
+				if keepLatest < 0 {
+					return usageErrorf("--keep-latest must be 0 or more")
+				}
+				cutoff = d.now().Add(-age)
 			}
 			ms, err := resolveMaintStore(cmd.ErrOrStderr(), caseDir, cfgPath)
 			if err != nil {
@@ -321,7 +346,7 @@ func newDBPruneCmd(d deps) *cobra.Command {
 				}
 			}
 			res, err := st.PruneRunEvents(cmd.Context(), core.EventPruneRequest{
-				Kinds: ks, Before: d.now().Add(-age), KeepLatest: keepLatest, DropFindings: dropFindings, DryRun: !apply,
+				RunIDs: ids, Kinds: ks, Before: cutoff, KeepLatest: keepLatest, DropFindings: dropFindings, DryRun: !apply,
 			})
 			if err != nil {
 				return fmt.Errorf("prune: %w", err)
@@ -335,6 +360,7 @@ func newDBPruneCmd(d deps) *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&cfgPath, "config", "", "YAML config naming the store (with --case: one of the case's configs)")
 	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it")
+	f.StringArrayVar(&runIDs, "run", nil, "remove exactly this hunt id (repeatable, at most 20); instead of --kind, --older-than and --keep-latest; never a watch run")
 	f.StringVar(&kinds, "kind", "", "run kinds to prune, comma separated: hunt, hunt-until, activity, activity-until, search, search-until (required; never watch)")
 	f.StringVar(&olderThan, "older-than", "", "prune hunts whose newest record is older than this (14d, 72h, 2w) (required)")
 	f.IntVar(&keepLatest, "keep-latest", 1, "always keep the N newest hunts of each selected kind, whatever their age")
@@ -356,8 +382,16 @@ func writePrune(w io.Writer, store, olderThan string, ks []core.RunKind, r core.
 	if r.DropFindings {
 		keep = "findings and run records of the pruned hunts are deleted too"
 	}
-	fmt.Fprintf(w, "hunts whose newest record is older than %s (created before %s), keeping the %d newest of each kind; %s\n\n", olderThan, r.Before.Format(time.RFC3339), r.KeepLatest, keep)
+	if r.ByRunID {
+		fmt.Fprintf(w, "the %d hunt(s) named with --run, matched by exact id (no age or keep-latest rule applies); %s\n\n", len(r.Runs), keep)
+	} else {
+		fmt.Fprintf(w, "hunts whose newest record is older than %s (created before %s), keeping the %d newest of each kind; %s\n\n", olderThan, r.Before.Format(time.RFC3339), r.KeepLatest, keep)
+		writePruneKindTable(w, ks, r)
+	}
+	return writePruneBody(w, r, applied)
+}
 
+func writePruneKindTable(w io.Writer, ks []core.RunKind, r core.EventPruneResult) {
 	type row struct{ matched, prune, latest, recent, done int }
 	rows := map[core.RunKind]*row{}
 	for _, k := range ks {
@@ -390,12 +424,16 @@ func writePrune(w io.Writer, store, olderThan string, ks []core.RunKind, r core.
 		x := rows[k]
 		fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s\n", k, x.matched, x.prune, x.latest, x.recent, x.done, ev, humanBytes(raw))
 	}
-	if err := tw.Flush(); err != nil {
-		return err
-	}
+	tw.Flush()
 	fmt.Fprintln(w)
+}
+
+func writePruneBody(w io.Writer, r core.EventPruneResult, applied bool) error {
 	var listed int
 	for _, pr := range r.Runs {
+		if pr.Action == core.ActionAlreadyDone && r.ByRunID {
+			fmt.Fprintf(w, "skip (events already pruned)  %s  %s  created %s\n", pr.ID, pr.Kind, fmtTime(pr.Created))
+		}
 		if pr.Action == core.ActionKeepLatest {
 			fmt.Fprintf(w, "keep (latest of its kind)  %s  created %s  %d events\n", pr.ID, fmtTime(pr.Created), pr.Events)
 		}
@@ -409,7 +447,11 @@ func writePrune(w io.Writer, store, olderThan string, ks []core.RunKind, r core.
 			break
 		}
 		listed++
-		fmt.Fprintf(w, "prune  %s  created %s  %d events  %s raw  %d findings\n", pr.ID, fmtTime(pr.Created), pr.Events, humanBytes(pr.RawBytes), pr.Findings)
+		kind := ""
+		if r.ByRunID {
+			kind = " (" + string(pr.Kind) + ")"
+		}
+		fmt.Fprintf(w, "prune  %s%s  created %s  %d events  %s raw  %d findings\n", pr.ID, kind, fmtTime(pr.Created), pr.Events, humanBytes(pr.RawBytes), pr.Findings)
 	}
 	if listed > 0 || r.Plan.Runs > 0 {
 		fmt.Fprintln(w)

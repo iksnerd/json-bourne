@@ -942,6 +942,7 @@ Read-only: the store is opened with `access_mode=READ_ONLY`, so the engine refus
 
 ```
 jb db prune (--config FILE | --case DIR) --kind K[,K...] --older-than DURATION [--keep-latest N] [--drop-findings] [--apply]
+jb db prune (--config FILE | --case DIR) --run ID [--run ID ...] [--drop-findings] [--apply]
 ```
 
 It deletes the stored **events**, and with them the raw documents, of old runs. Rules:
@@ -952,9 +953,17 @@ It deletes the stored **events**, and with them the raw documents, of old runs. 
 - **Age is the stored `created_at`.** A hunt is old when its newest record was created before now minus `--older-than` (`14d`, `72h`, `2w`). Saving a run again keeps its creation time. The age of the data inside is irrelevant.
 - **`--keep-latest N`** (default 1) keeps the N newest hunts of **each selected kind**, whatever their age, so the latest hunt that `jb intel` reads and the latest activity check are not removed by accident. `0` is accepted only when you write `--keep-latest 0`; leaving the flag out means 1.
 - **Findings and run records stay by default.** Only events are deleted. The run record is stamped `runs.pruned_at` (schema v2, docs/CASE-SPEC.md) so `jb db usage` can say the events are gone. `--drop-findings` also deletes the findings and run records of the pruned hunts. A hunt whose events are already gone is reported as such and left alone. `reputation` is never touched.
+- **`--run ID` removes exactly the runs you name.** It is the other way to choose, for a one-off run that `--keep-latest` would keep (the newest runs are the ones you want gone). Repeat it, at most 20 times. It cannot be combined with `--kind`, `--older-than` or `--keep-latest` (exit 2): the age and keep-latest rules do not apply to a run you named. The id is the hunt id as the dry run prints it, compared whole, never as a prefix or a pattern; `hunt-20261106T040000Z/ingress` (one source of a hunt), a wildcard and an id of no prunable kind are refused. Watch ids are refused as `--kind watch` is. An id that is not in the store is an error that names it, and then nothing is deleted. An id given twice counts once. Everything else on this list (dry run by default, one transaction, checked counts, findings kept unless `--drop-findings`, no shrink, no reputation) holds for `--run` too, and the plan and `--output json` list each named run with its kind, events and bytes (`"by_run_id": true`).
 - **Counts are checked.** The plan is counted inside the transaction, the deletes' row counts are compared with it, and any difference rolls everything back. What it prints after `--apply` is the engine's count.
 - **Locking.** `--apply` needs the store to itself. It waits `JB_DB_LOCK_WAIT`, then refuses and names the holder (a running `jb watch` holds the file only for the write phase of each cycle). A missing store is never created.
 - The output has counts and run ids, which can hold index patterns. It never prints a stored document or an address from one.
+
+Example: remove two comparison runs and nothing else.
+
+```
+jb db prune --case DIR --run hunt-20261106T040000Z --run hunt-20261106T041500Z           # dry run
+jb db prune --case DIR --run hunt-20261106T040000Z --run hunt-20261106T041500Z --apply   # do it
+```
 
 The file does **not** shrink. The command says so after `--apply`; go on to `compact`.
 
