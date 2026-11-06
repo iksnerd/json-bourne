@@ -5,6 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Breaking
+- `jb hunt` can list findings while a detector's status is not `ok`; read `complete` first. `jb activity` can read ACTIVE with `complete` false (exit 0, where it was INCOMPLETE and exit 1). `jb watch` alerts an incomplete detector's findings (RFC 0012).
 - `jb case check DIR` is now `jb case check --case DIR`; the positional directory is removed (RFC 0007).
 - A config file may declare `commands:`; a case with several configs picks the one that declares the command, and the error otherwise lists every config with its commands. A config with `commands:` is refused by an older `jb` as an unknown key (RFC 0008). `examples/case` now lists two configs.
 - `config.UsageError` is removed (internal); use `core.IsUsage`. The unset-credential error now continues after "is not set" with a hint (RFC 0005).
@@ -12,6 +13,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - The mapper protocol and the file formats carry no compatibility promise before a public release (CONTRIBUTING.md); RFC 0004 is withdrawn.
 
 ### Added
+- hunt, activity, watch: findings a detector returns beside an error are now kept and reported, and the run stays incomplete; `activity` reads ACTIVE and incomplete (RFC 0012).
 - behaviour: rare actions take `min_severity` (a floor; `critical` needs a `note`), `note` and `min_events_per_key`; keys dropped at `max_keys` with no key at the threshold make the run incomplete, not quiet (RFC 0011).
 - `jb.UsageError` and `jb.IsUsage` tell a Go caller a caller mistake from a failure; the CLI's exit 2 uses the same type. `--output table|json` on `watch --once` (cycle report), `db status`, `db rename-source`, `db compact` and `estate promote`. `jb activity --help` explains its fixed 24h window (RFC 0005).
 - `jb watch` writes a machine-readable status record (`watch-status[.NAME].json`, `jb.watch-status/v1`); `jb watch status` and `jb.WatchStatus` report each watcher as running, stale, stopped or unknown (RFC 0006).

@@ -1,6 +1,7 @@
 # RFC 0012: Keep the findings of a detector that did not finish
-Status: draft
+Status: accepted
 Scope: say that `Hunt` keeps the findings a detector returns beside an error, state the contract a detector follows when it cannot finish, and say how the verdict reads.
+Accepted: 2026-11-06 by the maintainer
 
 ## Summary
 
@@ -109,3 +110,4 @@ Shipped: none.
 
 - Should `jb activity` exit 1 for `ACTIVE` with an incomplete detector? It exits 0 today for `ACTIVE` with an incomplete source. The maintainer decides.
 - Should a future conformance helper run every detector against a failing reader and check the contract? It would turn the review above into a test. The maintainer decides.
+- 2026-11-06: accepted by the maintainer; the code is merged.
