@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -18,21 +17,12 @@ type casePlan struct {
 	window     time.Duration // zero: the case gave none, keep the flag's value
 }
 
-// asUsage turns the config package's usage errors into the CLI's (exit 2).
-func asUsage(err error) error {
-	var ue *config.UsageError
-	if errors.As(err, &ue) {
-		return usageErrorf("%s", ue.Msg)
-	}
-	return err
-}
-
 // planCase loads the case, refuses when the evidence guard fails, and chooses the
 // config and the default window. Nothing here reads the environment or evidence/.
 func planCase(stderr io.Writer, dir, cfgFlag string, windowSet bool) (*casePlan, error) {
 	p, err := config.PlanCase(dir, cfgFlag, windowSet)
 	if err != nil {
-		return nil, asUsage(err)
+		return nil, err
 	}
 	for _, n := range p.Notes {
 		fmt.Fprintln(stderr, n)
@@ -43,7 +33,7 @@ func planCase(stderr io.Writer, dir, cfgFlag string, windowSet bool) (*casePlan,
 // chooseCaseConfig returns the absolute path of the hunt config to use.
 func chooseCaseConfig(c *casefile.Case, flag string) (string, error) {
 	p, err := config.ChooseCaseConfig(c, flag)
-	return p, asUsage(err)
+	return p, err
 }
 
 // placeStore decides where the evidence database goes (config.PlaceCaseStore).

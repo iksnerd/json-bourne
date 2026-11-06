@@ -13,7 +13,6 @@ package jb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -110,7 +109,7 @@ type HuntOptions struct {
 // [Result.Failed] before telling anyone nothing was found.
 func Hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 	if cfg == nil {
-		return nil, errors.New("jb: nil config")
+		return nil, usagef("nil config")
 	}
 	return hunt(ctx, cfg, opts)
 }
@@ -151,7 +150,7 @@ func HuntCase(ctx context.Context, caseDir string, opts CaseHuntOptions) (*Resul
 
 func hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
 	if opts.Window < 0 {
-		return nil, fmt.Errorf("jb: window must be positive, got %s", opts.Window)
+		return nil, usagef("window must be positive, got %s", opts.Window)
 	}
 	if opts.Window == 0 {
 		opts.Window = DefaultWindow
@@ -213,14 +212,14 @@ func plan(now time.Time, opts HuntOptions, prefix string) (core.Window, string, 
 		return core.Window{From: to.Add(-opts.Window), To: to}, prefix + "-" + to.Format("20060102T150405Z"), nil
 	}
 	if opts.Until.Nanosecond() != 0 {
-		return core.Window{}, "", errors.New("jb: Until must be whole seconds; window edges are not rounded")
+		return core.Window{}, "", usagef("Until must be whole seconds; window edges are not rounded")
 	}
 	until := opts.Until.UTC()
 	if until.After(now.UTC().Truncate(time.Second)) {
-		return core.Window{}, "", fmt.Errorf("jb: Until %s is in the future", until.Format(time.RFC3339))
+		return core.Window{}, "", usagef("Until %s is in the future", until.Format(time.RFC3339))
 	}
 	if opts.Window > MaxHistoricalWindow {
-		return core.Window{}, "", fmt.Errorf("jb: Window %s is longer than the %s a historical hunt accepts", opts.Window, MaxHistoricalWindow)
+		return core.Window{}, "", usagef("Window %s is longer than the %s a historical hunt accepts", opts.Window, MaxHistoricalWindow)
 	}
 	run := fmt.Sprintf("%s-until-%s-w%ds", prefix, until.Format("20060102T150405Z"), int64(opts.Window/time.Second))
 	return core.Window{From: until.Add(-opts.Window), To: until}, run, nil

@@ -180,7 +180,7 @@ func newHuntCmdWith(d deps) *cobra.Command {
 	f.StringVar(&cfgPath, "config", "", "path to the YAML config (required without --case; with --case, one of the case's configs)")
 	f.StringVar(&caseDir, "case", "", "case directory to hunt in (docs/CASE-SPEC.md)")
 	window = 60 * time.Minute
-	f.Var((*windowValue)(&window), "window", "length of the window to hunt, ending now (or at --until): 90m, 24h or 7d (with --case, defaults to the case's windows.default)")
+	f.Var((*windowValue)(&window), "window", "length of the window to hunt, ending now (or at --until): 90m, 24h or 7d (default 60m; with --case, the case's windows.default when it sets one)")
 	f.StringVar(&output, "output", "table", "output format: table or json")
 	f.StringVar(&untilS, "until", "", "hunt the past window ending at TIME (RFC 3339 with a zone, not after now) instead of the one ending now; not offered on watch, which always ends now")
 	f.StringArrayVar(&search, "search", nil, "narrow every source by a phrase match of TERM for this run; repeat to AND more terms (at most 4)")

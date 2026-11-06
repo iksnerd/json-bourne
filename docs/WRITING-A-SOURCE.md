@@ -94,7 +94,7 @@ Same shape as a detector: one file `internal/config/register_<name>.go`, one lin
 func (s mySpec) build(env Env) (core.Source, error) {
 	key, ok := env(s.APIKeyEnv)
 	if !ok || key == "" {
-		return nil, fmt.Errorf("environment variable %s is not set", s.APIKeyEnv)
+		return nil, errEnvNotSet(s.APIKeyEnv)
 	}
 	// construct the source with key
 }

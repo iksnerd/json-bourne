@@ -486,8 +486,8 @@ func writePruneBody(w io.Writer, r core.EventPruneResult, applied bool) error {
 
 func newDBCompactCmd() *cobra.Command {
 	var (
-		cfgPath, caseDir, to string
-		apply, outside       bool
+		cfgPath, caseDir, to, output string
+		apply, outside               bool
 	)
 	cmd := &cobra.Command{
 		Use:   "compact (--config FILE | --case DIR) --to FILE [--apply] [--allow-outside-evidence]",
@@ -509,6 +509,9 @@ func newDBCompactCmd() *cobra.Command {
 			if to == "" {
 				return usageErrorf("--to FILE is required")
 			}
+			if err := checkOutput(output); err != nil {
+				return err
+			}
 			ms, err := resolveMaintStore(cmd.ErrOrStderr(), caseDir, cfgPath)
 			if err != nil {
 				return err
@@ -526,6 +529,9 @@ func newDBCompactCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("compact: %w", err)
 			}
+			if output == "json" {
+				return writeIndentedJSON(cmd.OutOrStdout(), res)
+			}
 			return writeCompact(cmd.OutOrStdout(), ms.path, caseDir, cfgPath, res)
 		},
 	}
@@ -533,6 +539,7 @@ func newDBCompactCmd() *cobra.Command {
 	f.StringVar(&cfgPath, "config", "", "YAML config naming the store (with --case: one of the case's configs)")
 	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it")
 	f.StringVar(&to, "to", "", "the new file to write the compacted copy to (must not exist)")
+	f.StringVar(&output, "output", "table", "output format: table or json (the result, without the swap steps)")
 	f.BoolVar(&apply, "apply", false, "write the copy (default: dry run)")
 	f.BoolVar(&outside, "allow-outside-evidence", false, "allow --to outside the evidence directory (its directory must still pass the git-ignore guard)")
 	return cmd

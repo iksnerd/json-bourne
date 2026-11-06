@@ -478,7 +478,7 @@ func writeDiffJSON(w io.Writer, df app.EstateDiff, findings []core.Finding, del 
 // ---- promote ----
 
 func newEstatePromoteCmd(d deps) *cobra.Command {
-	var caseDir, file string
+	var caseDir, file, output string
 	cmd := &cobra.Command{
 		Use:   "promote --case DIR SNAPSHOT-ID",
 		Short: "Adopt a complete snapshot as the baseline estate file (the old baseline is archived first)",
@@ -491,6 +491,9 @@ func newEstatePromoteCmd(d deps) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if caseDir == "" {
 				return usageErrorf("--case is required")
+			}
+			if output != "table" && output != "json" {
+				return usageErrorf("--output must be table or json, got %q", output)
 			}
 			if err := casefile.ValidEstateName(file); err != nil {
 				return usageErrorf("--file: %v", err)
@@ -509,11 +512,16 @@ func newEstatePromoteCmd(d deps) *cobra.Command {
 				}
 				return err
 			}
+			if output == "json" {
+				return writeIndentedJSON(cmd.OutOrStdout(), map[string]string{
+					"promoted": args[0], "baseline": c.Paths.Estate + "/" + file, "archived": archived})
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "promoted    %s\nbaseline    %s/%s\nold baseline kept at %s\n", args[0], c.Paths.Estate, file, archived)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md) (required)")
 	cmd.Flags().StringVar(&file, "file", estateDefaultFile, "the baseline estate file to replace")
+	cmd.Flags().StringVar(&output, "output", "table", "output format: table or json")
 	return cmd
 }

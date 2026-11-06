@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -18,14 +17,9 @@ const (
 	exitUsage   = 2
 )
 
-// usageError marks an error caused by how jb was invoked rather than by what it found.
-type usageError struct{ msg string }
-
-func (e *usageError) Error() string { return e.msg }
-
-func usageErrorf(format string, a ...any) error {
-	return &usageError{msg: fmt.Sprintf(format, a...)}
-}
+// usageErrorf marks an error caused by how jb was invoked rather than by what it found.
+// The type is core.UsageError, shared with the Go package (jb.IsUsage).
+func usageErrorf(format string, a ...any) error { return core.Usagef(format, a...) }
 
 // deps are the process-level inputs a command reads. Tests replace them.
 type deps struct {
@@ -60,8 +54,7 @@ func executeWith(ctx context.Context, d deps, args []string, stdout, stderr io.W
 	if err == nil {
 		return exitOK
 	}
-	var ue *usageError
-	if errors.As(err, &ue) {
+	if core.IsUsage(err) {
 		fmt.Fprintf(stderr, "jb: %v\nRun 'jb --help' for usage.\n", err)
 		return exitUsage
 	}

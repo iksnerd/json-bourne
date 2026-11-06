@@ -19,8 +19,8 @@ import (
 
 func newDBRenameSourceCmd() *cobra.Command {
 	var (
-		cfgPath, caseDir string
-		apply, merge     bool
+		cfgPath, caseDir, output string
+		apply, merge             bool
 	)
 	cmd := &cobra.Command{
 		Use:   "rename-source (--config FILE | --case DIR) OLD NEW [--apply] [--merge]",
@@ -48,6 +48,9 @@ func newDBRenameSourceCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			oldL, newL := args[0], args[1]
+			if err := checkOutput(output); err != nil {
+				return err
+			}
 			if caseDir == "" && cfgPath == "" {
 				return usageErrorf("one of --case DIR or --config FILE is required (it names the store)")
 			}
@@ -75,8 +78,14 @@ func newDBRenameSourceCmd() *cobra.Command {
 			defer st.Close()
 			res, rerr := st.RenameSource(cmd.Context(), core.RenameSourceRequest{Old: oldL, New: newL, Merge: merge, DryRun: !apply})
 			if res.Events > 0 || res.NewEvents > 0 {
-				if err := writeRename(cmd.OutOrStdout(), store, res, apply, merge); err != nil {
-					return fmt.Errorf("write output: %w", err)
+				var werr error
+				if output == "json" {
+					werr = writeIndentedJSON(cmd.OutOrStdout(), renameJSONOf(store, res))
+				} else {
+					werr = writeRename(cmd.OutOrStdout(), store, res, apply, merge)
+				}
+				if werr != nil {
+					return fmt.Errorf("write output: %w", werr)
 				}
 			}
 			switch {
@@ -87,7 +96,7 @@ func newDBRenameSourceCmd() *cobra.Command {
 			case rerr != nil:
 				return fmt.Errorf("rename source: %w", rerr)
 			}
-			if !apply {
+			if !apply && output != "json" {
 				fmt.Fprintf(cmd.OutOrStdout(), "dry run: nothing was changed. Add --apply to do it.\n")
 			}
 			return nil
@@ -96,6 +105,7 @@ func newDBRenameSourceCmd() *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&cfgPath, "config", "", "YAML config naming the store (with --case: one of the case's configs)")
 	f.StringVar(&caseDir, "case", "", "case directory (docs/CASE-SPEC.md); the store is placed as `jb hunt --case` places it")
+	f.StringVar(&output, "output", "table", "output format: table or json")
 	f.BoolVar(&apply, "apply", false, "do the rename (default: dry run)")
 	f.BoolVar(&merge, "merge", false, "when NEW already holds some of OLD's documents, drop OLD's copies and relabel the rest")
 	return cmd
@@ -120,6 +130,26 @@ func storePathFor(stderr io.Writer, caseDir, cfgPath string) (string, error) {
 		return "", err
 	}
 	return cfg.StorePath(), nil
+}
+
+// renameJSON is the JSON form of `jb db rename-source`. applied is false for a dry run.
+type renameJSON struct {
+	Store      string `json:"store"`
+	Old        string `json:"old"`
+	New        string `json:"new"`
+	Applied    bool   `json:"applied"`
+	Events     int64  `json:"events"`
+	Runs       int64  `json:"runs"`
+	NewEvents  int64  `json:"new_events"`
+	Overlap    int64  `json:"overlap"`
+	Dropped    int64  `json:"dropped"`
+	Relabelled int64  `json:"relabelled"`
+	NoRaw      int64  `json:"no_raw"`
+}
+
+func renameJSONOf(store string, r core.RenameSourceResult) renameJSON {
+	return renameJSON{Store: store, Old: r.Old, New: r.New, Applied: r.Applied, Events: r.Events, Runs: r.Runs,
+		NewEvents: r.NewEvents, Overlap: r.Overlap, Dropped: r.Dropped, Relabelled: r.Relabelled, NoRaw: r.NoRaw}
 }
 
 func writeRename(w io.Writer, store string, r core.RenameSourceResult, apply, merge bool) error {

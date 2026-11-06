@@ -129,7 +129,7 @@ func (s webhookSpec) validate() error {
 func (s webhookSpec) build(env Env) (core.AlertSink, error) {
 	raw, ok := env(s.URLEnv)
 	if !ok || raw == "" {
-		return nil, fmt.Errorf("environment variable %s is not set", s.URLEnv)
+		return nil, errEnvNotSet(s.URLEnv)
 	}
 	cfg := webhook.Config{URL: webhook.Secret(raw), MinSeverity: s.severity(), AllowInsecureLoopback: s.Insecure}
 	if s.Timeout != nil {

@@ -78,14 +78,14 @@ type WatchOptions struct {
 // report.Status.Healthy() before calling a watch clean.
 func Watch(ctx context.Context, caseDir string, opts WatchOptions) (*CycleReport, error) {
 	if err := app.ValidWatchName(opts.Name); err != nil {
-		return nil, fmt.Errorf("jb: name: %w", err)
+		return nil, usagef("name: %v", err)
 	}
 	for _, d := range []struct {
 		n string
 		v time.Duration
 	}{{"Every", opts.Every}, {"Window", opts.Window}, {"TTL", opts.TTL}, {"Keep", opts.Keep}, {"Repeat", opts.Repeat}} {
 		if d.v < 0 {
-			return nil, fmt.Errorf("jb: %s must not be negative, got %s", d.n, d.v)
+			return nil, usagef("%s must not be negative, got %s", d.n, d.v)
 		}
 	}
 	if opts.Every == 0 {
@@ -124,7 +124,7 @@ func Watch(ctx context.Context, caseDir string, opts WatchOptions) (*CycleReport
 		wopts.Repeat = app.DefaultHealthRepeat
 	}
 	if err := wopts.Validate(); err != nil {
-		return nil, fmt.Errorf("jb: %w", err)
+		return nil, usagef("%v", err)
 	}
 
 	evidence := plan.Case.EvidenceDir()

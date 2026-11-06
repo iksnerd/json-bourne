@@ -35,6 +35,12 @@ type Env func(name string) (string, bool)
 // OSEnv reads the process environment.
 func OSEnv(name string) (string, bool) { return os.LookupEnv(name) }
 
+// errEnvNotSet is the error for a named variable that is unset or empty. It says where
+// jb looks and where to read how to fill it. It names the variable, never a value.
+func errEnvNotSet(name string) error {
+	return fmt.Errorf("environment variable %s is not set (jb reads it from the process environment, not from the config file or a .env file; see \"Supplying credentials\" in docs/CONFIG.md)", name)
+}
+
 // File is the parsed, validated configuration. Credentials are not resolved yet.
 type File struct {
 	Sources   []SourceEntry   `yaml:"sources"`

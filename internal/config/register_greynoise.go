@@ -130,7 +130,7 @@ func (s greynoiseSpec) build(env Env) (core.Feed, error) {
 		// would silently fall to the much smaller community quota.
 		key, ok := env(s.APIKeyEnv)
 		if !ok || key == "" {
-			return nil, fmt.Errorf("environment variable %s is not set", s.APIKeyEnv)
+			return nil, errEnvNotSet(s.APIKeyEnv)
 		}
 		f.Key = key
 	}

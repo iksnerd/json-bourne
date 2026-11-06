@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -9,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/iksnerd/json-bourne/internal/casefile"
+	"github.com/iksnerd/json-bourne/internal/core"
 )
 
 // chooseFixture copies examples/case into <root>/case and returns the loaded case and
@@ -114,8 +114,7 @@ func TestChooseCaseConfigRefusesWhatLeavesTheCase(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Chdir(tc.cwd)
 			got, err := ChooseCaseConfig(c, tc.flag)
-			var ue *UsageError
-			if !errors.As(err, &ue) || !strings.Contains(err.Error(), "outside the case directory") {
+			if !core.IsUsage(err) || !strings.Contains(err.Error(), "outside the case directory") {
 				t.Errorf("--config %q = %q, %v; want the outside-the-case usage error", tc.flag, got, err)
 			}
 		})
@@ -126,8 +125,7 @@ func TestChooseCaseConfigNotFoundNamesBothPlaces(t *testing.T) {
 	c, root := chooseFixture(t)
 	t.Chdir(root)
 	_, err := ChooseCaseConfig(c, "config/nope.yaml")
-	var ue *UsageError
-	if !errors.As(err, &ue) {
+	if !core.IsUsage(err) {
 		t.Fatalf("err = %v, want a usage error", err)
 	}
 	for _, want := range []string{"not one of the case's configs", c.Dir, root} {

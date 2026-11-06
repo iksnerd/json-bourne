@@ -269,10 +269,7 @@ func newExtCmd(d deps, s extSpec) *cobra.Command {
 	return cmd
 }
 
-func isUsage(err error) bool {
-	var ue *usageError
-	return errors.As(err, &ue)
-}
+func isUsage(err error) bool { return core.IsUsage(err) }
 
 const estateExtNote = "These are candidates and observations, not proof. A name on a certificate may not be live. " +
 	"An address, prefix or origin AS that belongs to a CDN, proxy or shared host says nothing about who runs the site or the visitor behind it. " +
