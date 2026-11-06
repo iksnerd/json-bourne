@@ -63,6 +63,7 @@ import (
 
 	"github.com/iksnerd/json-bourne/internal/core"
 	"github.com/iksnerd/json-bourne/internal/piiguard"
+	"github.com/iksnerd/json-bourne/internal/severityfloor"
 )
 
 const (
@@ -96,6 +97,12 @@ type Config struct {
 	// comment. Both or neither.
 	UserAgentField   string   `yaml:"user_agent_field"`
 	UserAgentMatches []string `yaml:"user_agent_matches"`
+
+	// MinSeverity is a floor: high or critical. See internal/severityfloor.
+	MinSeverity string `yaml:"min_severity"`
+	// Note is carried in Detail["note"]; required with MinSeverity critical and
+	// refused without MinSeverity.
+	Note string `yaml:"note"`
 }
 
 // Limits on user_agent_matches.
@@ -112,6 +119,7 @@ type Detector struct {
 	sensitive []string // lower-cased, unique, in config order
 	ignore    map[string]struct{}
 	uaRE      []*regexp.Regexp // anchored, case-insensitive; empty = no filter
+	floor     severityfloor.Floor
 }
 
 var _ core.Detector = (*Detector)(nil)
@@ -147,7 +155,11 @@ func New(c Config) (*Detector, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &Detector{name: c.Name, uaRE: uaRE, ignore: make(map[string]struct{}, len(c.IgnoreKeys))}
+	floor, err := severityfloor.Parse(c.MinSeverity, c.Note, []core.Severity{core.SevHigh, core.SevCritical}, true)
+	if err != nil {
+		return nil, fmt.Errorf("newkey: %w", err)
+	}
+	d := &Detector{name: c.Name, uaRE: uaRE, floor: floor, ignore: make(map[string]struct{}, len(c.IgnoreKeys))}
 	seen := map[string]struct{}{}
 	for _, p := range c.SensitivePaths {
 		p = strings.ToLower(strings.TrimSpace(p))
@@ -398,6 +410,7 @@ func (d *Detector) Detect(ctx context.Context, cur, prev core.EventReader, w cor
 			detail["user_agent_filter"] = true
 			detail["key_cur_sensitive_any_agent"] = kt.anyUA
 		}
+		sev = d.floor.Apply(sev, detail) // after the empty-baseline drop; can only raise
 		out = append(out, core.Finding{
 			Detector: d.name,
 			Tag:      d.name + ":" + shown,
