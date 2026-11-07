@@ -713,6 +713,44 @@ const (
 	headingUnclassified = "Unclassified"
 )
 
+// layerIndex is the layer of a subject: 0 operated, 1 adversary, 2 anything else.
+func layerIndex(subject string) int {
+	switch subject {
+	case "operated":
+		return 0
+	case "adversary":
+		return 1
+	}
+	return 2
+}
+
+// layerHeading is the fixed heading text of a subject's layer.
+func layerHeading(subject string) string {
+	return [...]string{headingOperated, headingAdversary, headingUnclassified}[layerIndex(subject)]
+}
+
+// originRow is one estate file that holds the node, and the layer that file is in.
+type originRow struct {
+	Map, Layer, Href string
+	Here             bool
+}
+
+// originsOf lists every map that holds a node with this id, in map id order. The file's
+// identity is its estate id, which the loader keeps unique across files.
+func originsOf(gs []core.EstateGraph, cur, id string) []originRow {
+	var out []originRow
+	for _, g := range gs {
+		for _, n := range g.Nodes {
+			if n.ID == id {
+				out = append(out, originRow{c(g.ID), layerHeading(g.Subject), nodeHref(g.ID, id), g.ID == cur})
+				break
+			}
+		}
+	}
+	slices.SortStableFunc(out, func(a, b originRow) int { return cmp.Compare(a.Map, b.Map) })
+	return out
+}
+
 type graphLayer struct {
 	Heading string
 	Graphs  []graphView
@@ -723,13 +761,7 @@ type graphLayer struct {
 func layersOf(gs []core.EstateGraph, kinds, confs []string, now time.Time) []graphLayer {
 	layers := []graphLayer{{Heading: headingOperated}, {Heading: headingAdversary}, {Heading: headingUnclassified}}
 	for _, g := range gs {
-		i := 2
-		switch g.Subject {
-		case "operated":
-			i = 0
-		case "adversary":
-			i = 1
-		}
+		i := layerIndex(g.Subject)
 		layers[i].Graphs = append(layers[i].Graphs, buildGraph(g, kinds, confs, now))
 	}
 	out := layers[:0]
@@ -865,6 +897,7 @@ type nodePage struct {
 	Absences   []absenceRow
 	Facts      []factGroup
 	Assess     []assessRow
+	Origins    []originRow // every estate file that holds this node id, with its layer
 	Citing     []assessRow // assessments about other nodes that cite this one in their basis
 	// OverlayHref is set for an ip node: where its reputation and last-seen overlay is read.
 	OverlayHref string
@@ -886,6 +919,7 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 		if x.Kind == "ip" {
 			p.OverlayHref = overlayHref(g.ID, x.ID)
 		}
+		p.Origins = originsOf(gs, g.ID, id)
 		p.Facts = groupFacts(x.Facts)
 		citedBy(g, id, p.Facts)
 		for i, e := range g.Edges {

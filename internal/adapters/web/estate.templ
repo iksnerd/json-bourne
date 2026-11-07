@@ -252,6 +252,23 @@ templ nodeRecord(p nodePage, panel bool) {
 		<tr><th>observed</th><td>{ p.Node.Observed }</td></tr>
 		<tr><th>map</th><td>{ p.GraphID }</td></tr>
 	</table>
+	<h2>Where this node comes from</h2>
+	<table>
+		<tr><th>estate file (id)</th><th>layer</th><th></th></tr>
+		for _, o := range p.Origins {
+			<tr>
+				<td class="mono">{ o.Map }</td>
+				<td>{ o.Layer }</td>
+				<td>
+					if o.Here {
+						this sheet
+					} else {
+						<a href={ templ.URL(o.Href) }>open this node in that file</a>
+					}
+				</td>
+			</tr>
+		}
+	</table>
 	<h2>Facts</h2>
 	if len(p.Facts) > 0 {
 		for _, grp := range p.Facts {
