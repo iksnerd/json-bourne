@@ -379,9 +379,11 @@ func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.E
 	if _, err := tx.ExecContext(ctx, `INSERT INTO runs (run_id, created_at) VALUES (?, now()) ON CONFLICT DO NOTHING`, run); err != nil {
 		return fmt.Errorf("record run %q: %w", run, err)
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM events WHERE run_id = ?`, run); err != nil {
+	del, err := tx.ExecContext(ctx, `DELETE FROM events WHERE run_id = ?`, run)
+	if err != nil {
 		return fmt.Errorf("clear run %q: %w", run, err)
 	}
+	held, _ := del.RowsAffected() // what an empty save leaves in place; 0 when the driver cannot say
 
 	var (
 		batch []eventDoc
@@ -442,7 +444,7 @@ func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.E
 		}
 	}
 	if total == 0 {
-		return fmt.Errorf("save events for run %q: %w", run, core.ErrNoRecords)
+		return &core.EmptySaveError{Run: run, Kept: held}
 	}
 	if err := flush(); err != nil {
 		return err

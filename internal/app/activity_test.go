@@ -294,3 +294,47 @@ func TestActorStatus(t *testing.T) {
 		t.Fatal("no finder was accepted")
 	}
 }
+
+// A no-match source that kept the run's earlier events says so in its outcome; the status
+// is not touched, and a source with nothing kept reads as before.
+func TestNoMatchOutcomeSaysWhenEarlierEventsWereKept(t *testing.T) {
+	plain := SourceResult{Name: "s", Status: StatusOK, IndexAlive: true}
+	if got := plain.Outcome(); got != "no match; index alive" {
+		t.Errorf("plain outcome = %q", got)
+	}
+	kept := plain
+	kept.Kept = 3
+	want := "no match in this fetch; kept 3 event(s) stored under this run id earlier; index alive"
+	if got := kept.Outcome(); got != want || kept.NoMatchText() != want || !kept.NoMatch() {
+		t.Errorf("kept outcome = %q", got)
+	}
+	matched := SourceResult{Name: "s", Status: StatusOK, Events: 2, Kept: 3}
+	if got := matched.Outcome(); got != "matched" {
+		t.Errorf("matched outcome = %q", got)
+	}
+}
+
+// The sink's empty-save error carries how many events the run keeps; Hunt turns it into Kept.
+func TestHuntEmptyLiveFetchRecordsKeptFromTheSinkError(t *testing.T) {
+	live := &liveSource{fakeSource: fakeSource{name: "live"}, live: core.Liveness{Probed: true, IndexTotal: 9}}
+	sink := keptSink{newMem()}
+	res, err := Hunt(context.Background(), Deps{
+		Sources:   []core.Source{live},
+		Detectors: []core.Detector{fakeDetector{"d", fixed()}},
+		Sink:      sink, Reader: sink.memStore,
+	}, "run1", win())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := res.Sources[0]; s.Status != StatusOK || s.Kept != 4 {
+		t.Fatalf("source = %+v", s)
+	}
+}
+
+type keptSink struct{ *memStore }
+
+func (keptSink) SaveEvents(_ context.Context, run string, evs iter.Seq2[core.Event, error]) error {
+	for range evs {
+	}
+	return &core.EmptySaveError{Run: run, Kept: 4}
+}

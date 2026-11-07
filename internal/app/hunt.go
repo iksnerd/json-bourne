@@ -89,6 +89,11 @@ type SourceResult struct {
 	// means "the filter matched nothing in a live index", not a dead source.
 	IndexAlive bool
 	IndexDocs  int64
+	// Kept is how many events this run id already held when the source answered with
+	// nothing: the sink refuses an empty save, so they stay (an empty answer never
+	// retracts evidence). Only a re-run of a run id (`--until`) can have it above zero.
+	// Set only when the empty answer was accepted (IndexAlive); the status stays ok.
+	Kept int64
 	// Duplicates counts documents this source returned that another source of the same
 	// run, reading the same store, had already returned. They are in no Events count and
 	// are not stored again, so overlapping filters never double count.
@@ -101,6 +106,8 @@ type SourceResult struct {
 // that did not finish, why not.
 func (s SourceResult) Outcome() string {
 	switch {
+	case s.NoMatch() && s.Kept > 0:
+		return s.NoMatchText()
 	case s.Status == StatusOK && s.IndexAlive && s.Events == 0:
 		return "no match; index alive"
 	case s.Status == StatusOK && s.Duplicates > 0:
@@ -115,6 +122,16 @@ func (s SourceResult) Outcome() string {
 		return "canceled"
 	}
 	return "failed"
+}
+
+// NoMatchText is the words for a NoMatch source: "no match; index alive", or, when the
+// empty fetch left earlier events of the same run id in place, a text that says so. Every
+// renderer of a no-match source uses it, so the wording cannot drift.
+func (s SourceResult) NoMatchText() string {
+	if s.Kept > 0 {
+		return fmt.Sprintf("no match in this fetch; kept %d event(s) stored under this run id earlier; index alive", s.Kept)
+	}
+	return "no match; index alive"
 }
 
 // NoMatch reports whether the source finished, fetched nothing and showed its index
@@ -538,6 +555,10 @@ func finish(r SourceResult, src core.Source, err error, sourceFailed bool) Sourc
 		// in a live index arrives here as no_records. The source has just shown its index
 		// alive, and yielded no error itself: that is an answer, and nothing was saved.
 		if r.Status == StatusNoRecords && r.Events == 0 && !sourceFailed && l.Probed {
+			var es *core.EmptySaveError
+			if errors.As(err, &es) {
+				r.Kept = es.Kept
+			}
 			r.Status, r.Err = StatusOK, nil
 		}
 		if r.Status == StatusOK && l.Probed {

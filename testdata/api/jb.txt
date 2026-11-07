@@ -688,10 +688,12 @@ field github.com/iksnerd/json-bourne/internal/app.SourceResult#002 Events int64
 field github.com/iksnerd/json-bourne/internal/app.SourceResult#003 Unparsable int
 field github.com/iksnerd/json-bourne/internal/app.SourceResult#004 IndexAlive bool
 field github.com/iksnerd/json-bourne/internal/app.SourceResult#005 IndexDocs int64
-field github.com/iksnerd/json-bourne/internal/app.SourceResult#006 Duplicates int64
-field github.com/iksnerd/json-bourne/internal/app.SourceResult#007 Err error
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#006 Kept int64
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#007 Duplicates int64
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#008 Err error
 method github.com/iksnerd/json-bourne/internal/app.SourceResult value HighUnparsable() bool
 method github.com/iksnerd/json-bourne/internal/app.SourceResult value NoMatch() bool
+method github.com/iksnerd/json-bourne/internal/app.SourceResult value NoMatchText() string
 method github.com/iksnerd/json-bourne/internal/app.SourceResult value Outcome() string
 method github.com/iksnerd/json-bourne/internal/app.SourceResult value UnparsableShare() float64
 type github.com/iksnerd/json-bourne/internal/app.Status string

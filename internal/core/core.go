@@ -8,6 +8,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"iter"
 	"time"
 )
@@ -16,6 +17,21 @@ import (
 // purpose: an empty result that looks like a clean negative is a wrong answer
 // shaped like a finding.
 var ErrNoRecords = errors.New("no records")
+
+// EmptySaveError is what a Sink returns when a run was saved with nothing. It matches
+// ErrNoRecords (errors.Is), so every caller that only asks "was it empty" is unchanged.
+// Kept is how many events the run already held, which the empty save left in place: a
+// caller that accepts the empty answer can then say the earlier events remain.
+type EmptySaveError struct {
+	Run  string
+	Kept int64
+}
+
+func (e *EmptySaveError) Error() string {
+	return fmt.Sprintf("save events for run %q: %v", e.Run, ErrNoRecords)
+}
+
+func (e *EmptySaveError) Unwrap() error { return ErrNoRecords }
 
 // ErrSourceUnavailable means the backend could not be reached or refused the query.
 var ErrSourceUnavailable = errors.New("source unavailable")

@@ -344,10 +344,36 @@ func TestSeqSameRunIDRerunWithEmptyFetchKeepsTheRunsEvidence(t *testing.T) {
 	}
 	empty := src("a", "")
 	empty.live = true
-	if res, err := e.hunt("hunt-1", nil, []*seqSource{empty}, dets, nil); err != nil || !res.Complete() {
+	res, err := e.hunt("hunt-1", nil, []*seqSource{empty}, dets, nil)
+	if err != nil || !res.Complete() {
 		t.Fatal(err, res.Failed())
 	}
 	eq(t, "all", all.cur, []string{"d1", "d2"})
+	// The source answered, so the status stays ok; the outcome says the old events were kept.
+	s := res.Sources[0]
+	want := "no match in this fetch; kept 2 event(s) stored under this run id earlier; index alive"
+	if s.Status != app.StatusOK || !s.NoMatch() || s.Kept != 2 || s.Outcome() != want {
+		t.Errorf("source = %+v, outcome %q, want %q", s, s.Outcome(), want)
+	}
+}
+
+// A fresh run id with an empty live fetch keeps the plain wording, even when other runs
+// stored events for the same source and window: only this run id's own events count.
+func TestSeqFreshRunIDEmptyFetchKeepsPlainNoMatchWording(t *testing.T) {
+	e := newSeqEnv(t)
+	dets := []core.Detector{&seqDet{name: "all"}}
+	if res, err := e.hunt("hunt-1", nil, []*seqSource{src("a", "", "d1")}, dets, nil); err != nil || !res.Complete() {
+		t.Fatal(err, res.Failed())
+	}
+	empty := src("a", "")
+	empty.live = true
+	res, err := e.hunt("hunt-2", nil, []*seqSource{empty}, dets, nil)
+	if err != nil || !res.Complete() {
+		t.Fatal(err, res.Failed())
+	}
+	if s := res.Sources[0]; s.Kept != 0 || s.Outcome() != "no match; index alive" {
+		t.Errorf("source = %+v, outcome %q", s, s.Outcome())
+	}
 }
 
 type failSourceSink struct {

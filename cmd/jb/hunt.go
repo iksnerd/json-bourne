@@ -166,7 +166,7 @@ const (
 // sourceNote is the NOTE column of a source row: the error, or what a zero means.
 func sourceNote(s app.SourceResult) string {
 	if s.NoMatch() {
-		return fmt.Sprintf("no match; index alive (%d document(s) in the window and the one before it without the filter)", s.IndexDocs)
+		return fmt.Sprintf("%s (%d document(s) in the window and the one before it without the filter)", s.NoMatchText(), s.IndexDocs)
 	}
 	return errText(s.Err)
 }
@@ -265,12 +265,17 @@ func writeSearchSummary(w io.Writer, r app.Result, search []string, absent bool)
 	fmt.Fprintf(w, "SEARCH %s: the detectors read the stored evidence for the window, including events saved by earlier runs, not only the matches.\n", terms)
 	if absent {
 		fmt.Fprintf(w, "SEARCH RESULT: no match in %d source(s), and each index answered an unfiltered count, so the term is absent from the window and the one before it; the index is not empty.\n", len(r.Sources))
+		for _, s := range r.Sources {
+			if s.Kept > 0 { // the stored evidence still holds the earlier fetch's events
+				fmt.Fprintf(w, "SEARCH RESULT: %s: %s.\n", s.Name, s.NoMatchText())
+			}
+		}
 		return
 	}
 	for _, s := range r.Sources {
 		switch {
 		case s.NoMatch():
-			fmt.Fprintf(w, "SEARCH RESULT: %s: no match; index alive.\n", s.Name)
+			fmt.Fprintf(w, "SEARCH RESULT: %s: %s.\n", s.Name, s.NoMatchText())
 		case s.Status == app.StatusOK:
 			fmt.Fprintf(w, "SEARCH RESULT: %s: %d matching event(s) fetched.\n", s.Name, s.Events)
 		default:
