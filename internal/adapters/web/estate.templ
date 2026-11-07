@@ -51,6 +51,7 @@ templ estateView(p estatePage) {
 			<script src="/static/estate.js" defer></script>
 			<script src="/static/estate-search.js" defer></script>
 			<script src="/static/estate-export.js" defer></script>
+			<script src="/static/sheet-copy.js" defer></script>
 		}
 	}
 }
@@ -239,10 +240,16 @@ templ nodeView(p nodePage) {
 	@layout(p.Title, p.Nav) {
 		<h1>Node <span class="mono">{ p.Node.Label }</span></h1>
 		@nodeRecord(p, false)
+		<script src="/static/sheet-copy.js" defer></script>
 	}
 }
 
 templ nodeRecord(p nodePage, panel bool) {
+	<p>
+		<button class="btn" type="button" id="sheet-copy" hidden>copy this record as plain text</button>
+		<span class="note" id="sheet-copy-status" aria-live="polite"></span>
+	</p>
+	<div id="sheet-record">
 	<p class="note">Caveat: { p.Caveat }</p>
 	<table>
 		<tr><th>id</th><td class="mono">{ p.Node.ID }</td></tr>
@@ -346,6 +353,7 @@ templ nodeRecord(p nodePage, panel bool) {
 			<p class="note"><a href={ templ.URL(p.OverlayHref) }>read reputation and last seen for this address</a></p>
 		}
 	}
+	</div>
 	if panel {
 		<p class="note"><a href={ templ.URL(nodeHref(p.Node.G, p.Node.ID)) }>open this record as a page</a></p>
 	}
