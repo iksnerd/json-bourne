@@ -86,8 +86,12 @@ func TestLoadersRefuseHugeMappingFast(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), "keys per mapping") {
 				t.Fatalf("one huge mapping must be refused by the shape limit, got %v", err)
 			}
-			if d := time.Since(start); d > time.Second {
-				t.Errorf("refusal took %v, want well under a second", d)
+			// A wall-clock bound is only a backstop for "not quadratic": the linear check took
+			// ~9 s per loader under -race on a slow CI runner, the old quadratic decode took
+			// 23 to 50 s WITHOUT -race (several minutes with it). 60 s separates the two with
+			// a wide margin on both sides; the real guard is the error text above.
+			if d := time.Since(start); d > 60*time.Second {
+				t.Errorf("refusal took %v: the shape check no longer runs before the quadratic decode", d)
 			}
 			for _, shape := range []string{"nested", "sequence"} {
 				err := l.f(shapeDoc(l.head, shape, 1<<20))

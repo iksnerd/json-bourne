@@ -33,7 +33,7 @@ func TestConfigRefusesHugeMappingFast(t *testing.T) {
 	if _, err := LoadCommands(path); err == nil || !strings.Contains(err.Error(), "keys per mapping") {
 		t.Fatalf("LoadCommands: %v", err)
 	}
-	if d := time.Since(start); d > 5*time.Second { // was 40s+ per call; race builds are slow
-		t.Errorf("three refusals took %v, want a few seconds at most", d)
+	if d := time.Since(start); d > 60*time.Second { // was 40s+ per call; race builds are slow
+		t.Errorf("three refusals took %v, want well under a minute", d)
 	}
 }
