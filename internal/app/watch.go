@@ -21,6 +21,11 @@ const DefaultWatchTTL = 3 * time.Hour
 // limit the store grows by that much each cycle for as long as the watch runs.
 const DefaultWatchKeep = 48 * time.Hour
 
+// MinWatchEvery is the shortest interval between cycles. A run id carries the cycle's
+// start to the second, so two cycles within one second would share a run id: they would
+// replace each other's stored run and share the webhook cap.
+const MinWatchEvery = 5 * time.Second
+
 // DefaultHealthRepeat is how often an identical, unchanged outage alerts again.
 const DefaultHealthRepeat = 30 * time.Minute
 
@@ -156,6 +161,8 @@ func (o WatchOptions) Validate() error {
 	switch {
 	case o.Every <= 0:
 		return errors.New("watch: interval must be positive")
+	case o.Every < MinWatchEvery:
+		return fmt.Errorf("watch: --every %s is below the minimum %s: run ids have one-second resolution, so faster cycles would share a run id", o.Every, MinWatchEvery)
 	case o.Window <= 0:
 		return errors.New("watch: window must be positive")
 	case o.Window < o.Every:

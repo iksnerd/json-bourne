@@ -346,3 +346,24 @@ func TestWatchRefusesARunPrefixRetentionCannotFind(t *testing.T) {
 		t.Fatalf("the real prefix was refused: %v", err)
 	}
 }
+
+// Run ids have one-second resolution: two cycles inside one second would share a run id,
+// replace each other's stored run and share the webhook cap. An interval below the
+// minimum is refused, and the error names the flag and the minimum.
+func TestWatchOptionsRefuseIntervalBelowMinimum(t *testing.T) {
+	o := WatchOptions{Every: MinWatchEvery - time.Nanosecond, Window: time.Hour}
+	err := o.Validate()
+	if err == nil {
+		t.Fatal("interval below the minimum accepted")
+	}
+	if !strings.Contains(err.Error(), "--every") || !strings.Contains(err.Error(), MinWatchEvery.String()) {
+		t.Errorf("error %q must name --every and the minimum %s", err, MinWatchEvery)
+	}
+	o.Every = MinWatchEvery
+	if err := o.Validate(); err != nil {
+		t.Errorf("interval equal to the minimum refused: %v", err)
+	}
+	if MinWatchEvery < 2*time.Second {
+		t.Errorf("MinWatchEvery = %s: must exceed the one-second run-id resolution", MinWatchEvery)
+	}
+}

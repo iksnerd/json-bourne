@@ -69,6 +69,7 @@ func TestUsageClassMatchesExitCode(t *testing.T) {
 		{"watch bad name", []string{"watch", "--case", okDir, "--once", "--name", "Bad Name"}, watch(okDir, jb.WatchOptions{Name: "Bad Name"}), true},
 		{"watch window shorter than interval", []string{"watch", "--case", okDir, "--once", "--every", "10m", "--window", "5m"}, watch(okDir, jb.WatchOptions{Every: 10 * time.Minute, Window: 5 * time.Minute}), true},
 		{"watch negative every", []string{"watch", "--case", okDir, "--once", "--every", "-1m"}, watch(okDir, jb.WatchOptions{Every: -time.Minute}), true},
+		{"watch every below minimum", []string{"watch", "--case", okDir, "--once", "--every", "1s"}, watch(okDir, jb.WatchOptions{Every: time.Second}), true},
 		{"watch case not found", []string{"watch", "--case", emptyDir, "--once"}, watch(emptyDir, jb.WatchOptions{}), false},
 		{"watch unreachable source", []string{"watch", "--case", downDir, "--once"}, watch(downDir, jb.WatchOptions{}), false},
 	}

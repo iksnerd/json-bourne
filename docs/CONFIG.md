@@ -1023,6 +1023,8 @@ Rules that hold in every recipe: the YAML never holds the value, a value is neve
 
 What `jb watch` prints and how several watchers share a case.
 
+`--every` (`WatchOptions.Every`) must be at least `5s`; a smaller value is a usage error naming the flag and the minimum. A run id carries the cycle's start to the second, so two cycles inside one second would share a run id: they would replace each other's stored run and share the webhook cap.
+
 ### Watch output
 
 `jb watch --once --output json` prints the cycle report as one JSON document on stdout. The alert lines go to stderr instead, so stdout stays parseable; the log file and any webhook get them as always. `--output json` without `--once` is a usage error (exit 2), because a loop has no single result. A cycle that is not healthy still prints its report, then exits 1. The same fields are in the Go package as `jb.CycleReport`.
