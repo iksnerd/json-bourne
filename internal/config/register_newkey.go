@@ -26,4 +26,7 @@ func registerNewkey(m map[string]func(*yaml.Node) (detectorSpec, error)) {
 // needsFilteredSources is read by Parse: see checkQuietNeedsFilters.
 func (s newkeySpec) needsFilteredSources() bool { return s.cfg.EmptyIsQuiet }
 
+// needsKeyCounters is read by Parse: see checkHistorySources.
+func (s newkeySpec) needsKeyCounters() bool { return s.cfg.History != nil }
+
 func (s newkeySpec) build(buildCtx) (core.Detector, error) { return newkey.New(s.cfg) }

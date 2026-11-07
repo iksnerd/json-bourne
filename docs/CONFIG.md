@@ -67,8 +67,13 @@ Reads Elasticsearch through the Kibana search proxy (`POST /internal/search/es`)
 | `search_field` | `message` | The field `jb hunt --search TERM` matches a term against (see [Ad-hoc search](#ad-hoc-search)). Same character rules as a filter `field`. |
 | `mapper` | `default` | Name of the mapper that turns a document into an event, or `plugin:<name>` for an allowlisted plugin; see [Mappers](#mappers). An unknown name, or a plugin that is not in your allowlist, is an error at load. |
 | `mapper_config` | none | Only with `mapper: plugin:<name>`. A YAML map (at most 64 KiB as JSON) passed to the plugin as data on every request. It can never name a path or a command. |
+| `key_match` | none | `{field, mode}`. Which raw field of this index holds a key, and how to match it. Needed only by a `newkey` detector with a `history` block (see [`type: newkey`](#type-newkey)). `field` has the character rules of a filter `field`. `mode` is required and has no default: `term` is an exact value in a keyword field; `phrase` is the key as a phrase in an analysed field (for example the `message` text). A wrong mode returns zero for every key (a `term` on an analysed field) or over-counts (a `phrase`). `key_match` does not need a `filter`. |
 
 Caveat from the code: every built-in mapper reads the event time from the document's `@timestamp` (RFC 3339), whatever `time_field` is. `time_field` changes the query, not the mapping. A document without a parsable `@timestamp` stops the fetch with an error.
+
+#### What leaves the machine: `jb doctor` and the history probe
+
+`jb doctor` lists, per source, what leaves the machine (the "Leaves" text): the search query and the API key, to the Kibana host. A source with `key_match` adds a line: when a `newkey` detector uses `history`, its candidate keys (the values of `key_field`, such as client addresses) are sent to this index, in the body of a count request, never in the URL. The index is one the detector already reads.
 
 #### Filter
 
@@ -473,10 +478,52 @@ Flags a key that appears in the current window with no event at all in the prece
 
 | `min_severity` | none | A floor, not an override: the severity becomes the greater of the computed one and this one, applied after the empty-baseline drop. `high` or `critical`; `info`, `check`, `activity` and any unknown name are refused at load. `Detail["min_severity"]` appears only when the floor raised the result. The tag does not change, so `watch` alerts again on the raised severity. Shared with `behaviour` (`internal/severityfloor`). |
 | `note` | none | Text carried in the finding as `Detail["note"]`. Required with `min_severity: critical`; an error without `min_severity`. |
+| `history` | none | `{lookback, min_events, max_candidates}`. Replaces the preceding-window baseline with a count of every event of the key over a longer lookback, asked of the sources. See [History](#history-longer-memory-than-the-window). An unknown key, a missing required key or a value out of range is an error at load. |
 
 A finding is tagged `<name>:<key>` at severity `high`. A key with any event on any path in the preceding window is known and is never raised, and ordinary-path traffic from a new key does not count toward `min_hits`. A current window with no event carrying a usable key is `no records`. When the preceding window holds no keyed event at all, every key is new and that is a missing baseline: the finding is still raised, `baseline_empty` is true in `Detail` and the severity is `activity`. `Detail` carries the key's events and sensitive hits, which configured entries were hit and how often (`sensitive_paths_hit`), and the population counts of both windows. Only the preceding window is read as history; a longer memory is a longer window.
 
 **Scripted clients from addresses with no history** (the gateway rule). Point `newkey` at a source mapped by `request_dump`, key on `client_ip`, list the attack-shaped endpoints in `sensitive_paths`, and add `user_agent_field: user_agent` with `user_agent_matches: ["curl/*", "python-requests/*"]`. The finding then means: this address has no event of any kind in the preceding window and made at least `min_hits` requests to those endpoints with an agent that announces itself as a script. The user agent is chosen by the client, so the filter narrows the lead and does not define the attacker: a script that sends a browser agent is not matched, and a browser agent from a new address is never raised by this rule (nor is volume). With the filter on, `Detail` adds `user_agent_filter: true` and `key_cur_sensitive_any_agent`, the key's sensitive requests of any agent, so a reader sees what the filter set aside; `key_cur_sensitive_hits` and `sensitive_paths_hit` count the matching requests only. A finding never repeats the agent string. Keep `key_field` on an address the edge asserts, not on the edge itself.
+
+#### History: longer memory than the window
+
+A one hour window calls every address that was idle for the previous hour new. `history` asks instead: how many events of any kind did this key have in the `lookback` before the window?
+
+```yaml
+sources:
+  - type: kibana
+    url: https://kibana.example.com
+    api_key_env: JB_KIBANA_API_KEY
+    index: logs-web-*
+    filter:
+      - match_phrase: {field: path, value: /verify-phone-and-code}
+    key_match: {field: message, mode: phrase}   # required for history; mode has no default
+detectors:
+  - type: newkey
+    key_field: client_ip
+    path_field: path
+    sensitive_paths: ["/verify-phone-and-code", "/customers/switch-profile"]
+    min_hits: 3
+    history: {lookback: 168h, min_events: 50, max_candidates: 50}
+```
+
+| `history` key | Default | Rule |
+|---|---|---|
+| `lookback` | required | At most 31 days, and longer than the window (checked at run time, a usage error otherwise). The interval is `[window.From - lookback, window.From)`. |
+| `min_events` | required | 1 or more. A key with at least this many events of any kind in the lookback is known. |
+| `max_candidates` | `50` | At most `100`. |
+
+How it runs. A candidate is a key that meets `min_hits` on the sensitive paths and is not in `ignore_keys`. Candidates are ordered by hits, most first, then by key, and the first `max_candidates` are judged; the rest are not judged. jb sends each distinct index one count request that counts all judged candidates at once, with the source's own `filter` removed (the store holds only what the filter matched, so only the source can count "any kind"). A judged candidate under `min_events` is a finding, at the severity `newkey` gives (and the `min_severity` floor). `Detail` adds `history_lookback`, `history_count`, `history_min_events` and `history_mode`, and `Baseline` is the lookback interval. The history **replaces** the preceding-window baseline for a candidate: a key seen once an hour ago and fewer than `min_events` times in the lookback is still new. For two baselines, run two detectors. With `user_agent_matches`, candidates count only the matching hits, while history counts every agent ("hits of any kind").
+
+Never quiet. Before counting keys, jb asks each index how many events of any kind it holds in the lookback. Zero means that index cannot show history (a typo in the field, an index that keeps less than `lookback`), and the detector is incomplete, not new-for-everyone. A probe that fails, or candidates beyond `max_candidates`, keep the findings already proven and make the run `INCOMPLETE`; the error says how many candidates were not judged and the first cause. Plain `Detect` on a detector with `history` is an error and never falls back to the preceding window.
+
+Where it works. Every source the detector reads (its `sources`, else all of them) must be a kibana source with `key_match`; Parse refuses anything else naming the source, and `jb case check` validates this with no network and no environment. Two sources on the same cluster and index are counted once; different indices add up.
+
+Limits to know.
+- `phrase` can over-count: an IPv6 address splits into several tokens, and an address can appear as a hop in a forwarded-for chain or in the body of the text. Over-counting makes a key look known, so it errs toward quiet and never creates a false alarm. The finding records the mode. Use `term` on a keyword field when the index has one.
+- A key may use only letters, digits and `. : @ _ -`, at most 256 bytes. Any other candidate key (a forwarded-for chain with spaces, for example) is refused on its own before a request is sent: it counts as not judged and makes the run incomplete, naming the count and never the key, while the other candidates are judged normally.
+- The key is sent in the body of a request to the index the detector already reads, never in a URL, and it appears in no finding (with `hash_keys` the finding shows the hash and the probe uses the plain value), log line or error.
+- The previous cycle's attack events count as history, so a persistent attacker becomes known after enough cycles. `watch` suppresses repeat alerts by tag, which hides this, but a `hunt --until` replay can differ from live behaviour.
+- The cost is one count request per distinct index per run, plus one liveness count. On one measured production index (about 14 million documents a day) 8 to 10 phrase buckets over 7 days took under a second. A heavy-hitter address has not been measured.
 
 ### `type: signature`
 
