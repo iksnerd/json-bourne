@@ -173,10 +173,11 @@ func scanActorCredentials(doc *yaml.Node) error {
 	if root.Kind != yaml.MappingNode {
 		return errors.New("an actor file must be a mapping")
 	}
+	sc := newScanner() // one budget for the whole file
 	for i := 0; i+1 < len(root.Content); i += 2 {
 		key, val := root.Content[i].Value, root.Content[i+1]
 		if key != "indicators" || val.Kind != yaml.SequenceNode {
-			if err := scan(val, key); err != nil {
+			if err := sc.walk(val, key, 1); err != nil {
 				return err
 			}
 			continue
@@ -184,7 +185,7 @@ func scanActorCredentials(doc *yaml.Node) error {
 		for j, item := range val.Content {
 			path := fmt.Sprintf("indicators[%d]", j)
 			if item.Kind != yaml.MappingNode {
-				if err := scan(item, path); err != nil {
+				if err := sc.walk(item, path, 2); err != nil {
 					return err
 				}
 				continue
@@ -200,7 +201,7 @@ func scanActorCredentials(doc *yaml.Node) error {
 				if isFingerprint && field == "value" {
 					continue
 				}
-				if err := scan(item.Content[k+1], path+"."+field); err != nil {
+				if err := sc.walk(item.Content[k+1], path+"."+field, 3); err != nil {
 					return err
 				}
 			}

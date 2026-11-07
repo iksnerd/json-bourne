@@ -10,6 +10,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ### Fixed
 - The `newkey` history probe grouped sources by their literal index expression, so two sources on one cluster with overlapping patterns (`logs-*`, `logs-web-*`) counted the same documents twice and a new key could read as known. It now probes each cluster once over the union of its sources' index expressions and sums across clusters.
 - A detector scoped to one source (`sources:`) could read none of the documents an overlapping source on the same cluster had returned first, and the hunt still reported complete. A shared document is still stored once, and every detector whose scope includes any source that returned it now reads it, once.
+- A Kibana search reply with `timed_out: true` or a failed shard (`_shards.failed` > 0) was read as complete, so low counts could hide activity. Fetch pages, the liveness probe, `CountKeys` and `CountAll` now fail with a partial-response error that marks the run incomplete and echoes no body.
+- An estate, snapshot, case or actor file with a self-referencing alias crashed `jb` with an unrecoverable stack overflow, and an alias expansion bomb hung it, in the credential scan before strict validation. The scan now refuses a cyclic alias, nesting deeper than 64 levels and more than 100000 expanded nodes with a load error.
 
 ## [0.7.0] - 2026-11-07
 

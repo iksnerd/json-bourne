@@ -46,14 +46,38 @@ func entropy(s string) float64 {
 	return h
 }
 
-// scanCredentials walks every scalar value in the document.
-func scanCredentials(n *yaml.Node) error { return scan(n, "") }
+// Limits on the credential walk. A case-family file is a few hundred nodes and a few
+// levels deep; these are far above any real file and far below what hurts. They stop a
+// self-referencing alias (a stack overflow Go cannot recover from), absurd nesting, and
+// an alias expansion bomb (nested aliases that multiply) before the strict decode runs.
+const (
+	maxScanDepth = 64
+	maxScanNodes = 100000
+)
 
-func scan(n *yaml.Node, path string) error {
+// scanner is one credential walk. Its node budget is shared by every call made on it, so
+// a file walked in pieces (an actor file) has one budget, not one per piece.
+type scanner struct {
+	nodes    int
+	visiting map[*yaml.Node]bool // alias targets on the current path
+}
+
+func newScanner() *scanner { return &scanner{visiting: map[*yaml.Node]bool{}} }
+
+// scanCredentials walks every scalar value in the document.
+func scanCredentials(n *yaml.Node) error { return newScanner().walk(n, "", 0) }
+
+func (s *scanner) walk(n *yaml.Node, path string, depth int) error {
+	if depth > maxScanDepth {
+		return fmt.Errorf("document nests deeper than %d levels; refused", maxScanDepth)
+	}
+	if s.nodes++; s.nodes > maxScanNodes {
+		return fmt.Errorf("document expands to more than %d nodes (nested aliases?); refused", maxScanNodes)
+	}
 	switch n.Kind {
 	case yaml.DocumentNode:
 		for _, c := range n.Content {
-			if err := scan(c, path); err != nil {
+			if err := s.walk(c, path, depth+1); err != nil {
 				return err
 			}
 		}
@@ -63,13 +87,13 @@ func scan(n *yaml.Node, path string) error {
 			if path != "" {
 				p = path + "." + p
 			}
-			if err := scan(n.Content[i+1], p); err != nil {
+			if err := s.walk(n.Content[i+1], p, depth+1); err != nil {
 				return err
 			}
 		}
 	case yaml.SequenceNode:
 		for i, c := range n.Content {
-			if err := scan(c, fmt.Sprintf("%s[%d]", path, i)); err != nil {
+			if err := s.walk(c, fmt.Sprintf("%s[%d]", path, i), depth+1); err != nil {
 				return err
 			}
 		}
@@ -78,7 +102,16 @@ func scan(n *yaml.Node, path string) error {
 			return fmt.Errorf("%s (line %d) holds a credential-shaped value; a case file names an environment variable and never holds the value", path, n.Line)
 		}
 	case yaml.AliasNode:
-		return scan(n.Alias, path)
+		if n.Alias == nil {
+			return nil
+		}
+		if s.visiting[n.Alias] {
+			return fmt.Errorf("%s (line %d) is an alias that contains itself; refused", path, n.Line)
+		}
+		s.visiting[n.Alias] = true
+		err := s.walk(n.Alias, path, depth+1)
+		delete(s.visiting, n.Alias)
+		return err
 	}
 	return nil
 }

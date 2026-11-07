@@ -123,9 +123,20 @@ func (c *Client) search(ctx context.Context, index string, body map[string]any) 
 			} `json:"hits"`
 		} `json:"hits"`
 		Aggregations map[string]any `json:"aggregations"`
+		TimedOut     bool           `json:"timed_out"`
+		Shards       struct {
+			Failed int `json:"failed"`
+		} `json:"_shards"`
 	}
 	if err := json.Unmarshal(esBody, &es); err != nil {
 		return nil, fmt.Errorf("decode kibana response: %w", err)
+	}
+	// A timed-out search or a failed shard returns what it had, as a normal 200. Counts
+	// taken from it are low, so it is an error, never a result. Skipped shards are fine.
+	// Neither the body nor the shard failure reasons are echoed.
+	if es.TimedOut || es.Shards.Failed > 0 {
+		return nil, fmt.Errorf("%w: kibana returned a partial response (timed out: %t, failed shards: %d)",
+			core.ErrSourceUnavailable, es.TimedOut, es.Shards.Failed)
 	}
 
 	out := &response{Aggs: es.Aggregations}
