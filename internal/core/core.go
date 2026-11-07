@@ -61,7 +61,7 @@ type Event struct {
 
 // DocScoped is an optional port of a Source: DocScope names the store whose DocKeys it
 // emits (for Elasticsearch, the cluster URL). Two sources with the same non-empty scope
-// may read the same document, and Hunt keeps the first copy of each DocKey.
+// may read the same document, and Hunt keeps one copy of each DocKey, from the smallest source name that returned it.
 type DocScoped interface {
 	DocScope() string
 }

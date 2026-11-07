@@ -312,15 +312,39 @@ func Hunt(ctx context.Context, d Deps, run string, w core.Window) (Result, error
 
 	res.Sources = make([]SourceResult, len(d.Sources))
 	scopes := sharedScopes(d.Sources)
-	res.aliases = &aliasIndex{m: map[string][]string{}}
+	pend := make([]*pending, len(d.Sources))
 	forEach(ctx, n, len(d.Sources), func(i int) {
-		res.Sources[i] = ingest(ctx, &sinkMu, d.Sink, d.Sources[i], run, fetch, scopes, res.aliases)
+		res.Sources[i], pend[i] = ingest(ctx, &sinkMu, d.Sink, d.Sources[i], run, fetch, scopes)
 	}, func(i int) {
 		res.Sources[i] = SourceResult{Name: d.Sources[i].Name(), Status: StatusCanceled, Err: ctx.Err()}
 	})
 	if err := ctx.Err(); err != nil {
+		for i, p := range pend {
+			if p != nil {
+				res.Sources[i] = SourceResult{Name: d.Sources[i].Name(), Status: StatusCanceled, Err: err}
+			}
+		}
 		return res, err
 	}
+	// Every source of a shared scope has been read, so the winner of each shared document
+	// is known: the smallest source name among those that returned it. Store the copies.
+	won := map[*docSet]map[string][]*sharedDoc{}
+	for _, ds := range scopes {
+		won[ds] = ds.byWinner()
+	}
+	forEach(ctx, n, len(d.Sources), func(i int) {
+		if p := pend[i]; p != nil {
+			res.Sources[i] = p.store(ctx, &sinkMu, d.Sink, run, won[p.docs][p.name])
+		}
+	}, func(i int) {
+		if pend[i] != nil {
+			res.Sources[i] = SourceResult{Name: d.Sources[i].Name(), Status: StatusCanceled, Err: ctx.Err()}
+		}
+	})
+	if err := ctx.Err(); err != nil {
+		return res, err
+	}
+	res.aliases = buildAliases(scopes)
 
 	cur := boundedReader{inner: d.Reader, bound: w}
 	prev := boundedReader{inner: d.Reader, bound: res.Baseline}
@@ -420,48 +444,54 @@ func (d Deps) readersFor(detector string, cur, prev core.EventReader, al *aliasI
 	return sourceReader{inner: cur, names: names, aliases: al}, sourceReader{inner: prev, names: names, aliases: al}
 }
 
-// aliasIndex records, for a document stored once under the source that read it first,
-// the other sources that returned it. A detector scoped to one of those sources must
-// still see the document, while one reading every source sees the single stored row.
-// The key is a fingerprint of the stored event (docFingerprint), not the DocKey, which
-// is never stored.
+// aliasIndex records, for each shared document stored once under the winning source, the
+// sources that returned it, so a detector scoped to one of the others still reads it
+// while one reading every source sees the single stored row. Documents are told apart by
+// identity (the DocKey, which is never stored); the stored copy is found again through
+// its fingerprint (docFingerprint), so the index keeps one entry per document under that
+// fingerprint, and two documents with equal contents are two entries. Read-only once built.
 type aliasIndex struct {
-	mu sync.Mutex
-	m  map[string][]string
+	m map[string][][]string // fingerprint of a stored copy to, per document, its returning sources
 }
 
-func (a *aliasIndex) add(fp, source string) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if !slices.Contains(a.m[fp], source) {
-		a.m[fp] = append(a.m[fp], source)
+// buildAliases collects the shared documents of every scope that two or more sources
+// returned.
+func buildAliases(scopes map[string]*docSet) *aliasIndex {
+	a := &aliasIndex{m: map[string][][]string{}}
+	for _, ds := range scopes {
+		for _, d := range ds.docs {
+			if len(d.returners) > 1 {
+				fp := docFingerprint(d.ev)
+				a.m[fp] = append(a.m[fp], d.returners)
+			}
+		}
 	}
+	return a
 }
 
-// within reports whether another source in names returned the stored event.
-func (a *aliasIndex) within(ev core.Event, names []string) bool {
-	if a == nil {
-		return false
-	}
-	a.mu.Lock()
-	n := len(a.m)
-	a.mu.Unlock()
-	if n == 0 {
+// take reports whether the stored event ev is a document some source in names returned
+// but did not win, and consumes it from used. Stored copies with one fingerprint are
+// interchangeable, so a scope is granted as many of them as it has documents.
+func (a *aliasIndex) take(ev core.Event, names []string, used map[string]int) bool {
+	if a == nil || len(a.m) == 0 {
 		return false
 	}
 	fp := docFingerprint(ev)
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	for _, s := range a.m[fp] {
-		if slices.Contains(names, s) {
-			return true
+	quota := 0
+	for _, returners := range a.m[fp] {
+		if slices.ContainsFunc(returners, func(s string) bool { return slices.Contains(names, s) }) {
+			quota++
 		}
 	}
-	return false
+	if used[fp] >= quota {
+		return false
+	}
+	used[fp]++
+	return true
 }
 
-// docFingerprint identifies a stored event by what the store keeps: source, kind and a
-// digest of the original document (the fields when there is none).
+// docFingerprint identifies a stored event by what the store keeps: source, kind, time
+// and a digest of the original document (the fields when there is none).
 func docFingerprint(ev core.Event) string {
 	h := sha256.New()
 	if len(ev.Raw) > 0 {
@@ -469,12 +499,13 @@ func docFingerprint(ev core.Event) string {
 	} else if b, err := json.Marshal(ev.Fields); err == nil {
 		h.Write(b)
 	}
-	return ev.Source + "\x00" + ev.Kind + "\x00" + hex.EncodeToString(h.Sum(nil))
+	return fmt.Sprintf("%s\x00%s\x00%d\x00%s", ev.Source, ev.Kind, ev.Time.UnixMicro(), hex.EncodeToString(h.Sum(nil)))
 }
 
-// sourceReader passes through only the events stored under one of names. ingest stamps
-// every event with the name of the source that returned it, so the stored source column
-// is the source name whatever the mapper put in Event.Source.
+// sourceReader passes through only the events stored under one of names, and the shared
+// documents one of names returned. ingest stamps every event with the name of the source
+// that returned it, so the stored source column is the source name whatever the mapper
+// put in Event.Source.
 type sourceReader struct {
 	inner   core.EventReader
 	names   []string
@@ -483,8 +514,9 @@ type sourceReader struct {
 
 func (s sourceReader) Events(ctx context.Context, w core.Window) iter.Seq2[core.Event, error] {
 	return func(yield func(core.Event, error) bool) {
+		used := map[string]int{}
 		for ev, err := range s.inner.Events(ctx, w) {
-			if err == nil && !slices.Contains(s.names, ev.Source) && !s.aliases.within(ev, s.names) {
+			if err == nil && !slices.Contains(s.names, ev.Source) && !s.aliases.take(ev, s.names, used) {
 				continue
 			}
 			if !yield(ev, err) {
@@ -496,12 +528,33 @@ func (s sourceReader) Events(ctx context.Context, w core.Window) iter.Seq2[core.
 
 // ingest streams one source into the sink. The sink pulls from the iterator while
 // it holds the writer lock, so the writes are serialised and nothing is buffered.
-func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source, run string, w core.Window, shared map[string]*docSet, al *aliasIndex) SourceResult {
-	r := SourceResult{Name: src.Name()}
+//
+// A source of a shared scope (sharedScopes) is not stored yet: which source keeps a
+// shared document is known only once every source has been read, so it is collected
+// into the scope's docSet and the returned pending stores it afterwards.
+func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source, run string, w core.Window, shared map[string]*docSet) (SourceResult, *pending) {
 	var docs *docSet
 	if ds, ok := src.(core.DocScoped); ok {
 		docs = shared[ds.DocScope()]
 	}
+	if docs != nil {
+		p := &pending{name: src.Name(), src: src, docs: docs}
+		for ev, err := range src.Fetch(ctx, w) {
+			if err != nil {
+				p.fetchErr = err
+				break
+			}
+			ev.Source = src.Name()
+			if ev.DocKey == "" {
+				p.keyless = append(p.keyless, ev)
+				continue
+			}
+			p.keyed++
+			docs.claim(ev)
+		}
+		return SourceResult{Name: src.Name()}, p
+	}
+	r := SourceResult{Name: src.Name()}
 	sourceFailed := false // the source itself yielded an error, as opposed to the sink refusing an empty save
 	counted := func(yield func(core.Event, error) bool) {
 		for ev, err := range src.Fetch(ctx, w) {
@@ -510,17 +563,6 @@ func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source
 				// event: scoped detectors select on it, so a mapper that labels its
 				// events differently must not move them out of the source's scope.
 				ev.Source = src.Name()
-			}
-			if err == nil && docs != nil && ev.DocKey != "" {
-				// The duplicate is not stored again, but the source that returned it
-				// is remembered, so a detector scoped to it still reads the document.
-				if winner, first := docs.first(ev.DocKey, docFingerprint(ev)); !first {
-					al.add(winner, src.Name())
-					r.Duplicates++
-					continue
-				}
-			}
-			if err == nil {
 				r.Events++
 			} else {
 				sourceFailed = true
@@ -533,6 +575,11 @@ func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source
 	mu.Lock()
 	err := sink.SaveEvents(ctx, SourceRun(run, src.Name()), iter.Seq2[core.Event, error](counted))
 	mu.Unlock()
+	return finish(r, src, err, sourceFailed), nil
+}
+
+// finish classifies the outcome of saving one source and adds what the source reports.
+func finish(r SourceResult, src core.Source, err error, sourceFailed bool) SourceResult {
 	r.Status, r.Err = classify(err), err
 	if pc, ok := src.(core.ParseCounter); ok {
 		r.Unparsable = pc.Unparsable()
@@ -558,29 +605,92 @@ func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source
 	return r
 }
 
-// docSet remembers the documents one run has seen from sources of one scope.
-type docSet struct {
-	mu   sync.Mutex
-	seen map[string]string // DocKey to the fingerprint of the stored copy
+// pending is a source of a shared scope that has been read but not stored.
+type pending struct {
+	name     string
+	src      core.Source
+	docs     *docSet
+	keyless  []core.Event // events with no identity: never merged, always stored
+	keyed    int64        // events with an identity that the source returned
+	fetchErr error
 }
 
-// first reports whether key has not been seen, and remembers it with fp, the
-// fingerprint of the copy that is stored. For a key seen before it returns the
-// fingerprint of the stored copy.
-func (d *docSet) first(key, fp string) (string, bool) {
+// store saves what the source won: its keyless events and the shared documents for which
+// it is the smallest returning source. The others it returned are duplicates.
+func (p *pending) store(ctx context.Context, mu *sync.Mutex, sink core.Sink, run string, won []*sharedDoc) SourceResult {
+	r := SourceResult{Name: p.name, Duplicates: p.keyed - int64(len(won))}
+	stream := func(yield func(core.Event, error) bool) {
+		for _, ev := range p.keyless {
+			r.Events++
+			if !yield(ev, nil) {
+				return
+			}
+		}
+		for _, d := range won {
+			r.Events++
+			if !yield(d.ev, nil) {
+				return
+			}
+		}
+		if p.fetchErr != nil {
+			yield(core.Event{}, p.fetchErr)
+		}
+	}
+	mu.Lock()
+	err := sink.SaveEvents(ctx, SourceRun(run, p.name), iter.Seq2[core.Event, error](stream))
+	mu.Unlock()
+	return finish(r, p.src, err, p.fetchErr != nil)
+}
+
+// docSet remembers the documents one run has seen from sources of one scope: for each
+// DocKey the copy to store, which is the one from the smallest source name, and every
+// source that returned it. Memory is one event per distinct document.
+type docSet struct {
+	mu   sync.Mutex
+	docs map[string]*sharedDoc
+}
+
+type sharedDoc struct {
+	key       string
+	ev        core.Event // the copy to store, from the winner
+	winner    string
+	returners []string
+}
+
+// claim records that ev.Source returned the document ev.DocKey. The result does not
+// depend on the order of the calls: the winner is the smallest name, whenever it arrives.
+func (d *docSet) claim(ev core.Event) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if w, dup := d.seen[key]; dup {
-		return w, false
+	doc := d.docs[ev.DocKey]
+	if doc == nil {
+		d.docs[ev.DocKey] = &sharedDoc{key: ev.DocKey, ev: ev, winner: ev.Source, returners: []string{ev.Source}}
+		return
 	}
-	d.seen[key] = fp
-	return fp, true
+	if !slices.Contains(doc.returners, ev.Source) {
+		doc.returners = append(doc.returners, ev.Source)
+	}
+	if ev.Source < doc.winner {
+		doc.ev, doc.winner = ev, ev.Source
+	}
+}
+
+// byWinner groups the documents by the source that stores them, in DocKey order.
+func (d *docSet) byWinner() map[string][]*sharedDoc {
+	out := map[string][]*sharedDoc{}
+	for _, doc := range d.docs {
+		out[doc.winner] = append(out[doc.winner], doc)
+	}
+	for _, l := range out {
+		sort.Slice(l, func(i, j int) bool { return l[i].key < l[j].key })
+	}
+	return out
 }
 
 // sharedScopes returns a docSet for each scope that two or more sources report, so a
-// run with one source per cluster keeps no per-document memory. Which of two overlapping
-// sources keeps a shared document depends on which read it first; the count of
-// distinct documents does not.
+// run with one source per cluster keeps no per-document memory. The source that keeps a
+// shared document is the smallest name among those that returned it, so it depends on
+// neither the order of the sources nor on which read first.
 func sharedScopes(srcs []core.Source) map[string]*docSet {
 	n := map[string]int{}
 	for _, s := range srcs {
@@ -591,7 +701,7 @@ func sharedScopes(srcs []core.Source) map[string]*docSet {
 	out := map[string]*docSet{}
 	for scope, c := range n {
 		if c > 1 {
-			out[scope] = &docSet{seen: map[string]string{}}
+			out[scope] = &docSet{docs: map[string]*sharedDoc{}}
 		}
 	}
 	return out
