@@ -165,6 +165,9 @@ func Parse(data []byte) (*Case, error) {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return nil, errors.New("file is empty")
 	}
+	if err := CheckYAMLShape("case file", data); err != nil {
+		return nil, err
+	}
 	var probe struct {
 		APIVersion string `yaml:"apiVersion"`
 	}

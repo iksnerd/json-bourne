@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/iksnerd/json-bourne/internal/casefile"
 	"gopkg.in/yaml.v3"
 )
 
@@ -48,6 +49,9 @@ func LoadCommands(path string) ([]string, error) {
 	}
 	if len(data) > maxFileSize {
 		return nil, fmt.Errorf("config %s is larger than %d bytes", path, maxFileSize)
+	}
+	if err := casefile.CheckYAMLShape("config", data); err != nil {
+		return nil, fmt.Errorf("config %s: %w", path, err)
 	}
 	var head struct {
 		Commands []string `yaml:"commands"`

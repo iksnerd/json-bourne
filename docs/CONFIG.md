@@ -4,7 +4,7 @@
 
 `jb` reads one YAML file, passed as `--config`. Inside a case (`jb hunt --case DIR`, [CASE-SPEC](CASE-SPEC.md) section 9) the file is one of the case's `config` entries (or another file inside the case: a relative `--config` path is looked for in the case directory first, then in the working directory, and its real path, symlinks followed, must be inside the case), and `jb case check --case DIR` validates it, and `jb case show --case DIR` prints what it would run, reading no environment variable and no credential value. [`examples/jb.example.yaml`](../examples/jb.example.yaml) is a complete starting point with placeholder values.
 
-The loader is strict. An unknown key, an unknown `type`, a missing `type`, a file larger than 1 MiB, or an empty file is an error at load time, before any network call, so a typo cannot silently turn a safeguard off. At least one source and one detector are required.
+The loader is strict. An unknown key, an unknown `type`, a missing `type`, a file larger than 1 MiB, a mapping of more than 1000 keys, or an empty file is an error at load time, before any network call, so a typo cannot silently turn a safeguard off. At least one source and one detector are required.
 
 ## Top level
 

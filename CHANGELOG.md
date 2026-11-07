@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- A YAML file with one mapping of many keys stalled the loader (yaml.v3 decodes a mapping in time quadratic in its key count: about 45 s for 100,000 keys, a 1 MiB file). Case, actor, estate, snapshot and config files with a mapping of more than 1000 keys are now refused at load, before the decode.
+
 ## [0.8.0] - 2026-11-07
 
 ### Added
