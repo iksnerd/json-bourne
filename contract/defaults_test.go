@@ -166,7 +166,7 @@ func TestMutatingFunctionsAreDryRunsUnlessApplied(t *testing.T) {
 	before := treeDigest(t, dir)
 
 	keep := 0
-	pr, err := jb.DBPrune(t.Context(), dir, jb.DBPruneOptions{Kinds: []jb.RunKind{jb.RunKindHunt}, OlderThan: time.Minute, KeepLatest: &keep, Now: func() time.Time { return now.Add(48 * time.Hour) }})
+	pr, err := jb.DBPrune(t.Context(), dir, jb.DBPruneOptions{Kinds: []jb.RunKind{jb.RunKindHunt}, OlderThan: time.Minute, KeepLatest: &keep, Now: func() time.Time { return time.Now().Add(48 * time.Hour) }})
 	if err != nil || pr.Applied || pr.Plan.Events == 0 {
 		t.Fatalf("prune dry run: %v %+v", err, pr)
 	}

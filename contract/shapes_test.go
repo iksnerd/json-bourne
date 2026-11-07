@@ -70,7 +70,7 @@ func TestShapeDBMaintenanceDryRuns(t *testing.T) {
 	keep := 0
 	pr, err := jb.DBPrune(t.Context(), dir, jb.DBPruneOptions{
 		Kinds: []jb.RunKind{jb.RunKindHunt}, OlderThan: time.Minute, KeepLatest: &keep,
-		Now: func() time.Time { return now.Add(48 * time.Hour) },
+		Now: func() time.Time { return time.Now().Add(48 * time.Hour) },
 	})
 	pinShape(t, "db-prune", must(t, pr, err))
 	cr, err := jb.DBCompact(t.Context(), dir, jb.DBCompactOptions{To: filepath.Join(dir, "evidence", "compact.duckdb")})
