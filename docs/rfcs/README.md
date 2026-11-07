@@ -83,3 +83,5 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0014](0014-newkey-history.md) | History probe for the newkey detector | accepted |
 | [0015](0015-estate-subject.md) | Subject of an estate file | accepted |
 | [0016](0016-own-cloud-inventory.md) | Inventory of the operator's own cloud | draft (parked) |
+| [0017](0017-public-api-owns-its-types.md) | Public API owns its types | draft |
+| [0018](0018-stability-policy.md) | Stability policy for 1.0 | draft |
