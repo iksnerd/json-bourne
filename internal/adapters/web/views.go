@@ -1,12 +1,14 @@
 package web
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -439,6 +441,35 @@ type nodeRow struct {
 
 type factRow struct{ Key, Value, Source, Method, Observed string }
 
+// factGroup is every fact of one key. Values are listed in value order, so a key with
+// several values (two open ports, say) shows each one under the key once.
+type factGroup struct {
+	Key   string
+	Facts []factRow
+}
+
+// groupFacts groups facts by key, any key. Groups are in key order and the facts of a
+// group in value order, then source, method and time, so the same file always renders
+// the same page.
+func groupFacts(fs []core.EstateFact) []factGroup {
+	rows := make([]factRow, 0, len(fs))
+	for _, f := range fs {
+		rows = append(rows, factRowOf(f))
+	}
+	slices.SortStableFunc(rows, func(a, b factRow) int {
+		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Value, b.Value), cmp.Compare(a.Source, b.Source),
+			cmp.Compare(a.Method, b.Method), cmp.Compare(a.Observed, b.Observed))
+	})
+	var out []factGroup
+	for _, r := range rows {
+		if n := len(out); n == 0 || out[n-1].Key != r.Key {
+			out = append(out, factGroup{Key: r.Key})
+		}
+		out[len(out)-1].Facts = append(out[len(out)-1].Facts, r)
+	}
+	return out
+}
+
 // assessRow is one assessment as shown. It is opinion: the page prints assessmentNotice
 // with every list of them, whatever the file's caveat says.
 type assessRow struct{ ID, Subject, Label, By, Decided, Basis, Note string }
@@ -688,7 +719,7 @@ type nodePage struct {
 	Node       nodeRow
 	Out, In    []edgeRow
 	Absences   []absenceRow
-	Facts      []factRow
+	Facts      []factGroup
 	Assess     []assessRow
 	// OverlayHref is set for an ip node: where its reputation and last-seen overlay is read.
 	OverlayHref string
@@ -710,9 +741,7 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 		if x.Kind == "ip" {
 			p.OverlayHref = overlayHref(g.ID, x.ID)
 		}
-		for _, f := range x.Facts {
-			p.Facts = append(p.Facts, factRowOf(f))
-		}
+		p.Facts = groupFacts(x.Facts)
 		for i, e := range g.Edges {
 			if e.From == id && len(p.Out) < tableCap {
 				p.Out = append(p.Out, edgeRowOf(g.ID, i, e))

@@ -209,12 +209,15 @@ templ nodeRecord(p nodePage, panel bool) {
 	</table>
 	<h2>Facts</h2>
 	if len(p.Facts) > 0 {
-		<table>
-			<tr><th>key</th><th>value</th><th>source</th><th>method</th><th>observed</th></tr>
-			for _, f := range p.Facts {
-				<tr><td class="mono">{ f.Key }</td><td class="mono">{ f.Value }</td><td>{ f.Source }</td><td class="mono">{ f.Method }</td><td>{ f.Observed }</td></tr>
-			}
-		</table>
+		for _, grp := range p.Facts {
+			<h3 class="mono">{ grp.Key }</h3>
+			<table>
+				<tr><th>value</th><th>source</th><th>method</th><th>observed</th></tr>
+				for _, f := range grp.Facts {
+					<tr><td class="mono">{ f.Value }</td><td>{ f.Source }</td><td class="mono">{ f.Method }</td><td>{ f.Observed }</td></tr>
+				}
+			</table>
+		}
 	} else {
 		@alert("muted") {
 			no recorded fact about this node
