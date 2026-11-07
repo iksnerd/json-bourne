@@ -5,7 +5,7 @@ Accepted: 2026-11-06 by the maintainer
 
 ## Build gate
 
-Accepted with one condition: the cost measurement in open question 6 comes before any code. If an unfiltered 7 day `filters` aggregation is too slow on the real index, this RFC is withdrawn or reshaped, not built as written.
+Accepted with one condition: the cost measurement in open question 6 comes before any code. The measurement was taken on 2026-11-06 and is cheap (open question 6); the gate is lifted.
 
 ## Summary
 
@@ -178,8 +178,9 @@ Decided on 2026-11-06 by the maintainer, in a grilling session:
 
 Still open:
 
-6. **Cost.** What does an unfiltered 7 day `filters` aggregation cost on the real index? `track_total_hits` does not bound an aggregation. Decides: the author, with one measurement on real data from the downstream operator.
-7. **The caps.** `max_candidates` 50 is chosen from one deployment (median 0, 95th percentile 2, maximum 3 candidates per hourly window). Decides: the maintainer, after the measurement in 6 and a week on real data.
+6. **Cost.** Answered on 2026-11-06 by the downstream operator, on a production index of about 14.2 million documents a day across 50 shards: one `filters` aggregation of 2, 8 and 10 phrase buckets over 1 day and 7 days took 219 to 659 ms on the cluster (under 0.9 s wall), and 7 days cost between about the same and 1.9 times what 1 day cost. All requests answered from every shard. Caveats: ordinary customer addresses, not a heavy hitter; one run per shape, off peak; the request used `track_total_hits: true` and a `size: 0` search. The build gate is lifted. Remaining check before the default is final: one run with a heavy-hitter address.
+7. **Keyword field.** Answered: the index has no separate field for the client address. It is inside the analysed `message` text, and the `.keyword` subfield is not usable (the value exceeds the keyword limit), so only `mode: phrase` on `message` works there. A phrase also matches the same address in other headers and the body, so a count can only be too high, which makes a key look known (quiet) and never creates a false alarm. Accepted for this index; `mode: term` stays for indices with a keyword field.
+8. **The caps.** `max_candidates` 50 is chosen from one deployment (median 0, 95th percentile 2, maximum 3 candidates per hourly window). On the measured cost the cap is a result-size and fairness limit, not a cost limit. Decides: the maintainer, after a week on real data.
 
 ## Conformance
 
