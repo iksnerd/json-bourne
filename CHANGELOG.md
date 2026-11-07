@@ -12,6 +12,12 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - MCP: a `tools/call` whose id is still in flight is refused with -32600 instead of orphaning the first call's cancellation. `jb mcp` ends and returns the error when its output cannot be written, instead of continuing.
 - `jb estate promote`: if the old baseline was archived but could not be replaced, the error names the archive and says the baseline is unchanged. Promoting again reuses an identical archive instead of failing or writing a duplicate.
 
+- MCP: request ids are matched by their raw JSON token, so `1`, `1.0` and `"1"` are different ids and large ids that differ only in low digits no longer collide; a cancel can no longer hit the wrong call.
+- Estate: saving a baseline syncs the file before the rename and the directory after it; archive and snapshot writes also sync their directory.
+- Hunt: re-running a historical hunt (`--until`) where a source now returns nothing but its index is alive keeps the earlier events stored under that run id, as before, and the report now says so ("no match in this fetch; kept N event(s) stored under this run id earlier; index alive"). The status is unchanged. `SourceResult` gained `Kept` and `NoMatchText()`.
+- `jb watch --every` (and `WatchOptions.Every`) refuses an interval below 5s. Run ids have one-second resolution, so faster cycles shared a run id, replaced each other's stored run and shared the webhook cap.
+- `jb watch`: when only an optional alert sink (a webhook) refuses the end-of-cycle heartbeat, the single CYCLE line in `watch.log` now says FAILED, matching the report and exit code; before it said QUIET or FINDINGS. The webhook now receives the heartbeat before the log line is written, and an optional sink may receive it even when the required log then refuses it.
+
 ### Changed
 - Tests: sequence tests for repeated hunts on the real store, watch cycles and restarts, the plugin host, the MCP session and estate promotion. Internal: the MCP call table is a small type with documented ownership.
 
