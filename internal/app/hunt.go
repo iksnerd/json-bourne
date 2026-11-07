@@ -2,9 +2,12 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"iter"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -507,6 +510,7 @@ func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source
 				p.fetchErr = err
 				break
 			}
+			ev = retain(ev)
 			if ev.DocKey == "" {
 				p.keyless = append(p.keyless, ev)
 				continue
@@ -597,7 +601,7 @@ func (p *pending) store(ctx context.Context, mu *sync.Mutex, sink core.Sink, run
 		}
 		for _, d := range won {
 			r.Events++
-			if !yield(d.ev, nil) {
+			if !yield(d.copies[p.name], nil) {
 				return
 			}
 		}
@@ -612,9 +616,12 @@ func (p *pending) store(ctx context.Context, mu *sync.Mutex, sink core.Sink, run
 }
 
 // docSet remembers the documents one run has seen from sources of one scope: for each
-// DocKey the copy to store, which is the one from the smallest source name, and every
-// source that returned it. Memory is one event per distinct document.
+// DocKey every source's own normalised copy of it, and so every source that returned it.
+// The copy to store is chosen only once every source has been read (byWinner), because
+// the owner must be a source that read cleanly and the stored event must be that owner's
+// own copy: its mapper may have normalised Fields, Kind or Time differently.
 type docSet struct {
+	scope  string
 	mu     sync.Mutex
 	docs   map[string]*sharedDoc
 	failed map[string]bool // sources whose read ended in an error: they do not own a shared document
@@ -622,22 +629,107 @@ type docSet struct {
 }
 
 // sharedBufferLimit bounds what the sources of one shared scope may hold in memory at
-// once (an estimate: the raw document plus a fixed overhead per event). The stored copy of
-// a shared document is chosen only after every source has been read, so the events wait in
-// memory; past the limit the source fails and the run is incomplete, never out of memory.
+// once. The stored copy of a shared document is chosen only after every source has been
+// read, so every source's copy of it waits in memory; past the limit the source fails and
+// the run is incomplete. The bound is an estimate (eventSize: the raw document, the keys,
+// the mapped Fields tree and a fixed overhead per event), not an exact heap size, so the
+// real footprint can be a small multiple of the limit, but it grows with what is held.
 var sharedBufferLimit int64 = 256 << 20
 
-// reserve accounts for one more held event and refuses it past the limit. A document
-// already held counts once: the copy that replaces it is not extra.
+// eventSize estimates what holding ev costs. It is deterministic and cheap: lengths of
+// the byte and string fields, plus a bounded walk of the Fields tree.
+func eventSize(ev core.Event) int64 {
+	n := int64(len(ev.Raw)+len(ev.DocKey)+len(ev.Source)+len(ev.Kind)) + 256
+	for _, r := range ev.Returners {
+		n += int64(len(r)) + 16
+	}
+	return n + valueSize(ev.Fields, 0)
+}
+
+const maxSizeDepth = 32
+
+// valueSize estimates the size of a decoded JSON value. Past maxSizeDepth a subtree
+// counts as a flat 1 KiB, so the walk is bounded for any input.
+func valueSize(v any, depth int) int64 {
+	if depth > maxSizeDepth {
+		return 1024
+	}
+	switch x := v.(type) {
+	case nil:
+		return 0
+	case string:
+		return int64(len(x)) + 16
+	case []byte:
+		return int64(len(x)) + 24
+	case map[string]any:
+		n := int64(48)
+		for k, e := range x {
+			n += int64(len(k)) + 48 + valueSize(e, depth+1)
+		}
+		return n
+	case []any:
+		n := int64(24)
+		for _, e := range x {
+			n += 16 + valueSize(e, depth+1)
+		}
+		return n
+	case []string:
+		n := int64(24)
+		for _, e := range x {
+			n += int64(len(e)) + 16
+		}
+		return n
+	default:
+		return 16
+	}
+}
+
+// cloneValue copies a decoded JSON value, so a copy retained across the source's next
+// iteration cannot be changed by a source that reuses its buffers or maps.
+func cloneValue(v any, depth int) any {
+	if depth > maxSizeDepth {
+		return v
+	}
+	switch x := v.(type) {
+	case map[string]any:
+		m := make(map[string]any, len(x))
+		for k, e := range x {
+			m[k] = cloneValue(e, depth+1)
+		}
+		return m
+	case []any:
+		l := make([]any, len(x))
+		for i, e := range x {
+			l[i] = cloneValue(e, depth+1)
+		}
+		return l
+	case []byte:
+		return slices.Clone(x)
+	case []string:
+		return slices.Clone(x)
+	default:
+		return v
+	}
+}
+
+// retain returns ev with the parts the buffer will hold copied, so the source's next
+// iteration cannot change them.
+func retain(ev core.Event) core.Event {
+	ev.Raw = slices.Clone(ev.Raw)
+	if ev.Fields != nil {
+		ev.Fields = cloneValue(ev.Fields, 0).(map[string]any)
+	}
+	ev.Returners = slices.Clone(ev.Returners)
+	return ev
+}
+
+// reserve accounts for one more held event and refuses it past the limit. Every copy
+// counts, including a second copy of a document another source already returned: that is
+// what is held until the owner is chosen.
 func (d *docSet) reserve(ev core.Event) error {
+	n := eventSize(ev)
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if ev.DocKey != "" {
-		if _, held := d.docs[ev.DocKey]; held {
-			return nil
-		}
-	}
-	n := int64(len(ev.Raw)+len(ev.DocKey)) + 256
 	if d.bytes+n > sharedBufferLimit {
 		return fmt.Errorf("shared-scope buffer limit of %d MiB reached: sources of one cluster that overlap are held in memory until all are read; hunt fewer overlapping sources or a shorter window", sharedBufferLimit>>20)
 	}
@@ -646,28 +738,21 @@ func (d *docSet) reserve(ev core.Event) error {
 }
 
 type sharedDoc struct {
-	key       string
-	ev        core.Event // the copy to store, from the winner
-	winner    string
-	returners []string
+	key    string
+	copies map[string]core.Event // by source: each source's own normalised copy
 }
 
-// claim records that ev.Source returned the document ev.DocKey. The result does not
-// depend on the order of the calls: the winner is the smallest name, whenever it arrives.
+// claim records that ev.Source returned the document ev.DocKey, keeping that source's
+// own copy. The result does not depend on the order of the calls.
 func (d *docSet) claim(ev core.Event) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	doc := d.docs[ev.DocKey]
 	if doc == nil {
-		d.docs[ev.DocKey] = &sharedDoc{key: ev.DocKey, ev: ev, winner: ev.Source, returners: []string{ev.Source}}
-		return
+		doc = &sharedDoc{key: ev.DocKey, copies: map[string]core.Event{}}
+		d.docs[ev.DocKey] = doc
 	}
-	if !slices.Contains(doc.returners, ev.Source) {
-		doc.returners = append(doc.returners, ev.Source)
-	}
-	if ev.Source < doc.winner {
-		doc.ev, doc.winner = ev, ev.Source
-	}
+	doc.copies[ev.Source] = ev
 }
 
 // fail records that a source's read ended in an error. Its run is rolled back when it is
@@ -678,41 +763,53 @@ func (d *docSet) fail(source string) {
 	d.mu.Unlock()
 }
 
+// ident is the durable identity stored with a shared document: a digest of the scope and
+// the DocKey. It does not name a source, so the reader counts the document once whichever
+// source stores it in a given hunt. The sink stores it as the event's DocKey.
+func (d *docSet) ident(key string) string {
+	h := sha256.Sum256([]byte(d.scope + "\x00" + key))
+	return hex.EncodeToString(h[:])
+}
+
 // byWinner groups the documents by the source that stores them, in DocKey order, and sets
 // Returners on a document more than one source returned. The owner is the smallest name
 // among the sources that read cleanly; if every returner failed it is the smallest of them
-// (the evidence is lost with the run, which is reported). Call it once every source has
-// been read. A document the owner did not map itself keeps the first copy's fields: they
-// describe the same document, only the mapper that read it differs.
+// (the evidence is lost with the run, which is reported). The stored event is the owner's
+// own copy, with the durable identity set. Call it once every source has been read.
 func (d *docSet) byWinner() map[string][]*sharedDoc {
-	out := map[string][]*sharedDoc{}
+	res := map[string][]*sharedDoc{}
 	for _, doc := range d.docs {
-		owner := doc.winner
+		names := slices.Sorted(maps.Keys(doc.copies))
+		owner := names[0]
 		if d.failed[owner] {
-			for _, r := range slices.Sorted(slices.Values(doc.returners)) {
+			for _, r := range names {
 				if !d.failed[r] {
 					owner = r
 					break
 				}
 			}
 		}
-		doc.ev.Source = owner
-		doc.winner = owner
-		if len(doc.returners) > 1 {
-			doc.ev.Returners = slices.Sorted(slices.Values(doc.returners))
+		ev := doc.copies[owner]
+		ev.Source = owner
+		ev.DocKey = d.ident(doc.key)
+		if len(names) > 1 {
+			ev.Returners = names
+		} else {
+			ev.Returners = nil
 		}
-		out[owner] = append(out[owner], doc)
+		doc.copies = map[string]core.Event{owner: ev} // release the other copies
+		res[owner] = append(res[owner], doc)
 	}
-	for _, l := range out {
+	for _, l := range res {
 		sort.Slice(l, func(i, j int) bool { return l[i].key < l[j].key })
 	}
-	return out
+	return res
 }
 
 // sharedScopes returns a docSet for each scope that two or more sources report, so a
 // run with one source per cluster keeps no per-document memory. The source that keeps a
-// shared document is the smallest name among those that returned it, so it depends on
-// neither the order of the sources nor on which read first.
+// shared document is the smallest name among those that read cleanly and returned it, so it
+// depends on neither the order of the sources nor on which read first.
 func sharedScopes(srcs []core.Source) map[string]*docSet {
 	n := map[string]int{}
 	for _, s := range srcs {
@@ -723,7 +820,7 @@ func sharedScopes(srcs []core.Source) map[string]*docSet {
 	out := map[string]*docSet{}
 	for scope, c := range n {
 		if c > 1 {
-			out[scope] = &docSet{docs: map[string]*sharedDoc{}, failed: map[string]bool{}}
+			out[scope] = &docSet{scope: scope, docs: map[string]*sharedDoc{}, failed: map[string]bool{}}
 		}
 	}
 	return out

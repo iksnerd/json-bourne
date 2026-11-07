@@ -538,7 +538,7 @@ var compactTables = []struct {
 	{"runs", "run_id, created_at, pruned_at"},
 	{"findings", "run_id, seq, detector, tag, severity, window_from, window_to, baseline_from, baseline_to, summary, detail"},
 	{"reputation", "indicator, verdict, observed_at, source"},
-	{"events", "run_id, seq, ts, source, kind, fields, raw, doc_sha256"},
+	{"events", "run_id, seq, ts, source, kind, fields, raw, doc_sha256, doc_ident"},
 }
 
 func quoteIdent(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
