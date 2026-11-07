@@ -893,7 +893,8 @@ type nodePage struct {
 	Caveat     string
 	GraphID    string
 	Node       nodeRow
-	Out, In    []edgeRow
+	Edges      []edgeGroup // the node's edges grouped by relation
+	EdgeTotal  int         // every edge of the node, before the table cap
 	Absences   []absenceRow
 	Facts      []factGroup
 	Assess     []assessRow
@@ -922,14 +923,7 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 		p.Origins = originsOf(gs, g.ID, id)
 		p.Facts = groupFacts(x.Facts)
 		citedBy(g, id, p.Facts)
-		for i, e := range g.Edges {
-			if e.From == id && len(p.Out) < tableCap {
-				p.Out = append(p.Out, edgeRowOf(g.ID, i, e))
-			}
-			if e.To == id && len(p.In) < tableCap {
-				p.In = append(p.In, edgeRowOf(g.ID, i, e))
-			}
-		}
+		p.Edges, p.EdgeTotal = edgesOf(g, id)
 		for _, a := range g.Absences {
 			if a.Subject == id && len(p.Absences) < tableCap {
 				p.Absences = append(p.Absences, absenceRow{c(a.Subject), c(a.Source), c(a.Method), c(a.Observed), c(a.Answer)})
@@ -939,6 +933,53 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.missing(w, r, "no such node in that estate map")
+}
+
+// sheetEdge is one edge as the node sheet lists it: its direction from the sheet's node
+// and the node at the other end.
+type sheetEdge struct {
+	Dir, Other string
+	edgeRow
+}
+
+// edgeGroup is the edges of one relation.
+type edgeGroup struct {
+	Relation string
+	Rows     []sheetEdge
+}
+
+// edgesOf lists the edges that touch node id, grouped by relation. Groups are in relation
+// order and rows in order of the other node, then direction, source, method, time and
+// confidence, so the same file always renders the same page. At most tableCap rows are
+// kept; the second result counts them all.
+func edgesOf(g core.EstateGraph, id string) ([]edgeGroup, int) {
+	var rows []sheetEdge
+	for i, e := range g.Edges {
+		r := edgeRowOf(g.ID, i, e)
+		if e.From == id {
+			rows = append(rows, sheetEdge{"out", r.To, r})
+		}
+		if e.To == id {
+			rows = append(rows, sheetEdge{"in", r.From, r})
+		}
+	}
+	slices.SortStableFunc(rows, func(a, b sheetEdge) int {
+		return cmp.Or(cmp.Compare(a.Relation, b.Relation), cmp.Compare(a.Other, b.Other), cmp.Compare(a.Dir, b.Dir),
+			cmp.Compare(a.Source, b.Source), cmp.Compare(a.Method, b.Method), cmp.Compare(a.Observed, b.Observed),
+			cmp.Compare(a.Confidence, b.Confidence))
+	})
+	total := len(rows)
+	if len(rows) > tableCap {
+		rows = rows[:tableCap]
+	}
+	var out []edgeGroup
+	for _, r := range rows {
+		if n := len(out); n == 0 || out[n-1].Relation != r.Relation {
+			out = append(out, edgeGroup{Relation: r.Relation})
+		}
+		out[len(out)-1].Rows = append(out[len(out)-1].Rows, r)
+	}
+	return out, total
 }
 
 type edgePage struct {

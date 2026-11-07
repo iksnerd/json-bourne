@@ -288,48 +288,34 @@ templ nodeRecord(p nodePage, panel bool) {
 			no recorded fact about this node
 		}
 	}
-	<h2>Connections out</h2>
-	if len(p.Out) > 0 {
-		<table>
-			<tr><th>relation</th><th>to</th><th>source</th><th>method</th></tr>
-			for _, e := range p.Out {
-				<tr>
-					<td>
-@edgeLink(e.G, e.I, e.Relation, panel)
+	<h2>Connections</h2>
+	if len(p.Edges) > 0 {
+		for _, grp := range p.Edges {
+			<h3>{ grp.Relation }</h3>
+			<table>
+				<tr><th>direction</th><th>other node</th><th>source</th><th>method</th><th>confidence</th><th>observed</th></tr>
+				for _, e := range grp.Rows {
+					<tr>
+						<td>
+@edgeLink(e.G, e.I, e.Dir, panel)
 </td>
-					<td class="mono">
-@nodeLink(e.G, e.To, e.To, panel)
+						<td class="mono">
+@nodeLink(e.G, e.Other, e.Other, panel)
 </td>
-					<td>{ e.Source }</td>
-					<td class="mono">{ e.Method }</td>
-				</tr>
-			}
-		</table>
-	} else {
-		@alert("muted") {
-			no edge leaves this node
+						<td>{ e.Source }</td>
+						<td class="mono">{ e.Method }</td>
+						<td>{ e.Confidence }</td>
+						<td>{ e.Observed }</td>
+					</tr>
+				}
+			</table>
 		}
-	}
-	<h2>Connections in</h2>
-	if len(p.In) > 0 {
-		<table>
-			<tr><th>from</th><th>relation</th><th>source</th><th>method</th></tr>
-			for _, e := range p.In {
-				<tr>
-					<td class="mono">
-@nodeLink(e.G, e.From, e.From, panel)
-</td>
-					<td>
-@edgeLink(e.G, e.I, e.Relation, panel)
-</td>
-					<td>{ e.Source }</td>
-					<td class="mono">{ e.Method }</td>
-				</tr>
-			}
-		</table>
+		if p.EdgeTotal > tableCap {
+			<p class="note">showing { str(tableCap) } of { str(p.EdgeTotal) } edges.</p>
+		}
 	} else {
 		@alert("muted") {
-			no edge arrives at this node
+			no edge touches this node
 		}
 	}
 	<h2>Absences</h2>
