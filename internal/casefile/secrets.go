@@ -19,6 +19,9 @@ var (
 	runRE        = regexp.MustCompile(`[A-Za-z0-9+/=]{32,}`)
 )
 
+// sha256HexRE is the one accepted spelling of a SHA-256 digest in a case file.
+var sha256HexRE = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
 func looksLikeCredential(s string) bool {
 	if knownTokenRE.MatchString(s) || hexRE.MatchString(s) {
 		return true
@@ -60,12 +63,24 @@ const (
 type scanner struct {
 	nodes    int
 	visiting map[*yaml.Node]bool // alias targets on the current path
+	// digestPath, when set, is the one path whose value may be a full SHA-256 digest.
+	// A digest is public by construction and would otherwise match the long-hex rule.
+	// The value must be exactly 64 lowercase hex digits; anything else is scanned as usual.
+	digestPath string
 }
 
 func newScanner() *scanner { return &scanner{visiting: map[*yaml.Node]bool{}} }
 
 // scanCredentials walks every scalar value in the document.
 func scanCredentials(n *yaml.Node) error { return newScanner().walk(n, "", 0) }
+
+// scanCredentialsWithDigest is scanCredentials, except that a 64-lowercase-hex value at
+// digestPath is accepted as the digest it is.
+func scanCredentialsWithDigest(n *yaml.Node, digestPath string) error {
+	sc := newScanner()
+	sc.digestPath = digestPath
+	return sc.walk(n, "", 0)
+}
 
 func (s *scanner) walk(n *yaml.Node, path string, depth int) error {
 	if depth > maxScanDepth {
@@ -98,6 +113,9 @@ func (s *scanner) walk(n *yaml.Node, path string, depth int) error {
 			}
 		}
 	case yaml.ScalarNode:
+		if s.digestPath != "" && path == s.digestPath && sha256HexRE.MatchString(n.Value) {
+			return nil
+		}
 		if looksLikeCredential(n.Value) {
 			return fmt.Errorf("%s (line %d) holds a credential-shaped value; a case file names an environment variable and never holds the value", path, n.Line)
 		}

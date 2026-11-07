@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -148,9 +149,13 @@ type RefreshDeps struct {
 
 // RefreshRequest is one refresh run.
 type RefreshRequest struct {
-	Base       *casefile.Estate
-	BasedOn    string
-	MaxTargets int
+	Base    *casefile.Estate
+	BasedOn string
+	// BasedOnSHA256 is the digest of the exact baseline bytes Base was parsed from
+	// (casefile.LoadEstateFileDigest). It is required: a snapshot without it could never
+	// be promoted, so a refresh without it is refused.
+	BasedOnSHA256 string
+	MaxTargets    int
 	// Intervals are the least times between two requests to each external service.
 	BGPInterval, CTInterval, DNSInterval time.Duration
 }
@@ -174,6 +179,9 @@ func failText(err error) string {
 // skipped and listed; a lookup that failed, was cut at a cap or was not asked makes the
 // snapshot incomplete, and so does a claim that conflicts with another in the same run.
 func RefreshEstate(ctx context.Context, d RefreshDeps, req RefreshRequest) (*casefile.EstateSnapshot, error) {
+	if req.BasedOnSHA256 == "" {
+		return nil, errors.New("refresh needs the digest of the baseline it read")
+	}
 	t := EstateTargets(req.Base)
 	if t.Total() == 0 {
 		return nil, ErrNoTargets
@@ -188,7 +196,7 @@ func RefreshEstate(ctx context.Context, d RefreshDeps, req RefreshRequest) (*cas
 	taken := now().UTC().Truncate(time.Second)
 	snap := &casefile.EstateSnapshot{
 		APIVersion: casefile.EstateSnapshotAPIVersion, ID: casefile.SnapshotID(taken), Taken: taken.Format(time.RFC3339),
-		BasedOn:  req.BasedOn,
+		BasedOn: req.BasedOn, BasedOnSHA256: req.BasedOnSHA256,
 		Targets:  casefile.SnapshotTargets{Domains: union(t.DNS, t.CT), Addresses: union(t.Addresses, t.BGPIPs), ASNs: t.BGPASNs},
 		Estate:   casefile.Estate{APIVersion: casefile.EstateAPIVersion, ID: "estate", Caveat: casefile.DefaultEstateCaveat, Subject: req.Base.Subject},
 		Services: []casefile.SnapshotService{},
@@ -311,6 +319,10 @@ func union(a, b []string) []string {
 // ErrNotPromotable means a snapshot may not become the baseline.
 var ErrNotPromotable = errors.New("snapshot cannot become the baseline")
 
+// ErrBaselineChanged means the baseline is no longer the file the snapshot was taken
+// against.
+var ErrBaselineChanged = errors.New("baseline changed since the snapshot; refresh again")
+
 // PromoteSnapshot makes a snapshot the baseline: it archives the current estate file
 // (case-relative path returned), then replaces it with the snapshot's body. An incomplete
 // snapshot is refused, and so is one with a skipped service, because the replaced file
@@ -333,15 +345,47 @@ func PromoteSnapshot(c *casefile.Case, id, file string, now time.Time) (archived
 	if len(skipped) > 0 {
 		return "", fmt.Errorf("%w: %s skipped %s, so promoting it would drop that service's claims from the baseline; enable the service and refresh again", ErrNotPromotable, id, strings.Join(skipped, ", "))
 	}
+	// Compare-and-swap on the baseline. The snapshot records the digest of the bytes the
+	// refresh read, and the baseline must still have it. This check comes first, so a
+	// refused promotion archives and replaces nothing.
+	if err := checkBaseline(c, file, s.BasedOnSHA256); err != nil {
+		return "", err
+	}
 	archived, err = casefile.ArchiveEstateFile(c, file, casefile.SnapshotID(now))
 	if err != nil {
 		return "", fmt.Errorf("could not archive the current baseline, so it was not replaced: %w", err)
+	}
+	// Check again after the archive, right before the replace, so an edit made while the
+	// archive was written is caught. A residual race remains between this read and the
+	// rename inside SaveEstateFile: there is no file-lock primitive on this path, so a
+	// write landing in that gap is still overwritten.
+	if err := checkBaseline(c, file, s.BasedOnSHA256); err != nil {
+		return archived, err
 	}
 	body := s.Estate
 	if err := casefile.SaveEstateFile(c, file, &body); err != nil {
 		return archived, &PromotionError{Archived: archived, Err: err}
 	}
 	return archived, nil
+}
+
+// checkBaseline returns ErrBaselineChanged unless the baseline file still has the digest
+// want. A baseline that is now missing has changed. A snapshot with no digest predates
+// the check and cannot say which baseline it was taken against, so it is not promotable.
+func checkBaseline(c *casefile.Case, file, want string) error {
+	if want == "" {
+		return fmt.Errorf("%w: snapshot has no baseline digest; refresh again", ErrNotPromotable)
+	}
+	got, err := casefile.EstateFileDigest(c, file)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return fmt.Errorf("%w (the baseline file is gone)", ErrBaselineChanged)
+	case err != nil:
+		return fmt.Errorf("could not read the baseline to check it: %w", err)
+	case got != want:
+		return ErrBaselineChanged
+	}
+	return nil
 }
 
 // PromotionError is the in-between outcome of a promotion: the old baseline was copied

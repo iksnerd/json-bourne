@@ -81,13 +81,18 @@ type EstateSnapshot struct {
 	Taken      string `yaml:"taken"`
 	// Complete is true only when every lookup got a full answer and nothing was dropped.
 	// An incomplete snapshot is evidence of a run, never a baseline.
-	Complete bool              `yaml:"complete"`
-	BasedOn  string            `yaml:"based_on,omitempty"` // the estate file the targets were read from
-	Note     string            `yaml:"note,omitempty"`
-	Targets  SnapshotTargets   `yaml:"targets"`
-	Services []SnapshotService `yaml:"services"`
-	Failures []SnapshotFailure `yaml:"failures,omitempty"`
-	Estate   Estate            `yaml:"estate"`
+	Complete bool   `yaml:"complete"`
+	BasedOn  string `yaml:"based_on,omitempty"` // the estate file the targets were read from
+	// BasedOnSHA256 is the lowercase hex SHA-256 of the exact bytes of the baseline file
+	// the refresh read. Promotion refuses a snapshot whose baseline no longer has this
+	// digest. It is optional in the format, so older snapshots still load and diff, but a
+	// snapshot without it cannot be promoted.
+	BasedOnSHA256 string            `yaml:"based_on_sha256,omitempty"`
+	Note          string            `yaml:"note,omitempty"`
+	Targets       SnapshotTargets   `yaml:"targets"`
+	Services      []SnapshotService `yaml:"services"`
+	Failures      []SnapshotFailure `yaml:"failures,omitempty"`
+	Estate        Estate            `yaml:"estate"`
 }
 
 // SnapshotID returns the id of a snapshot taken at t.
@@ -129,7 +134,7 @@ func ParseEstateSnapshot(data []byte) (*EstateSnapshot, error) {
 	if err := yaml.Unmarshal(data, &root); err != nil {
 		return nil, err
 	}
-	if err := scanCredentials(&root); err != nil {
+	if err := scanCredentialsWithDigest(&root, "based_on_sha256"); err != nil {
 		return nil, err
 	}
 	var s EstateSnapshot
@@ -173,6 +178,9 @@ func (s *EstateSnapshot) validate() error {
 		if err := checkLine("based_on", s.BasedOn, maxSnapshotText); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	if s.BasedOnSHA256 != "" && !sha256HexRE.MatchString(s.BasedOnSHA256) {
+		bad("based_on_sha256 must be 64 lowercase hex digits (the SHA-256 of the baseline file the run read)")
 	}
 	if len(s.Failures) > maxSnapshotFailures {
 		bad("failures hold at most %d entries, has %d", maxSnapshotFailures, len(s.Failures))

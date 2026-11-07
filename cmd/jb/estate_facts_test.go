@@ -87,8 +87,19 @@ func TestEstateRefreshDiffPromoteCarryFactsAndAssessments(t *testing.T) {
 		t.Errorf("table lacks the fact change:\n%s", tbl)
 	}
 
+	// The baseline was edited after that snapshot, so promoting it would silently drop the
+	// new port: it is refused, and the operator refreshes again, which carries the fact.
 	snaps := snapshotFiles(t, dir)
 	id := strings.TrimSuffix(snaps[len(snaps)-1], ".yaml")
+	if code, _, errs := run(t, w.deps(), "estate", "promote", "--case", dir, "--file", "base.yaml", id); code == 0 || !strings.Contains(errs, "baseline changed since the snapshot; refresh again") {
+		t.Fatalf("promote of a stale snapshot must be refused: exit %d\n%s", code, errs)
+	}
+	w.tick()
+	if code, out, errs := run(t, w.deps(), "estate", "refresh", "--case", dir, "--file", "base.yaml"); code != 0 {
+		t.Fatalf("second refresh: exit %d\n%s\n%s", code, out, errs)
+	}
+	snaps = snapshotFiles(t, dir)
+	id = strings.TrimSuffix(snaps[len(snaps)-1], ".yaml")
 	if code, out, errs := run(t, w.deps(), "estate", "promote", "--case", dir, "--file", "base.yaml", id); code != 0 {
 		t.Fatalf("promote: exit %d\n%s\n%s", code, out, errs)
 	}
@@ -100,7 +111,7 @@ func TestEstateRefreshDiffPromoteCarryFactsAndAssessments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := nodeByID(e, "domain:example.com"); n == nil || len(n.Facts) != 2 || len(e.Assessments) != 1 {
+	if n := nodeByID(e, "domain:example.com"); n == nil || len(n.Facts) != 3 || len(e.Assessments) != 1 {
 		t.Errorf("promotion must keep the carried facts and assessment: %+v %+v", n, e.Assessments)
 	}
 }

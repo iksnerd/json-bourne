@@ -798,7 +798,7 @@ func EstateRefresh(ctx context.Context, caseDir string, opts EstateRefreshOption
 	if err != nil {
 		return nil, err
 	}
-	base, err := casefile.LoadEstateFile(c, file)
+	base, baseSum, err := casefile.LoadEstateFileDigest(c, file)
 	if err != nil {
 		return nil, fmt.Errorf("baseline: %w", err) // a missing or corrupt baseline is never an empty one
 	}
@@ -848,7 +848,7 @@ func EstateRefresh(ctx context.Context, caseDir string, opts EstateRefreshOption
 		}
 	}
 	// External collectors: built only when enabled and there is something to ask.
-	req := app.RefreshRequest{Base: base, BasedOn: c.Paths.Estate + "/" + file, MaxTargets: maxTargets}
+	req := app.RefreshRequest{Base: base, BasedOn: c.Paths.Estate + "/" + file, BasedOnSHA256: baseSum, MaxTargets: maxTargets}
 	for i := range extServices {
 		s := &extServices[i]
 		if !enabled(s.name) {
@@ -1092,6 +1092,9 @@ type EstatePromoteResult struct {
 //
 // An incomplete snapshot is refused, and so is one that skipped a service, because the
 // new baseline would silently lose that service's claims; both are usage errors.
+// A baseline that changed since the refresh (a different SHA-256 from the one the
+// snapshot recorded), and a snapshot with no recorded digest, are refused as well
+// with nothing touched; refresh again.
 // Promoting accepts the drift the snapshot shows: the next [EstateDiff] will not report it.
 func EstatePromote(caseDir, snapshotID string, opts EstateOptions) (*EstatePromoteResult, error) {
 	if caseDir == "" {
@@ -1110,7 +1113,7 @@ func EstatePromote(caseDir, snapshotID string, opts EstateOptions) (*EstatePromo
 	}
 	archived, err := app.PromoteSnapshot(c, snapshotID, file, opts.now()())
 	if err != nil {
-		if errors.Is(err, app.ErrNotPromotable) {
+		if errors.Is(err, app.ErrNotPromotable) || errors.Is(err, app.ErrBaselineChanged) {
 			return nil, usagef("%v", err)
 		}
 		return nil, fmt.Errorf("%w", err)

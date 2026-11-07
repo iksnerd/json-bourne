@@ -2,6 +2,8 @@ package casefile
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -687,6 +689,44 @@ func estatePaths(c *Case, name string) (dir, file string, err error) {
 // LoadEstateFile reads one estate file from the case's estate directory (paths.estate).
 // It is confined like an actor file and is at most 4 MiB.
 func LoadEstateFile(c *Case, name string) (*Estate, error) {
+	e, _, err := LoadEstateFileDigest(c, name)
+	return e, err
+}
+
+// LoadEstateFileDigest is LoadEstateFile that also returns the lowercase hex SHA-256 of
+// the exact bytes it parsed, from one read, so the digest describes the same bytes as
+// the returned estate.
+func LoadEstateFileDigest(c *Case, name string) (*Estate, string, error) {
+	data, err := readEstateBytes(c, name)
+	if err != nil {
+		return nil, "", err
+	}
+	e, err := ParseEstate(data)
+	if err != nil {
+		return nil, "", fmt.Errorf("estate file %q: %w", name, err)
+	}
+	return e, DigestHex(data), nil
+}
+
+// EstateFileDigest returns the lowercase hex SHA-256 of the bytes of the named estate
+// file as they are now, without parsing them. A missing file is an error that wraps
+// os.ErrNotExist.
+func EstateFileDigest(c *Case, name string) (string, error) {
+	data, err := readEstateBytes(c, name)
+	if err != nil {
+		return "", err
+	}
+	return DigestHex(data), nil
+}
+
+// DigestHex is the lowercase hex SHA-256 of data, the spelling of a snapshot's
+// based_on_sha256.
+func DigestHex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+func readEstateBytes(c *Case, name string) ([]byte, error) {
 	_, file, err := estatePaths(c, name)
 	if err != nil {
 		return nil, err
@@ -706,11 +746,7 @@ func LoadEstateFile(c *Case, name string) (*Estate, error) {
 	if len(data) > maxEstateSize {
 		return nil, fmt.Errorf("estate file %q is larger than %d bytes", name, maxEstateSize)
 	}
-	e, err := ParseEstate(data)
-	if err != nil {
-		return nil, fmt.Errorf("estate file %q: %w", name, err)
-	}
-	return e, nil
+	return data, nil
 }
 
 // LoadEstates reads every .yaml and .yml file directly inside the estate directory, in
