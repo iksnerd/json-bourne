@@ -25,6 +25,14 @@ const StatusFile = "watch-status.json"
 // watcher that still holds its lock is called stale.
 const HeartbeatFactor = 3
 
+// Overdue reports whether more than HeartbeatFactor intervals passed between since and
+// now. The comparison is strict: exactly that many is not overdue. `jb watch status`
+// judges a watcher with it, and the timeline judges the spans between cycle lines with
+// it, so the two share one factor and one comparison.
+func Overdue(since, now time.Time, every time.Duration) bool {
+	return now.Sub(since) > HeartbeatFactor*every
+}
+
 // NameFrom is the inverse of File: the watcher name in a file name of the kind unnamed
 // ("watch.lock" gives "" for "watch.lock" and "a" for "watch.a.lock"). ok is false for a
 // file that is not that kind, or whose name is not a valid watcher name.
@@ -190,7 +198,7 @@ func inspect(evidence, name string, now time.Time) WatcherStatus {
 			beat, what = s.Last.Ended, "last cycle ended"
 		}
 		limit := HeartbeatFactor * s.Every
-		if now.Sub(beat) > limit {
+		if Overdue(beat, now, s.Every) {
 			s.State = StateStale
 			s.Reason = fmt.Sprintf("the lock is held by PID %d but the %s %s ago, over %d x every (%s)", s.PID, what, now.Sub(beat).Round(time.Second), HeartbeatFactor, limit)
 		} else {

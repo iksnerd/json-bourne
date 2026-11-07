@@ -97,6 +97,7 @@ func (h History) Read(ctx context.Context, name string, now time.Time) (core.Wat
 	// Equal times keep log order, so the result is the same for the same file.
 	slices.SortStableFunc(out.Cycles, func(a, b core.WatchCycleLine) int { return a.At.Compare(b.At) })
 	h.fillStatus(&out, name)
+	out.Gaps = Gaps(out.Cycles, out.Every, now)
 	return out, nil
 }
 
@@ -118,4 +119,25 @@ func (h History) fillStatus(out *core.WatchHistory, name string) {
 			Window: core.Window{From: c.WindowFrom, To: c.WindowTo}, New: c.New, Suppressed: c.Suppressed,
 			Repeated: c.Repeated, Recovered: c.Recovered, Failed: append([]string(nil), c.Failed...)}
 	}
+}
+
+// Gaps judges the spans with no cycle line, at the instant now. A span between two
+// consecutive cycles is reported when it is Overdue, the rule of `jb watch status`.
+// The span after the last cycle is reported open (To zero) by the same rule. There is
+// no span before the first cycle read, and none when the interval is unknown (every is
+// zero): no default is guessed. cycles must be oldest first.
+func Gaps(cycles []core.WatchCycleLine, every time.Duration, now time.Time) []core.WatchNoCycle {
+	if every <= 0 || len(cycles) == 0 {
+		return nil
+	}
+	var out []core.WatchNoCycle
+	for i := 1; i < len(cycles); i++ {
+		if Overdue(cycles[i-1].At, cycles[i].At, every) {
+			out = append(out, core.WatchNoCycle{From: cycles[i-1].At, To: cycles[i].At})
+		}
+	}
+	if last := cycles[len(cycles)-1].At; Overdue(last, now, every) {
+		out = append(out, core.WatchNoCycle{From: last})
+	}
+	return out
 }
