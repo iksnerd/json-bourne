@@ -92,19 +92,85 @@ type server struct {
 	byName map[string]bool
 	logw   io.Writer
 
-	wmu sync.Mutex
-	out io.Writer
+	wmu  sync.Mutex
+	out  io.Writer
+	werr error  // first write failure; guarded by wmu
+	stop func() // ends the session; set before the first read
 
-	cmu      sync.Mutex
-	inflight map[string]context.CancelFunc
-	dropped  map[string]bool
+	calls callTable
+}
+
+// callTable is the registry of tools/call requests in progress, keyed by request id
+// (see [idKey]). The session loop adds an entry before it starts the call; the call's
+// goroutine removes it when the call ends. A cancellation notification marks the entry
+// dropped and cancels its context; the goroutine then writes no response. Every method
+// is safe for concurrent use.
+type callTable struct {
+	mu sync.Mutex
+	m  map[string]*trackedCall
+}
+
+type trackedCall struct {
+	cancel  context.CancelFunc
+	dropped bool
+}
+
+// begin registers a call. It reports false, and registers nothing, when a call with the
+// same key is still in progress.
+func (t *callTable) begin(key string, cancel context.CancelFunc) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if _, busy := t.m[key]; busy {
+		return false
+	}
+	if t.m == nil {
+		t.m = map[string]*trackedCall{}
+	}
+	t.m[key] = &trackedCall{cancel: cancel}
+	return true
+}
+
+// drop marks the call dropped and cancels it. An unknown key (never started, or already
+// finished) is ignored.
+func (t *callTable) drop(key string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if c, ok := t.m[key]; ok {
+		c.dropped = true
+		c.cancel()
+	}
+}
+
+// finish removes the call and reports whether it was dropped, in which case the caller
+// must not write a response.
+func (t *callTable) finish(key string) (dropped bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	c, ok := t.m[key]
+	delete(t.m, key)
+	return ok && c.dropped
+}
+
+func (t *callTable) len() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return len(t.m)
 }
 
 // Serve reads requests from in and writes responses to out until in ends or ctx is
 // done. It waits for calls in progress, then returns nil. It returns an error only when
-// it cannot write.
+// it cannot write: the first failed write ends the session and cancels the calls in
+// progress.
 func Serve(ctx context.Context, in io.Reader, out, logw io.Writer, cfg Config) error {
-	s := &server{cfg: cfg, out: out, logw: logw, byName: map[string]bool{}, inflight: map[string]context.CancelFunc{}, dropped: map[string]bool{}}
+	return serve(ctx, in, out, logw, cfg, nil)
+}
+
+// serve is Serve with a hook that receives the session state before the first read.
+func serve(ctx context.Context, in io.Reader, out, logw io.Writer, cfg Config, hook func(*server)) error {
+	s := &server{cfg: cfg, out: out, logw: logw, byName: map[string]bool{}}
+	if hook != nil {
+		hook(s)
+	}
 	for _, t := range cfg.Registry.Tools(cfg.Allow) {
 		t.Description += untrustedNote
 		s.tools = append(s.tools, t)
@@ -112,6 +178,7 @@ func Serve(ctx context.Context, in io.Reader, out, logw io.Writer, cfg Config) e
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	s.stop = cancel
 
 	lines := make(chan []byte)
 	go func() {
@@ -150,7 +217,9 @@ loop:
 		cancel()
 	}
 	wg.Wait()
-	return nil
+	s.wmu.Lock()
+	defer s.wmu.Unlock()
+	return s.werr
 }
 
 var errTooLong = []byte("too long")
@@ -204,8 +273,13 @@ func (s *server) write(v any) {
 	}
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
+	if s.werr != nil {
+		return // the client is gone: the first failure ended the session
+	}
 	if _, err := s.out.Write(append(b, '\n')); err != nil {
 		s.logf("write: %v", err)
+		s.werr = fmt.Errorf("write response: %w", err)
+		s.stop()
 	}
 }
 
@@ -290,13 +364,7 @@ func (s *server) notification(method string, params json.RawMessage) {
 		if json.Unmarshal(params, &p) != nil || !validID(p.RequestID) {
 			return
 		}
-		key := idKey(p.RequestID)
-		s.cmu.Lock()
-		if cancel, ok := s.inflight[key]; ok {
-			s.dropped[key] = true
-			cancel()
-		}
-		s.cmu.Unlock()
+		s.calls.drop(idKey(p.RequestID))
 	default:
 		s.logf("ignored notification %s", method)
 	}
@@ -359,20 +427,17 @@ func (s *server) callAsync(ctx context.Context, wg *sync.WaitGroup, req request)
 	}
 	key := idKey(req.ID)
 	cctx, cancel := context.WithCancel(ctx)
-	s.cmu.Lock()
-	s.inflight[key] = cancel
-	s.cmu.Unlock()
+	if !s.calls.begin(key, cancel) {
+		cancel()
+		s.fail(req.ID, codeInvalidRequest, "request id %s is already in use by a call in progress", bytes.TrimSpace(req.ID))
+		return
+	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		defer cancel()
 		res := s.run(cctx, p.Name, args)
-		s.cmu.Lock()
-		delete(s.inflight, key)
-		drop := s.dropped[key]
-		delete(s.dropped, key)
-		s.cmu.Unlock()
-		if drop {
+		if s.calls.finish(key) {
 			return // the client cancelled the request: it expects no response
 		}
 		s.write(response{JSONRPC: "2.0", ID: req.ID, Result: res})
