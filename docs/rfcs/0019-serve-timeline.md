@@ -83,7 +83,7 @@ Proposed, all of it.
 | `w` | `1h`, `6h`, `24h`, `7d` | Window ending now. Default `24h`. Any other value is ignored and the default is used. Maximum 7 days. |
 | `watcher` | A watcher name, or `_` for the unnamed watcher | Repeatable, as `kind` on the Estate page (`?watcher=a&watcher=_`). None chosen means all. A value that is not a discovered watcher is ignored. `_` cannot be a real name (`app.ValidWatchName` requires a letter first). |
 | `sev` | `info`, `check`, `activity`, `high`, `critical` | Repeatable. None chosen means all. Unknown values are ignored. Filters findings only, never cycles. |
-| `gaps` | `1` | Only gaps view: the table lists the findings and the markers, not the cycles; each watcher gets a summary line with the number of cycles not listed. Any other value is ignored (all cycles). A link in the results switches the view and keeps the other parameters. Render only: the data is the same. |
+| `gaps` | `1` | Only gaps view: the table does not list plain cycles (`QUIET` or `FINDINGS` with no reported gap); markers, findings and every `INCOMPLETE`, `FAILED` or gap-reporting cycle stay. Each watcher gets a summary line with the number of plain cycles not listed. Any other value is ignored (all cycles). A link in the results switches the view and keeps the other parameters. Render only: the data is the same. |
 
 With a `watcher` filter, findings are limited to the runs of those watchers and the cycles to their logs. Without one, findings of hunts (run ids that are not `watch*`) are shown too, with the watcher column `hunt`.
 

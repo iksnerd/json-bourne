@@ -53,8 +53,19 @@ func TestTimelineGapsViewShowsMarkersAndFindingsAndNoCycleRow(t *testing.T) {
 		t.Fatal("no record table")
 	}
 	rec := body[i:]
-	if strings.Contains(rec, "<td>cycle</td>") || strings.Contains(rec, "CYCLE ") {
-		t.Error("a cycle row is shown")
+	// Plain cycles are hidden; the gap-reporting, INCOMPLETE and FAILED cycles stay.
+	for _, hidden := range []string{"CYCLE QUIET", "CYCLE FINDINGS"} {
+		if strings.Contains(rec, hidden) {
+			t.Errorf("plain cycle row %q is shown", hidden)
+		}
+	}
+	for _, kept := range []string{"CYCLE INCOMPLETE (not a quiet result); gap reported: events 2026-11-05T07:00:00Z to 2026-11-05T08:00:00Z were never examined", "CYCLE FAILED (not a quiet result)"} {
+		if !strings.Contains(rec, kept) {
+			t.Errorf("cycle row %q is hidden", kept)
+		}
+	}
+	if n := strings.Count(rec, "<td>cycle</td>"); n != 2 {
+		t.Errorf("%d cycle rows, want 2", n)
 	}
 	if n := strings.Count(rec, "<td>no cycle recorded</td>"); n != 2 {
 		t.Errorf("%d markers, want 2", n)
@@ -75,16 +86,16 @@ func TestTimelineGapsViewShowsMarkersAndFindingsAndNoCycleRow(t *testing.T) {
 func TestTimelineGapsViewCountsHiddenCyclesPerLane(t *testing.T) {
 	_, get := tlServer(tlStore(), tlHistory())
 	_, body := get("/timeline?gaps=1")
-	for _, want := range []string{"a: 4 cycle row(s) hidden in this view.", "(unnamed): 1 cycle row(s) hidden in this view."} {
+	for _, want := range []string{"a: 2 plain cycle row(s) hidden in this view.", "(unnamed): 1 plain cycle row(s) hidden in this view."} {
 		if !strings.Contains(body, want) {
 			t.Errorf("no summary %q", want)
 		}
 	}
-	if !strings.Contains(body, "a: 4 cycle row(s) hidden in this view. Findings of its runs older than 48h0m0s") {
+	if !strings.Contains(body, "a: 2 plain cycle row(s) hidden in this view. Findings of its runs older than 48h0m0s") {
 		t.Error("lane summary lacks the retention horizon")
 	}
 	_, one := get("/timeline?gaps=1&w=1h")
-	if !strings.Contains(one, "a: 1 cycle row(s) hidden") {
+	if !strings.Contains(one, "a: 0 plain cycle row(s) hidden") {
 		t.Error("1h count wrong")
 	}
 	_, def := get("/timeline")
@@ -117,7 +128,7 @@ func TestTimelineGapsViewKeepsCutAndUnknownIntervalNotices(t *testing.T) {
 			t.Errorf("gaps view lacks %q", want)
 		}
 	}
-	if !strings.Contains(gaps, "(unnamed): 500 cycle row(s) hidden") {
+	if !strings.Contains(gaps, "(unnamed): 500 plain cycle row(s) hidden") {
 		t.Error("hidden count is not the shown count of the cut lane")
 	}
 }

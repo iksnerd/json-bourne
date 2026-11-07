@@ -294,9 +294,19 @@ func (s *server) timeline(w http.ResponseWriter, r *http.Request) {
 			p.Notices = append(p.Notices, "INCOMPLETE: the newest "+strconv.Itoa(timelineCycleRows)+" cycles of "+c(label)+" in this window are shown; older ones in the window are not.")
 			cyc = cyc[len(cyc)-timelineCycleRows:]
 		}
+		// Only a plain cycle (QUIET or FINDINGS, no reported gap) is hidden in the only-gaps
+		// view. A cycle that reports a gap, any other verdict, stays: it is gap evidence too.
+		plain := func(cl core.WatchCycleLine) bool {
+			return !cl.GapReported && (cl.Verdict == "QUIET" || cl.Verdict == "FINDINGS")
+		}
 		if gapsOnly {
-			// The cycles are counted, not listed; the lane's ticks and every notice stay.
-			p.Summaries = append(p.Summaries, c(label)+": "+strconv.Itoa(len(cyc))+" cycle row(s) hidden in this view. "+upperFirst(horizon))
+			hidden := 0
+			for _, cl := range cyc {
+				if plain(cl) {
+					hidden++
+				}
+			}
+			p.Summaries = append(p.Summaries, c(label)+": "+strconv.Itoa(hidden)+" plain cycle row(s) hidden in this view. "+upperFirst(horizon))
 		}
 		for i, cl := range cyc {
 			dur := "not recorded"
@@ -315,7 +325,7 @@ func (s *server) timeline(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			detail += "; duration " + dur
-			if !gapsOnly {
+			if !gapsOnly || !plain(cl) {
 				rows = append(rows, tlSortRow{t: cl.At, rank: 1, watch: label, run: cl.Run, text: detail,
 					row: tlRow{Time: tm(cl.At), Kind: "cycle", Watcher: c(label), Detail: detail, Run: c(cl.Run)}})
 			}

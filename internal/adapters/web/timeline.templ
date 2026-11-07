@@ -45,7 +45,7 @@ templ timelineResults(p timelinePage) {
 	<p class="note">Window { p.From } to { p.To } (UTC). The end is the current time rounded down to the minute.</p>
 	<p class="note" id="tl-view">
 		if p.GapsOnly {
-			View: only gaps and findings. <a href={ templ.URL(p.ViewHref) }>show all cycles</a>
+			View: only gaps. Findings, and cycles that are incomplete, failed or report a gap, are kept; plain cycles are not listed. <a href={ templ.URL(p.ViewHref) }>show all cycles</a>
 		} else {
 			View: all cycles. <a href={ templ.URL(p.ViewHref) }>only gaps</a>
 		}

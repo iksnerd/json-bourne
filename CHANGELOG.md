@@ -5,7 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Added
-- `jb serve` Timeline: `gaps=1` shows only the "no cycle recorded" markers and the findings, with one summary line per watcher (cycles not listed, retention horizon); a link switches back to all cycles. Render only, no new query; every notice stays. The default view is unchanged.
+- `jb serve` Timeline: `gaps=1` hides plain cycles (QUIET or FINDINGS, no reported gap) and keeps the "no cycle recorded" markers, the findings and every INCOMPLETE, FAILED or gap-reporting cycle, with one summary line per watcher (plain cycles not listed, retention horizon); a link switches back to all cycles. Render only, no new query; every notice stays. The default view is unchanged.
 
 ## [0.10.0] - 2026-11-07
 
