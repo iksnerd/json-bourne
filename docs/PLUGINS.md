@@ -117,7 +117,7 @@ a timeout; a crash or exit at any point (including exit 0 before the handshake, 
 
 An error names the plugin, what went wrong, and the last of its stderr with control characters removed and anything credential-shaped replaced. It never contains a document or a response.
 
-**Breaker.** Every failure above is a *break*: the child is killed and the call fails. The next call starts a fresh process (the allowlist checks run again). After **three breaks in a row** in one run the plugin is not called again: further calls fail at once without launching it. A successful call resets the count. An operator interrupt (SIGINT/SIGTERM) is not a break.
+**Breaker.** Every failure above is a *break*: the child is killed and the call fails. The next call starts a fresh process (the allowlist checks run again). After **three breaks in a row** in one run the plugin is not called again: further calls fail at once without launching it. A successful call resets the count, but an open breaker stays open for the rest of the run: there is no half-open probe, and the error says so. A caller deadline or cancellation, and `Close`, are not breaks. An operator interrupt (SIGINT/SIGTERM) is not a break.
 
 ## Environment, directory, shutdown
 

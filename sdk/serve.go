@@ -112,7 +112,7 @@ func Serve(in io.Reader, out io.Writer, p Plugin) error {
 			continue
 		}
 		if mapper == nil || !bytes.Equal(cfgKey, req.Config) {
-			m, merr := p.New(req.Config)
+			m, merr := build(p, req.Config)
 			if merr != nil {
 				if err := writeJSON(bw, response{ID: req.ID, Error: "config: " + merr.Error()}); err != nil {
 					return err
@@ -125,6 +125,17 @@ func Serve(in io.Reader, out io.Writer, p Plugin) error {
 			return err
 		}
 	}
+}
+
+// build calls p.New. A panic there is a bug in the plugin, reported like a panic in Map:
+// a response error without the panic value, and the cached mapper is left as it was.
+func build(p Plugin, cfg json.RawMessage) (m Mapper, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			m, err = nil, errors.New("internal error while building the mapper")
+		}
+	}()
+	return p.New(cfg)
 }
 
 func handle(m Mapper, req request) (resp response) {

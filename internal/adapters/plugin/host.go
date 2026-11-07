@@ -43,8 +43,9 @@ const (
 var ErrPlugin = errors.New("plugin failed")
 
 // ErrBreakerOpen is returned without launching anything once the plugin has broken
-// MaxBreaks times in a row in this run.
-var ErrBreakerOpen = errors.New("plugin breaker open: too many consecutive failures")
+// MaxBreaks times in a row in this run. The breaker never closes by itself: there is
+// no half-open probe, and only a new Host (a new run) starts from zero.
+var ErrBreakerOpen = errors.New("plugin breaker open: too many consecutive failures; it stays open for the rest of this run")
 
 // Limits bound what a plugin may cost. A zero field takes its default.
 type Limits struct {
@@ -99,17 +100,24 @@ type Options struct {
 
 // Host runs one plugin as one long-lived child process for one source. It is safe for
 // concurrent use, but requests are serialised: the protocol is one request in flight.
+//
+// Two locks keep the states apart. reqMu serialises requests and is held for the whole
+// of one. mu guards the lifecycle (child, closed, breaker count, manifest) and is held
+// only briefly, so Close and the accessors never wait for a request to finish: Close
+// ends the child and the request in flight fails.
 type Host struct {
 	entry  Entry
 	config json.RawMessage
 	lim    Limits
 	env    func(string) (string, bool)
 
+	reqMu  sync.Mutex
+	nextID int64 // guarded by reqMu
+
 	mu       sync.Mutex
-	p        *proc
-	nextID   int64
+	p        *proc // nil: no child. Set only while not closed.
 	breaks   int
-	closed   bool
+	closed   bool // terminal
 	manifest Manifest
 }
 
@@ -376,7 +384,9 @@ func (h *Host) handshake(ctx context.Context, p *proc) error {
 		return h.wrap(p, "handshake: manifest name is empty or longer than 64 bytes")
 	}
 	m.Name, m.Version = scrub(m.Name), scrub(m.Version)
+	h.mu.Lock()
 	h.manifest = m
+	h.mu.Unlock()
 	return nil
 }
 
@@ -397,13 +407,10 @@ type response struct {
 // the breaker and is returned: the caller must fail the source. There is no partial
 // answer and no retry.
 func (h *Host) MapBatch(ctx context.Context, docs []map[string]any) ([]core.MapResult, error) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.closed {
-		return nil, fmt.Errorf("%w: plugin %s: host is closed", ErrPlugin, h.entry.Name)
-	}
-	if h.breaks >= h.lim.MaxBreaks {
-		return nil, fmt.Errorf("%w: plugin %s: %d consecutive failures: %w", ErrPlugin, h.entry.Name, h.breaks, ErrBreakerOpen)
+	h.reqMu.Lock()
+	defer h.reqMu.Unlock()
+	if err := h.admit(); err != nil {
+		return nil, err
 	}
 	out := make([]core.MapResult, 0, len(docs))
 	for i := 0; i < len(docs); {
@@ -422,6 +429,19 @@ func (h *Host) MapBatch(ctx context.Context, docs []map[string]any) ([]core.MapR
 		return nil, h.fail(nil, fmt.Errorf("%w: plugin %s: internal: %d results for %d documents", ErrPlugin, h.entry.Name, len(out), len(docs)))
 	}
 	return out, nil
+}
+
+// admit refuses a request when the host is closed or the breaker is open.
+func (h *Host) admit() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return fmt.Errorf("%w: plugin %s: host is closed", ErrPlugin, h.entry.Name)
+	}
+	if h.breaks >= h.lim.MaxBreaks {
+		return fmt.Errorf("%w: plugin %s: %d consecutive failures: %w", ErrPlugin, h.entry.Name, h.breaks, ErrBreakerOpen)
+	}
+	return nil
 }
 
 // encodeChunk marshals as many leading documents as fit in one request. A single
@@ -450,17 +470,22 @@ func (h *Host) call(ctx context.Context, enc [][]byte, n int) ([]core.MapResult,
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if h.p == nil {
-		p, err := h.start()
-		if err != nil {
+	h.mu.Lock()
+	p := h.p
+	h.mu.Unlock()
+	if p == nil {
+		var err error
+		if p, err = h.start(); err != nil {
 			return nil, h.fail(nil, err)
 		}
-		h.p = p
+		if !h.adopt(p) {
+			p.kill()
+			return nil, fmt.Errorf("%w: plugin %s: host is closed", ErrPlugin, h.entry.Name)
+		}
 		if err := h.handshake(ctx, p); err != nil {
 			return nil, h.fail(p, err)
 		}
 	}
-	p := h.p
 	h.nextID++
 	id := h.nextID
 	var req bytes.Buffer
@@ -487,24 +512,48 @@ func (h *Host) call(ctx context.Context, enc [][]byte, n int) ([]core.MapResult,
 	if err != nil {
 		return nil, h.fail(p, err)
 	}
+	h.mu.Lock()
 	h.breaks = 0
+	h.mu.Unlock()
 	return res, nil
+}
+
+// adopt makes p the host's child unless Close got there first.
+func (h *Host) adopt(p *proc) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return false
+	}
+	h.p = p
+	return true
 }
 
 // fail kills the child. A cancelled context is not the plugin's fault and does not
 // count toward the breaker; everything else does.
 func (h *Host) fail(p *proc, err error) error {
+	h.mu.Lock()
 	if p == nil {
 		p = h.p
 	}
+	if h.p == p {
+		h.p = nil
+	}
+	closed := h.closed
+	h.mu.Unlock()
 	if p != nil {
 		p.kill()
 	}
-	h.p = nil
+	if closed {
+		// Close ended the child under the request. That is not the plugin's fault.
+		return fmt.Errorf("%w: plugin %s: host closed during the request", ErrPlugin, h.entry.Name)
+	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
+	h.mu.Lock()
 	h.breaks++
+	h.mu.Unlock()
 	return err
 }
 
@@ -601,14 +650,16 @@ func normalise(v any) any {
 }
 
 // Close shuts the child down (stdin closed, then the group killed after a grace
-// period) and refuses further requests. It is safe to call more than once.
+// period) and refuses further requests. It is terminal, safe to call more than once and
+// safe beside a request in flight: that request fails and Close does not wait for it.
 func (h *Host) Close() error {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	h.closed = true
-	if h.p != nil {
-		h.p.stop()
-		h.p = nil
+	p := h.p
+	h.p = nil
+	h.mu.Unlock()
+	if p != nil {
+		p.stop()
 	}
 	return nil
 }
