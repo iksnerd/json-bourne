@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/core"
@@ -100,6 +101,10 @@ func (s *Source) historyRange(w core.Window) map[string]any {
 // many exist. Every key maps to its count, 0 included. A key that is not safe to send
 // fails the call before any request. No error or log line carries a key.
 func (s *Source) CountKeys(ctx context.Context, keys []string, w core.Window) (map[string]int64, error) {
+	return s.countKeys(ctx, s.Index, keys, w)
+}
+
+func (s *Source) countKeys(ctx context.Context, index string, keys []string, w core.Window) (map[string]int64, error) {
 	km, err := s.keyMatch()
 	if err != nil {
 		return nil, err
@@ -137,7 +142,7 @@ func (s *Source) CountKeys(ctx context.Context, keys []string, w core.Window) (m
 		"query":            s.historyRange(w),
 		"aggs":             map[string]any{keysAgg: map[string]any{"filters": map[string]any{"filters": buckets}}},
 	}
-	resp, err := s.Client.search(ctx, s.Index, body)
+	resp, err := s.Client.search(ctx, index, body)
 	if err != nil {
 		return nil, fmt.Errorf("kibana: history count: %w", err)
 	}
@@ -168,6 +173,10 @@ func (s *Source) CountKeys(ctx context.Context, keys []string, w core.Window) (m
 // CountKeys, with no key clause and no source filter. A zero means this index cannot
 // show history for w.
 func (s *Source) CountAll(ctx context.Context, w core.Window) (int64, error) {
+	return s.countAll(ctx, s.Index, w)
+}
+
+func (s *Source) countAll(ctx context.Context, index string, w core.Window) (int64, error) {
 	if _, err := s.keyMatch(); err != nil {
 		return 0, err
 	}
@@ -176,9 +185,46 @@ func (s *Source) CountAll(ctx context.Context, w core.Window) (int64, error) {
 		"track_total_hits": true,
 		"query":            s.historyRange(w),
 	}
-	resp, err := s.Client.search(ctx, s.Index, body)
+	resp, err := s.Client.search(ctx, index, body)
 	if err != nil {
 		return 0, fmt.Errorf("kibana: history liveness count: %w", err)
 	}
 	return resp.Total, nil
+}
+
+// CountingIndices returns a counter that probes the union of indices, one request for
+// CountKeys and one for CountAll, with this source's cluster, time field and key_match.
+// The expressions go out as one comma-separated target, so Elasticsearch counts a
+// document that matches several of them once. An empty expression, or one holding a
+// comma or whitespace, is refused: it would change what the target means.
+func (s *Source) CountingIndices(indices []string) (core.KeyCounter, error) {
+	if len(indices) == 0 {
+		return nil, errors.New("kibana: history needs at least one index")
+	}
+	seen := make(map[string]struct{}, len(indices))
+	distinct := make([]string, 0, len(indices))
+	for _, in := range indices {
+		if in == "" || strings.ContainsAny(in, ", \t\r\n") {
+			return nil, errors.New("kibana: history refused an index expression that is empty or holds a comma or whitespace")
+		}
+		if _, dup := seen[in]; !dup {
+			seen[in] = struct{}{}
+			distinct = append(distinct, in)
+		}
+	}
+	return indexUnion{s: s, index: strings.Join(distinct, ",")}, nil
+}
+
+// indexUnion is a core.KeyCounter over one multi-target index expression of a source.
+type indexUnion struct {
+	s     *Source
+	index string
+}
+
+func (u indexUnion) CountKeys(ctx context.Context, keys []string, w core.Window) (map[string]int64, error) {
+	return u.s.countKeys(ctx, u.index, keys, w)
+}
+
+func (u indexUnion) CountAll(ctx context.Context, w core.Window) (int64, error) {
+	return u.s.countAll(ctx, u.index, w)
 }

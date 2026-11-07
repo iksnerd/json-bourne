@@ -20,6 +20,7 @@ type countSrc struct {
 	counts             map[string]int64
 	all                int64
 	keyErr             error
+	unions             []string // the index targets the probe asked this source to count
 
 	mu         sync.Mutex
 	keyCalls   int
@@ -57,6 +58,16 @@ func (c *countSrc) CountAll(context.Context, core.Window) (int64, error) {
 	return c.all, nil
 }
 
+// CountingIndices is how the probe asks one source to count a cluster over the union of
+// its sources' index expressions. The fake answers with its own table, as Elasticsearch
+// does when a document matches more than one expression: once.
+func (c *countSrc) CountingIndices(indices []string) (core.KeyCounter, error) {
+	c.mu.Lock()
+	c.unions = append(c.unions, strings.Join(indices, ","))
+	c.mu.Unlock()
+	return c, nil
+}
+
 var lookWin = core.Window{From: t0.Add(-8 * 24 * time.Hour), To: t0.Add(-time.Hour)}
 
 func TestHistorySameClusterAndIndexIsCountedOnce(t *testing.T) {
@@ -75,16 +86,24 @@ func TestHistorySameClusterAndIndexIsCountedOnce(t *testing.T) {
 	}
 }
 
-func TestHistoryDistinctIndicesAreSummed(t *testing.T) {
-	a := newCountSrc("a", "https://kibana.example.com", "logs-1", map[string]int64{"192.0.2.7": 30})
-	b := newCountSrc("b", "https://kibana.example.com", "logs-2", map[string]int64{"192.0.2.7": 12, "192.0.2.8": 1})
+// Two sources on one cluster with overlapping patterns return the same 30 documents. The
+// cluster is probed once over both patterns, so the documents count once; a second cluster adds.
+func TestHistoryOverlappingPatternsOnOneClusterCountOnce(t *testing.T) {
+	a := newCountSrc("a", "https://kibana.example.com", "logs-*", map[string]int64{"192.0.2.7": 30})
+	b := newCountSrc("b", "https://kibana.example.com", "logs-web-*", map[string]int64{"192.0.2.7": 30})
 	c := newCountSrc("c", "https://other.example.com", "logs-1", map[string]int64{"192.0.2.7": 5})
-	got, err := newKeyHistory([]core.Source{a, b, c}).Counts(context.Background(), []string{"192.0.2.7", "192.0.2.8"}, lookWin)
+	got, err := newKeyHistory([]core.Source{a, b, c}).Counts(context.Background(), []string{"192.0.2.7"}, lookWin)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got["192.0.2.7"] != 47 || got["192.0.2.8"] != 1 {
-		t.Errorf("counts = %v, want 47 and 1: a second index and a second cluster each add", got)
+	if got["192.0.2.7"] != 35 {
+		t.Errorf("count = %d, want 35: the 30 shared documents once, plus 5 from the other cluster", got["192.0.2.7"])
+	}
+	if len(a.unions) != 1 || a.unions[0] != "logs-*,logs-web-*" || len(b.unions) != 0 {
+		t.Errorf("union requests: a %v, b %v, want both patterns asked once, through the first source", a.unions, b.unions)
+	}
+	if a.keyCalls+b.keyCalls+c.keyCalls != 2 || a.allCalls+b.allCalls+c.allCalls != 2 {
+		t.Errorf("keys requests %d, all requests %d, want one per cluster each", a.keyCalls+b.keyCalls+c.keyCalls, a.allCalls+b.allCalls+c.allCalls)
 	}
 	if a.lastWindow != lookWin {
 		t.Errorf("window = %v, want %v", a.lastWindow, lookWin)
@@ -105,7 +124,7 @@ func TestHistorySourceWithoutThePortIsAnErrorNamingIt(t *testing.T) {
 
 func TestHistoryAnIndexWithNoEventsInTheLookbackCannotShowHistory(t *testing.T) {
 	a := newCountSrc("a", "https://kibana.example.com", "logs-1", map[string]int64{"192.0.2.7": 30})
-	b := newCountSrc("b", "https://kibana.example.com", "logs-2", nil)
+	b := newCountSrc("b", "https://other.example.com", "logs-2", nil)
 	b.all = 0
 	_, err := newKeyHistory([]core.Source{a, b}).Counts(context.Background(), []string{"192.0.2.7"}, lookWin)
 	if err == nil || !strings.Contains(err.Error(), "logs-2") || !strings.Contains(err.Error(), "cannot show history") {
@@ -127,7 +146,7 @@ func TestHistoryProbeErrorIsReturnedWithoutTheKey(t *testing.T) {
 
 func TestHistoryMatchModeReportsOneModeOrMixed(t *testing.T) {
 	a := newCountSrc("a", "u", "i1", nil)
-	b := newCountSrc("b", "u", "i2", nil)
+	b := newCountSrc("b", "v", "i2", nil)
 	if m := newKeyHistory([]core.Source{a, b}).MatchMode(); m != "phrase" {
 		t.Errorf("mode = %q", m)
 	}
@@ -179,7 +198,7 @@ func huntHist(t *testing.T, scopes map[string][]string, srcs []core.Source, dets
 
 func TestHuntPrefersDetectWithHistoryAndBuildsItFromTheScope(t *testing.T) {
 	a := newCountSrc("a", "https://kibana.example.com", "logs-1", map[string]int64{"192.0.2.7": 30})
-	b := newCountSrc("b", "https://kibana.example.com", "logs-2", map[string]int64{"192.0.2.7": 900})
+	b := newCountSrc("b", "https://other.example.com", "logs-2", map[string]int64{"192.0.2.7": 900})
 	d := &histDet{name: "nk"}
 	res := huntHist(t, map[string][]string{"nk": {"a"}}, []core.Source{a, b}, d)
 	if d.plain.Load() != 0 || d.withHist.Load() != 1 {
@@ -195,7 +214,7 @@ func TestHuntPrefersDetectWithHistoryAndBuildsItFromTheScope(t *testing.T) {
 
 func TestHuntUnscopedHistoryReadsEverySource(t *testing.T) {
 	a := newCountSrc("a", "https://kibana.example.com", "logs-1", map[string]int64{"192.0.2.7": 30})
-	b := newCountSrc("b", "https://kibana.example.com", "logs-2", map[string]int64{"192.0.2.7": 900})
+	b := newCountSrc("b", "https://other.example.com", "logs-2", map[string]int64{"192.0.2.7": 900})
 	d := &histDet{name: "nk"}
 	huntHist(t, nil, []core.Source{a, b}, d)
 	if d.counts["192.0.2.7"] != 930 {

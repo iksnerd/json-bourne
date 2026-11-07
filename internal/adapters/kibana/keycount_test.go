@@ -340,3 +340,39 @@ func TestSourceImplementsTheKeyCounterPort(t *testing.T) {
 	}
 	_ = fmt.Sprint(s)
 }
+
+// CountingIndices sends the union of the expressions as one comma-joined target, once
+// per call, so Elasticsearch counts a document that matches both a single time.
+func TestCountingIndicesSendsTheUnionAsOneTarget(t *testing.T) {
+	f := &fakeIndex{counts: map[string]int64{"192.0.2.7": 30}, total: 99}
+	s, _ := newKeySource(t, f, ModeTerm)
+	kc, err := s.CountingIndices([]string{"logs-*", "logs-web-*", "logs-*"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := kc.CountKeys(context.Background(), []string{"192.0.2.7"}, lookbackWin)
+	if err != nil || got["192.0.2.7"] != 30 {
+		t.Fatalf("counts %v err %v", got, err)
+	}
+	if n, err := kc.CountAll(context.Background(), lookbackWin); err != nil || n != 99 {
+		t.Fatalf("CountAll = %d, %v", n, err)
+	}
+	if len(f.index) != 2 || f.index[0] != "logs-*,logs-web-*" || f.index[1] != "logs-*,logs-web-*" {
+		t.Errorf("targets = %q, want the two distinct expressions joined once, one request per call", f.index)
+	}
+	if strings.Contains(f.bodies[0], sourceFilterMark) {
+		t.Error("the source's own filter was applied")
+	}
+}
+
+func TestCountingIndicesRefusesAnExpressionThatChangesTheTarget(t *testing.T) {
+	s, _ := newKeySource(t, &fakeIndex{}, ModeTerm)
+	for _, bad := range []string{"", "a,b", "a b", "a\n"} {
+		if _, err := s.CountingIndices([]string{"logs-*", bad}); err == nil {
+			t.Errorf("expression %q accepted", bad)
+		}
+	}
+	if _, err := s.CountingIndices(nil); err == nil {
+		t.Error("no expression accepted")
+	}
+}

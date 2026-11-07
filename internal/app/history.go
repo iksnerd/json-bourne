@@ -16,12 +16,21 @@ type indexNamer interface{ IndexName() string }
 // modeNamer is implemented by a source that matches keys in a stated mode.
 type modeNamer interface{ KeyMode() string }
 
-// historyGroup is one distinct store: a cluster and an index. Several sources can read
-// it with different filters; the probe drops the filters, so each would return the same
-// total and a sum would count it again. One source of the group speaks for it.
+// indexUnioner is implemented by a source that can count its cluster over the union of
+// several index expressions in one request, which Elasticsearch de-duplicates.
+type indexUnioner interface {
+	CountingIndices(indices []string) (core.KeyCounter, error)
+}
+
+// historyGroup is one cluster. Several sources can read it, with different filters and
+// index patterns that may overlap; the probe drops the filters, so counting each source
+// or pattern would count a shared document again. The cluster is probed once, over the
+// union of its sources' index expressions.
 type historyGroup struct {
-	label string // for errors: the source that speaks for the group, and its index
-	kc    core.KeyCounter
+	label   string // for errors: the source that speaks for the group, and its indices
+	kc      core.KeyCounter
+	rep     indexUnioner // the source that speaks for the group, when it can count a union
+	indices []string
 }
 
 // keyHistory is the core.KeyHistory of one detector, built from the sources it reads.
@@ -34,12 +43,12 @@ type keyHistory struct {
 
 var _ core.KeyHistory = (*keyHistory)(nil)
 
-// newKeyHistory groups srcs by cluster and index. A source without core.KeyCounter makes
+// newKeyHistory groups srcs by cluster (core.DocScoped). A source without core.KeyCounter makes
 // every Counts call fail, naming it: the history is only asked for by a detector that
 // needs it, so a detector that never asks is not refused for the sources it reads.
 func newKeyHistory(srcs []core.Source) *keyHistory {
 	h := &keyHistory{}
-	seen := map[string]bool{}
+	groupAt := map[string]int{}
 	for _, s := range srcs {
 		kc, ok := s.(core.KeyCounter)
 		if !ok {
@@ -56,23 +65,48 @@ func newKeyHistory(srcs []core.Source) *keyHistory {
 		if ds, ok := s.(core.DocScoped); ok {
 			scope = ds.DocScope()
 		}
-		key := scope + "\x00" + index
+		iu, canUnion := s.(indexUnioner)
+		key := scope
 		if scope == "" || index == "" {
-			key = "\x00source\x00" + s.Name() // cannot prove two sources share a store
+			key = "\x00source\x00" + s.Name() // cannot prove two sources share a cluster
+		} else if !canUnion {
+			key += "\x00" + index // cannot probe a union, so each index is its own group
 		}
-		if seen[key] {
+		if gi, ok := groupAt[key]; ok {
+			if g := &h.groups[gi]; index != "" && !slices.Contains(g.indices, index) {
+				g.indices = append(g.indices, index)
+			}
 			continue
 		}
-		seen[key] = true
-		label := fmt.Sprintf("source %q", s.Name())
+		groupAt[key] = len(h.groups)
+		g := historyGroup{label: fmt.Sprintf("source %q", s.Name()), kc: kc}
 		if index != "" {
-			label += fmt.Sprintf(" (index %q)", index)
+			g.indices = []string{index}
 		}
-		h.groups = append(h.groups, historyGroup{label: label, kc: kc})
+		if canUnion && scope != "" && index != "" {
+			g.rep = iu
+		}
+		h.groups = append(h.groups, g)
 		if mn, ok := s.(modeNamer); ok {
 			if m := mn.KeyMode(); m != "" && !slices.Contains(h.modes, m) {
 				h.modes = append(h.modes, m)
 			}
+		}
+	}
+	for i := range h.groups {
+		g := &h.groups[i]
+		if len(g.indices) > 0 {
+			g.label += fmt.Sprintf(" (index %q)", strings.Join(g.indices, ","))
+		}
+		if len(g.indices) > 1 && g.rep != nil {
+			kc, err := g.rep.CountingIndices(g.indices)
+			if err != nil {
+				if h.err == nil {
+					h.err = fmt.Errorf("history: %s: %w", g.label, err)
+				}
+				continue
+			}
+			g.kc = kc
 		}
 	}
 	slices.Sort(h.modes)
