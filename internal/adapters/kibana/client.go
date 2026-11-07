@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/core"
@@ -114,7 +115,7 @@ func (c *Client) search(ctx context.Context, index string, body map[string]any) 
 
 	var es struct {
 		Hits struct {
-			Total any `json:"total"`
+			Total json.RawMessage `json:"total"`
 			Hits  []struct {
 				Index  string         `json:"_index"`
 				ID     string         `json:"_id"`
@@ -122,8 +123,8 @@ func (c *Client) search(ctx context.Context, index string, body map[string]any) 
 				Sort   []any          `json:"sort"`
 			} `json:"hits"`
 		} `json:"hits"`
-		Aggregations map[string]any `json:"aggregations"`
-		TimedOut     bool           `json:"timed_out"`
+		Aggregations json.RawMessage `json:"aggregations"`
+		TimedOut     bool            `json:"timed_out"`
 		Shards       struct {
 			Failed int `json:"failed"`
 		} `json:"_shards"`
@@ -139,8 +140,19 @@ func (c *Client) search(ctx context.Context, index string, body map[string]any) 
 			core.ErrSourceUnavailable, es.TimedOut, es.Shards.Failed)
 	}
 
-	out := &response{Aggs: es.Aggregations}
-	out.Total = totalValue(es.Hits.Total)
+	out := &response{}
+	// Counts are decoded as exact integers (json.Number), never float64: a count that
+	// is not a nonnegative int64 is a malformed reply, not a number to clamp.
+	if len(es.Aggregations) > 0 {
+		if err := decodeNumbers(es.Aggregations, &out.Aggs); err != nil {
+			return nil, fmt.Errorf("decode kibana aggregations: %w", err)
+		}
+	}
+	total, err := totalValue(es.Hits.Total)
+	if err != nil {
+		return nil, fmt.Errorf("kibana: malformed hits.total: %w", err)
+	}
+	out.Total = total
 	for _, h := range es.Hits.Hits {
 		out.Hits = append(out.Hits, hit{Index: h.Index, ID: h.ID, Source: h.Source})
 		if len(h.Sort) > 0 {
@@ -150,17 +162,49 @@ func (c *Client) search(ctx context.Context, index string, body map[string]any) 
 	return out, nil
 }
 
-// totalValue handles both the modern {"value":N} form and the legacy bare number.
-func totalValue(v any) int64 {
-	switch t := v.(type) {
-	case float64:
-		return int64(t)
-	case map[string]any:
-		if n, ok := t["value"].(float64); ok {
-			return int64(n)
-		}
+// decodeNumbers decodes raw into v keeping every number as a json.Number.
+func decodeNumbers(raw []byte, v any) error {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	return dec.Decode(v)
+}
+
+// parseCount reads a count: a JSON integer from 0 to math.MaxInt64. 1.5, 1e2, a
+// negative, a string and a value over int64 are errors; nothing is clamped.
+func parseCount(v any) (int64, error) {
+	n, ok := v.(json.Number)
+	if !ok {
+		return 0, fmt.Errorf("count %v is not a number", v)
 	}
-	return 0
+	i, err := strconv.ParseInt(n.String(), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("count %q is not a nonnegative integer within int64", n.String())
+	}
+	if i < 0 {
+		return 0, fmt.Errorf("count %d is negative", i)
+	}
+	return i, nil
+}
+
+// totalValue handles both the modern {"value":N} form and the legacy bare number. An
+// absent total (track_total_hits false) is 0; a present one that is not a valid count
+// is an error.
+func totalValue(raw json.RawMessage) (int64, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, nil
+	}
+	var v any
+	if err := decodeNumbers(raw, &v); err != nil {
+		return 0, err
+	}
+	if m, ok := v.(map[string]any); ok {
+		val, present := m["value"]
+		if !present {
+			return 0, nil
+		}
+		return parseCount(val)
+	}
+	return parseCount(v)
 }
 
 // String and GoString redact the credential: a Client reaches logs through %v and %+v.

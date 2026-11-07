@@ -54,6 +54,9 @@ func TestUsageClassMatchesExitCode(t *testing.T) {
 		wantUsage bool
 	}{
 		{"hunt negative window", []string{"hunt", "--config", cfgPath, "--window", "-5m"}, hunt(jb.HuntOptions{Window: -5 * time.Minute}), true},
+		{"hunt sub-second window", []string{"hunt", "--config", cfgPath, "--window", "1500ms"}, hunt(jb.HuntOptions{Window: 1500 * time.Millisecond}), true},
+		{"hunt sub-second window with until", []string{"hunt", "--config", cfgPath, "--until", past.Format(time.RFC3339), "--window", "1500ms"}, hunt(jb.HuntOptions{Until: past, Window: 1500 * time.Millisecond}), true},
+		{"activity sub-second window", []string{"activity", "--case", okDir, "--window", "1500ms"}, activity(okDir, jb.ActivityOptions{Window: 1500 * time.Millisecond}), true},
 		{"hunt until in the future", []string{"hunt", "--config", cfgPath, "--until", future}, hunt(jb.HuntOptions{Until: fixedNow.Add(time.Hour)}), true},
 		{"hunt window too long for a past window", []string{"hunt", "--config", cfgPath, "--until", past.Format(time.RFC3339), "--window", "800h"}, hunt(jb.HuntOptions{Until: past, Window: 800 * time.Hour}), true},
 		{"hunt case config outside the case", []string{"hunt", "--case", okDir, "--config", "../outside.yaml"}, huntCaseLib(okDir, jb.CaseHuntOptions{Config: "../outside.yaml"}), true},

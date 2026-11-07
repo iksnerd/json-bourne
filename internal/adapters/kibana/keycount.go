@@ -176,11 +176,11 @@ func (s *Source) countKeys(ctx context.Context, index string, keys []string, w c
 		if !ok {
 			return nil, errors.New("kibana: history count: the answer lacks a bucket for a key")
 		}
-		n, ok := b["doc_count"].(float64)
-		if !ok || n < 0 {
-			return nil, errors.New("kibana: history count: a bucket has no valid count")
+		n, err := parseCount(b["doc_count"])
+		if err != nil {
+			return nil, fmt.Errorf("kibana: history count: a bucket has no valid count: %w", err)
 		}
-		out[k] = int64(n)
+		out[k] = n
 	}
 	return out, nil
 }
