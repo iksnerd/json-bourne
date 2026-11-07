@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-11-07
+
 ### Fixed
 - Hunt: the events of sources that share a cluster are held in memory until every source is read (the stored copy is chosen by the smallest source name). That buffer is now bounded (256 MiB estimated); past it the source fails and the run is incomplete, with an error that says what to change, instead of the process running out of memory on a large window.
 - The `newkey` history probe used the first source's `key_match` and time field for every source on a cluster, so a known key could count as new depending on source order. Sources with the same settings still share one request; sources with different settings are probed separately and their counts add, in a fixed order.
