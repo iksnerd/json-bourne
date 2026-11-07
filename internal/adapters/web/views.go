@@ -453,6 +453,23 @@ type factGroup struct {
 // citeRow is an assessment shown next to the fact group its basis cites.
 type citeRow struct{ Label, By, Decided string }
 
+// cmpTime orders two stored RFC 3339 times by instant, so a time with a zone offset sorts
+// where it belongs. A text that is not a time sorts after every time, by its bytes, so the
+// order stays total whatever a file holds.
+func cmpTime(a, b string) int {
+	ta, ea := time.Parse(time.RFC3339, a)
+	tb, eb := time.Parse(time.RFC3339, b)
+	switch {
+	case ea == nil && eb == nil:
+		return cmp.Or(ta.Compare(tb), cmp.Compare(a, b))
+	case ea == nil:
+		return -1
+	case eb == nil:
+		return 1
+	}
+	return cmp.Compare(a, b)
+}
+
 // groupFacts groups facts by key, any key. Groups are in key order and the facts of a
 // group in value order, then source, method and time, so the same file always renders
 // the same page.
@@ -462,8 +479,8 @@ func groupFacts(fs []core.EstateFact) []factGroup {
 		rows = append(rows, factRowOf(f))
 	}
 	slices.SortStableFunc(rows, func(a, b factRow) int {
-		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Value, b.Value), cmp.Compare(a.Source, b.Source),
-			cmp.Compare(a.Method, b.Method), cmp.Compare(a.Observed, b.Observed))
+		return cmp.Or(cmp.Compare(a.Key, b.Key), cmpTime(a.Observed, b.Observed), cmp.Compare(a.Value, b.Value),
+			cmp.Compare(a.Source, b.Source), cmp.Compare(a.Method, b.Method))
 	})
 	var out []factGroup
 	for _, r := range rows {
@@ -539,12 +556,22 @@ func assessRowOf(g core.EstateGraph, cur string, a core.EstateAssessment) assess
 	return assessRow{c(a.ID), c(a.Subject), c(a.Label), c(a.By), c(a.Decided), strings.Join(basis, ", "), c(a.Note), refs}
 }
 
+// sortedAssessments is the map's assessments by decided time, then id, then label, so the
+// order never depends on the order in the file. It copies; the map is not changed.
+func sortedAssessments(g core.EstateGraph) []core.EstateAssessment {
+	out := slices.Clone(g.Assessments)
+	slices.SortStableFunc(out, func(a, b core.EstateAssessment) int {
+		return cmp.Or(cmpTime(a.Decided, b.Decided), cmp.Compare(a.ID, b.ID), cmp.Compare(a.Label, b.Label), cmp.Compare(a.Subject, b.Subject))
+	})
+	return out
+}
+
 // assessmentsOf returns the rows of the assessments about one node ("" means all of
 // them), at most tableCap.
 func assessmentsOf(g core.EstateGraph, subject string) []assessRow {
 	cur := subject
 	var out []assessRow
-	for _, a := range g.Assessments {
+	for _, a := range sortedAssessments(g) {
 		if (subject == "" || a.Subject == subject) && len(out) < tableCap {
 			out = append(out, assessRowOf(g, cur, a))
 		}
@@ -554,8 +581,9 @@ func assessmentsOf(g core.EstateGraph, subject string) []assessRow {
 
 // citedBy returns, for each fact group of node id, the assessments whose basis is id#key.
 func citedBy(g core.EstateGraph, id string, groups []factGroup) {
+	sorted := sortedAssessments(g)
 	for i := range groups {
-		for _, a := range g.Assessments {
+		for _, a := range sorted {
 			for _, b := range a.Basis {
 				if b == id+"#"+groups[i].Key {
 					groups[i].Cited = append(groups[i].Cited, citeRow{c(a.Label), c(a.By), c(a.Decided)})
@@ -571,7 +599,7 @@ func citedBy(g core.EstateGraph, id string, groups []factGroup) {
 // by "#" and a fact key; an entry that only starts with the same characters does not.
 func citingOf(g core.EstateGraph, id string) []assessRow {
 	var out []assessRow
-	for _, a := range g.Assessments {
+	for _, a := range sortedAssessments(g) {
 		if a.Subject == id || len(out) >= tableCap {
 			continue
 		}
@@ -924,7 +952,11 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 		p.Facts = groupFacts(x.Facts)
 		citedBy(g, id, p.Facts)
 		p.Edges, p.EdgeTotal = edgesOf(g, id)
-		for _, a := range g.Absences {
+		abs := slices.Clone(g.Absences)
+		slices.SortStableFunc(abs, func(a, b core.EstateAbsence) int {
+			return cmp.Or(cmp.Compare(a.Source, b.Source), cmp.Compare(a.Method, b.Method), cmpTime(a.Observed, b.Observed), cmp.Compare(a.Answer, b.Answer))
+		})
+		for _, a := range abs {
 			if a.Subject == id && len(p.Absences) < tableCap {
 				p.Absences = append(p.Absences, absenceRow{c(a.Subject), c(a.Source), c(a.Method), c(a.Observed), c(a.Answer)})
 			}
@@ -965,7 +997,7 @@ func edgesOf(g core.EstateGraph, id string) ([]edgeGroup, int) {
 	}
 	slices.SortStableFunc(rows, func(a, b sheetEdge) int {
 		return cmp.Or(cmp.Compare(a.Relation, b.Relation), cmp.Compare(a.Other, b.Other), cmp.Compare(a.Dir, b.Dir),
-			cmp.Compare(a.Source, b.Source), cmp.Compare(a.Method, b.Method), cmp.Compare(a.Observed, b.Observed),
+			cmp.Compare(a.Source, b.Source), cmp.Compare(a.Method, b.Method), cmpTime(a.Observed, b.Observed),
 			cmp.Compare(a.Confidence, b.Confidence))
 	})
 	total := len(rows)
