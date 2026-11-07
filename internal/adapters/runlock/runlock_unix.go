@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/iksnerd/json-bourne/internal/safefile"
 )
 
 // A probe (Probe) holds a shared lock for an instant, which refuses an exclusive request
@@ -19,7 +21,9 @@ const (
 )
 
 func probe(path string) (Holder, error) {
-	f, err := os.Open(path) // #nosec G304 -- see readPID
+	// safefile.Open opens with O_NONBLOCK and refuses anything but a regular file, so a
+	// FIFO at the path cannot block the open. flock works on its read-only descriptor.
+	f, _, err := safefile.Open(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return Holder{}, nil
 	}
@@ -38,9 +42,21 @@ func probe(path string) (Holder, error) {
 }
 
 func acquire(path string, pid int) (*Lock, error) {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600) // #nosec G304 -- see readPID
+	// The lock needs a read-write descriptor (the PID is written through it) and may
+	// create the file, which safefile.Open (read-only, never creates) cannot do. So it
+	// does the same two things itself: O_NONBLOCK, so opening a FIFO cannot block, and an
+	// fstat of the opened descriptor, so the lock is only ever taken on a regular file.
+	// O_NONBLOCK does nothing to a regular file's later reads, writes or flock.
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|syscall.O_NONBLOCK, 0o600) // #nosec G304 -- see readPID
 	if err != nil {
 		return nil, fmt.Errorf("open lock file: %w", err)
+	}
+	if st, err := f.Stat(); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("open lock file: %w", err)
+	} else if !st.Mode().IsRegular() {
+		f.Close()
+		return nil, fmt.Errorf("open lock file: %s: %w (%s)", path, safefile.ErrNotRegular, st.Mode().Type())
 	}
 	var err2 error
 	for try := 0; try < acquireTries; try++ {

@@ -1,6 +1,6 @@
 // Package runlock keeps two copies of one long-running command from running together:
 // an exclusive lock on a file, with the holder's PID written in it so that the loser can
-// say who has it. It depends on the standard library only and sends nothing anywhere.
+// say who has it. It depends on the standard library and internal/safefile (the regular-file check) only and sends nothing anywhere.
 //
 // On Unix the lock is flock(2) on the open file, so the kernel drops it when the holder
 // exits for any reason, a crash and kill -9 included: a leftover file with a dead PID in
@@ -15,7 +15,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/iksnerd/json-bourne/internal/safefile"
 )
+
+// maxPIDFile caps the PID read: a PID line is a few bytes, so anything larger is not one.
+const maxPIDFile = 64
 
 // ErrHeld is matched (errors.Is) by the error Acquire returns when another process
 // holds the lock.
@@ -71,7 +76,8 @@ func Probe(path string) (Holder, error) {
 }
 
 func readPID(path string) int {
-	b, err := os.ReadFile(path) // #nosec G304 -- the lock path is built by the command from the case's evidence directory
+	// safefile refuses a FIFO or device (which would block the read) and caps the size.
+	b, err := safefile.ReadAll(path, maxPIDFile)
 	if err != nil {
 		return 0
 	}

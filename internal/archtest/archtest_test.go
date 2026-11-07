@@ -22,6 +22,7 @@ type rule struct {
 	pkg        string   // package under test, relative to the module
 	forbid     []string // import path prefixes it must not use
 	forbidEq   []string // import paths it must not use, exactly (for "net" without net/netip)
+	allow      []string // import paths exempt from forbid, exactly (a narrow exception to a wide prefix)
 	stdlibOnly bool
 	why        string
 }
@@ -35,7 +36,7 @@ var rules = []rule{
 	{pkg: "internal/adapters/alertlog", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/adapters/kibana", mod + "/internal/adapters/duckdb", "github.com/spf13/cobra", "net", "os/exec"}, why: "the local alert adapter depends on core only and sends nothing over a network; a network sink is a separate adapter or plugin"},
 	{pkg: "internal/adapters/watchstate", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/adapters/kibana", mod + "/internal/adapters/duckdb", "github.com/spf13/cobra", "net", "os/exec"}, why: "the watch state file adapter depends on core only and has no network"},
 	{pkg: "internal/adapters/watchstatus", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/adapters", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "net", "os/exec"}, why: "the watch status file adapter depends on core only, has no network and no process, and holds names, counts and times, so a credential has no path into the record"},
-	{pkg: "internal/adapters/runlock", forbid: []string{mod + "/internal", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "net", "os/exec", "log"}, why: "the run lock is a file lock and a PID: the standard library only, no network, no process, no log, and it knows nothing of the domain, so it cannot leak what a case holds"},
+	{pkg: "internal/adapters/runlock", allow: []string{mod + "/internal/safefile"}, forbid: []string{mod + "/internal", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "net", "os/exec", "log"}, why: "the run lock is a file lock and a PID: the standard library and internal/safefile (the regular-file check) only, no network, no process, no log, and it knows nothing of the domain, so it cannot leak what a case holds"},
 	{pkg: "internal/adapters/detectors/authspike", stdlibOnly: false, forbid: []string{mod + "/internal/adapters/greynoise", mod + "/internal/adapters/kibana", mod + "/internal/adapters/duckdb", mod + "/internal/app", "github.com/spf13/cobra", "github.com/duckdb", "net/http", "os/exec"}, why: "a detector is pure: it reads through core.EventReader and touches nothing else"},
 	{pkg: "internal/adapters/detectors/signup", forbid: []string{mod + "/internal/adapters", mod + "/internal/casefile", mod + "/internal/config", mod + "/internal/app", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "net/http", "os"}, why: "a detector is pure: it reads through core.EventReader and touches nothing else (no files, no processes, no network)"},
 	{pkg: "internal/adapters/detectors/newkey", forbid: []string{mod + "/internal/adapters", mod + "/internal/casefile", mod + "/internal/config", mod + "/internal/app", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "net/http", "os"}, why: "a detector is pure: it reads through core.EventReader and touches nothing else (no files, no processes, no network)"},
@@ -73,6 +74,15 @@ func imports(t *testing.T, pkg string) []string {
 	return strings.Fields(string(out))
 }
 
+func allowed(allow []string, imp string) bool {
+	for _, a := range allow {
+		if imp == a {
+			return true
+		}
+	}
+	return false
+}
+
 func TestDependencyRules(t *testing.T) {
 	for _, r := range rules {
 		t.Run(r.pkg, func(t *testing.T) {
@@ -87,7 +97,7 @@ func TestDependencyRules(t *testing.T) {
 					}
 				}
 				for _, f := range r.forbid {
-					if strings.HasPrefix(imp, f) {
+					if strings.HasPrefix(imp, f) && !allowed(r.allow, imp) {
 						t.Errorf("%s imports %s: %s", r.pkg, imp, r.why)
 					}
 				}
