@@ -21,6 +21,7 @@ func docEvents(src string, ids ...string) []core.Event {
 	for i, id := range ids {
 		e := ev(src, t0.Add(-time.Duration(10+i)*time.Minute))
 		e.DocKey = "idx/" + id
+		e.Raw = []byte(`{"_id":"` + id + `"}`) // a kibana event always carries its document
 		out = append(out, e)
 	}
 	return out

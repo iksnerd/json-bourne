@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- A detector scoped to one source (`sources:`) could read none of the documents an overlapping source on the same cluster had returned first, and the hunt still reported complete. A shared document is still stored once, and every detector whose scope includes any source that returned it now reads it, once.
+
 ## [0.7.0] - 2026-11-07
 
 ### Added

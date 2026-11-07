@@ -2,6 +2,9 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"iter"
@@ -188,6 +191,8 @@ type Result struct {
 	Sources   []SourceResult
 	Detectors []DetectorResult
 	Findings  []core.Finding // deduped by Tag, most severe first
+	// aliases lets Activity scope its detectors the way Hunt did.
+	aliases *aliasIndex
 	// Disabled is what the config switched off: neither read nor run, so absent from
 	// Sources and Detectors. A report states it beside them.
 	Disabled []Disabled
@@ -307,8 +312,9 @@ func Hunt(ctx context.Context, d Deps, run string, w core.Window) (Result, error
 
 	res.Sources = make([]SourceResult, len(d.Sources))
 	scopes := sharedScopes(d.Sources)
+	res.aliases = &aliasIndex{m: map[string][]string{}}
 	forEach(ctx, n, len(d.Sources), func(i int) {
-		res.Sources[i] = ingest(ctx, &sinkMu, d.Sink, d.Sources[i], run, fetch, scopes)
+		res.Sources[i] = ingest(ctx, &sinkMu, d.Sink, d.Sources[i], run, fetch, scopes, res.aliases)
 	}, func(i int) {
 		res.Sources[i] = SourceResult{Name: d.Sources[i].Name(), Status: StatusCanceled, Err: ctx.Err()}
 	})
@@ -322,7 +328,7 @@ func Hunt(ctx context.Context, d Deps, run string, w core.Window) (Result, error
 	res.Detectors = make([]DetectorResult, len(d.Detectors))
 	forEach(ctx, n, len(d.Detectors), func(i int) {
 		det := d.Detectors[i]
-		dc, dp := d.readersFor(det.Name(), cur, prev)
+		dc, dp := d.readersFor(det.Name(), cur, prev, res.aliases)
 		var fs []core.Finding
 		var err error
 		if hd, ok := det.(core.HistoryDetector); ok {
@@ -406,26 +412,79 @@ func validate(d Deps, run string, w core.Window) error {
 // readersFor returns the readers a detector is handed: cur and prev, narrowed to the
 // sources of its scope when it has one. Hunt and Activity both go through it, so the
 // scope is applied in one place.
-func (d Deps) readersFor(detector string, cur, prev core.EventReader) (core.EventReader, core.EventReader) {
+func (d Deps) readersFor(detector string, cur, prev core.EventReader, al *aliasIndex) (core.EventReader, core.EventReader) {
 	names, ok := d.Scopes[detector]
 	if !ok {
 		return cur, prev
 	}
-	return sourceReader{inner: cur, names: names}, sourceReader{inner: prev, names: names}
+	return sourceReader{inner: cur, names: names, aliases: al}, sourceReader{inner: prev, names: names, aliases: al}
+}
+
+// aliasIndex records, for a document stored once under the source that read it first,
+// the other sources that returned it. A detector scoped to one of those sources must
+// still see the document, while one reading every source sees the single stored row.
+// The key is a fingerprint of the stored event (docFingerprint), not the DocKey, which
+// is never stored.
+type aliasIndex struct {
+	mu sync.Mutex
+	m  map[string][]string
+}
+
+func (a *aliasIndex) add(fp, source string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if !slices.Contains(a.m[fp], source) {
+		a.m[fp] = append(a.m[fp], source)
+	}
+}
+
+// within reports whether another source in names returned the stored event.
+func (a *aliasIndex) within(ev core.Event, names []string) bool {
+	if a == nil {
+		return false
+	}
+	a.mu.Lock()
+	n := len(a.m)
+	a.mu.Unlock()
+	if n == 0 {
+		return false
+	}
+	fp := docFingerprint(ev)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for _, s := range a.m[fp] {
+		if slices.Contains(names, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// docFingerprint identifies a stored event by what the store keeps: source, kind and a
+// digest of the original document (the fields when there is none).
+func docFingerprint(ev core.Event) string {
+	h := sha256.New()
+	if len(ev.Raw) > 0 {
+		h.Write(ev.Raw)
+	} else if b, err := json.Marshal(ev.Fields); err == nil {
+		h.Write(b)
+	}
+	return ev.Source + "\x00" + ev.Kind + "\x00" + hex.EncodeToString(h.Sum(nil))
 }
 
 // sourceReader passes through only the events stored under one of names. ingest stamps
 // every event with the name of the source that returned it, so the stored source column
 // is the source name whatever the mapper put in Event.Source.
 type sourceReader struct {
-	inner core.EventReader
-	names []string
+	inner   core.EventReader
+	names   []string
+	aliases *aliasIndex
 }
 
 func (s sourceReader) Events(ctx context.Context, w core.Window) iter.Seq2[core.Event, error] {
 	return func(yield func(core.Event, error) bool) {
 		for ev, err := range s.inner.Events(ctx, w) {
-			if err == nil && !slices.Contains(s.names, ev.Source) {
+			if err == nil && !slices.Contains(s.names, ev.Source) && !s.aliases.within(ev, s.names) {
 				continue
 			}
 			if !yield(ev, err) {
@@ -437,7 +496,7 @@ func (s sourceReader) Events(ctx context.Context, w core.Window) iter.Seq2[core.
 
 // ingest streams one source into the sink. The sink pulls from the iterator while
 // it holds the writer lock, so the writes are serialised and nothing is buffered.
-func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source, run string, w core.Window, shared map[string]*docSet) SourceResult {
+func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source, run string, w core.Window, shared map[string]*docSet, al *aliasIndex) SourceResult {
 	r := SourceResult{Name: src.Name()}
 	var docs *docSet
 	if ds, ok := src.(core.DocScoped); ok {
@@ -452,9 +511,14 @@ func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source
 				// events differently must not move them out of the source's scope.
 				ev.Source = src.Name()
 			}
-			if err == nil && docs != nil && ev.DocKey != "" && !docs.first(ev.DocKey) {
-				r.Duplicates++
-				continue
+			if err == nil && docs != nil && ev.DocKey != "" {
+				// The duplicate is not stored again, but the source that returned it
+				// is remembered, so a detector scoped to it still reads the document.
+				if winner, first := docs.first(ev.DocKey, docFingerprint(ev)); !first {
+					al.add(winner, src.Name())
+					r.Duplicates++
+					continue
+				}
 			}
 			if err == nil {
 				r.Events++
@@ -497,18 +561,20 @@ func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source
 // docSet remembers the documents one run has seen from sources of one scope.
 type docSet struct {
 	mu   sync.Mutex
-	seen map[string]struct{}
+	seen map[string]string // DocKey to the fingerprint of the stored copy
 }
 
-// first reports whether key has not been seen, and remembers it.
-func (d *docSet) first(key string) bool {
+// first reports whether key has not been seen, and remembers it with fp, the
+// fingerprint of the copy that is stored. For a key seen before it returns the
+// fingerprint of the stored copy.
+func (d *docSet) first(key, fp string) (string, bool) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if _, dup := d.seen[key]; dup {
-		return false
+	if w, dup := d.seen[key]; dup {
+		return w, false
 	}
-	d.seen[key] = struct{}{}
-	return true
+	d.seen[key] = fp
+	return fp, true
 }
 
 // sharedScopes returns a docSet for each scope that two or more sources report, so a
@@ -525,7 +591,7 @@ func sharedScopes(srcs []core.Source) map[string]*docSet {
 	out := map[string]*docSet{}
 	for scope, c := range n {
 		if c > 1 {
-			out[scope] = &docSet{seen: map[string]struct{}{}}
+			out[scope] = &docSet{seen: map[string]string{}}
 		}
 	}
 	return out
