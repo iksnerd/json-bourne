@@ -420,7 +420,7 @@ func TestConcurrentNamedWatchersDoNotCorruptEachOther(t *testing.T) {
 	}
 }
 
-// The long-running loop, not just --once: two named watchers cycle every second for a
+// The long-running loop, not just --once: two named watchers cycle every 5s for a
 // few seconds at the same time, then both are interrupted and must exit cleanly.
 func TestConcurrentNamedWatcherLoops(t *testing.T) {
 	dir, cfgs := twoWatcherCase(t)
@@ -429,7 +429,7 @@ func TestConcurrentNamedWatcherLoops(t *testing.T) {
 	var lines [2]<-chan string
 	var errs [2]*strings.Builder
 	for i := range cmds {
-		cmds[i], lines[i], errs[i] = startJB(t, "watch", "--case", dir, "--config", cfgs[i], "--name", names[i], "--every", "1s")
+		cmds[i], lines[i], errs[i] = startJB(t, "watch", "--case", dir, "--config", cfgs[i], "--name", names[i], "--every", "5s")
 	}
 	for i := range cmds {
 		// the first cycle, then two more: three cycles each, started together.
@@ -454,7 +454,7 @@ func TestConcurrentNamedWatcherLoops(t *testing.T) {
 // refused with the first's PID; the first is undisturbed.
 func TestSecondRealProcessWithTheSameNameIsRefused(t *testing.T) {
 	dir, cfgs := twoWatcherCase(t)
-	first, lines, _ := startJB(t, "watch", "--case", dir, "--config", cfgs[0], "--name", "dup", "--every", "1s")
+	first, lines, _ := startJB(t, "watch", "--case", dir, "--config", cfgs[0], "--name", "dup", "--every", "5s")
 	waitLine(t, lines, " CYCLE ")
 
 	second, _, errb := startJB(t, "watch", "--case", dir, "--config", cfgs[1], "--name", "dup", "--once")

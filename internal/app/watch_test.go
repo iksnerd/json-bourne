@@ -407,13 +407,14 @@ func TestWatchReportsTimeNoWindowCovered(t *testing.T) {
 
 // optSink is a stand-in for a webhook: it fails every delivery when down.
 type optSink struct {
-	down bool
-	got  []core.Alert
+	down    bool
+	downTag string // when set, only an alert with this tag fails
+	got     []core.Alert
 }
 
 func (o *optSink) Deliver(_ context.Context, a core.Alert) error {
 	o.got = append(o.got, a)
-	if o.down {
+	if o.down || (o.downTag != "" && a.Tag == o.downTag) {
 		return errors.New("webhook: HTTP 503")
 	}
 	return nil

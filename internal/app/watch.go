@@ -21,6 +21,11 @@ const DefaultWatchTTL = 3 * time.Hour
 // limit the store grows by that much each cycle for as long as the watch runs.
 const DefaultWatchKeep = 48 * time.Hour
 
+// MinWatchEvery is the shortest interval between cycles. A run id carries the cycle's
+// start to the second, so two cycles within one second would share a run id: they would
+// replace each other's stored run and share the webhook cap.
+const MinWatchEvery = 5 * time.Second
+
 // DefaultHealthRepeat is how often an identical, unchanged outage alerts again.
 const DefaultHealthRepeat = 30 * time.Minute
 
@@ -156,6 +161,8 @@ func (o WatchOptions) Validate() error {
 	switch {
 	case o.Every <= 0:
 		return errors.New("watch: interval must be positive")
+	case o.Every < MinWatchEvery:
+		return fmt.Errorf("watch: --every %s is below the minimum %s: run ids have one-second resolution, so faster cycles would share a run id", o.Every, MinWatchEvery)
 	case o.Window <= 0:
 		return errors.New("watch: window must be positive")
 	case o.Window < o.Every:
@@ -233,7 +240,12 @@ func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run string, la
 		return CycleReport{}, err
 	}
 	if d.Name != "" {
-		d.Alerts = namedSink{inner: d.Alerts, name: d.Name} // every alert says which watcher raised it
+		ns := namedSink{inner: d.Alerts, name: d.Name}
+		if sp, ok := d.Alerts.(core.SplitSink); ok {
+			d.Alerts = namedSplit{namedSink: ns, split: sp}
+		} else {
+			d.Alerts = ns // every alert says which watcher raised it
+		}
 	}
 	now := d.Now().UTC().Truncate(time.Second)
 	at := now.Format(time.RFC3339)
@@ -426,6 +438,23 @@ func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run string, la
 		rep.Status = CycleQuiet
 	}
 	hb := core.Alert{Kind: core.AlertCycle, Tag: TagCycle, Severity: "info", Run: run, At: at, Text: cycleLine(rep)}
+	if split, ok := d.Alerts.(core.SplitSink); ok {
+		// The optional sinks get the heartbeat first, so the one line the required log
+		// writes states the final verdict: a heartbeat only an optional sink refused makes
+		// the cycle FAILED, and the line says so. They are offered the text the cycle had
+		// before that outcome, which is the one they always got.
+		if err := split.DeliverOptional(ctx, hb); err != nil {
+			fail(fmt.Errorf("deliver cycle line: %w", err))
+			rep.Status = CycleFailed
+			rep.OptionalFailed++
+			hb.Text = cycleLine(rep)
+		}
+		if err := split.DeliverRequired(ctx, hb); err != nil {
+			fail(fmt.Errorf("deliver cycle line: %w", err))
+			rep.Status = CycleFailed
+		}
+		return rep, nil
+	}
 	if err := d.Alerts.Deliver(ctx, hb); err != nil {
 		fail(fmt.Errorf("deliver cycle line: %w", err))
 		rep.Status = CycleFailed
@@ -446,6 +475,22 @@ type namedSink struct {
 func (n namedSink) Deliver(ctx context.Context, a core.Alert) error {
 	a.Watcher = n.name
 	return n.inner.Deliver(ctx, a)
+}
+
+// namedSplit is a namedSink over a core.SplitSink, so the stamp does not hide the split.
+type namedSplit struct {
+	namedSink
+	split core.SplitSink
+}
+
+func (n namedSplit) DeliverOptional(ctx context.Context, a core.Alert) error {
+	a.Watcher = n.name
+	return n.split.DeliverOptional(ctx, a)
+}
+
+func (n namedSplit) DeliverRequired(ctx context.Context, a core.Alert) error {
+	a.Watcher = n.name
+	return n.split.DeliverRequired(ctx, a)
 }
 
 // outageKeysFinished is the set of remembered-outage keys that this hunt proves are up:

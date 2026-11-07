@@ -318,13 +318,92 @@ func TestSeqHeartbeatFailureFailsTheReportAndOnlyThat(t *testing.T) {
 	if _, ok := ds.disk.Seen["x"]; !ok {
 		t.Error("the delivered finding was not remembered because the heartbeat failed")
 	}
-	// Optional-only failure of the heartbeat: log has it, report failed and counted.
-	r.sink.failTag = ""
-	hook := &optSink{down: true}
+	// Optional-only failure of the heartbeat is pinned by
+	// TestSeqOptionalHeartbeatFailureWritesOneFailedLine.
+}
+
+func cycleLines(r *rig) []core.Alert { return r.sink.kind(core.AlertCycle) }
+
+// The webhook (optional) refuses only the heartbeat. The log gets ONE cycle line and it
+// says FAILED, the same verdict as the report; the webhook was offered exactly one
+// heartbeat, with the text it always got (the verdict before its own refusal).
+func TestSeqOptionalHeartbeatFailureWritesOneFailedLine(t *testing.T) {
+	r, _ := seqRig(t, det("a", finding("a", "x", core.SevHigh)))
+	hook := &optSink{downTag: TagCycle}
 	r.deps.Alerts = core.FanOut{Required: r.sink, Optional: []core.AlertSink{hook}}
-	r.advance(5 * time.Minute)
-	rep = r.cycle()
+	rep := r.cycle()
 	if rep.Status != CycleFailed || rep.OptionalFailed == 0 {
 		t.Fatalf("status=%s optionalFailed=%d", rep.Status, rep.OptionalFailed)
+	}
+	lines := cycleLines(r)
+	if len(lines) != 1 {
+		t.Fatalf("cycle lines in the log = %d, want 1", len(lines))
+	}
+	if !strings.HasPrefix(lines[0].Text, "CYCLE FAILED") || !strings.Contains(lines[0].Text, "optional sink") {
+		t.Errorf("log line = %q, want CYCLE FAILED noting the optional sink", lines[0].Text)
+	}
+	var hb []core.Alert
+	for _, a := range hook.got {
+		if a.Kind == core.AlertCycle {
+			hb = append(hb, a)
+		}
+	}
+	if len(hb) != 1 || !strings.HasPrefix(hb[0].Text, "CYCLE FINDINGS") {
+		t.Errorf("webhook heartbeats = %+v, want exactly one saying CYCLE FINDINGS", hb)
+	}
+}
+
+// A healthy webhook: one line in the log, one heartbeat at the webhook, same verdict.
+func TestSeqOptionalHeartbeatDeliveredOnceEachSameText(t *testing.T) {
+	r, _ := seqRig(t, det("a", finding("a", "x", core.SevHigh)))
+	hook := &optSink{}
+	r.deps.Alerts = core.FanOut{Required: r.sink, Optional: []core.AlertSink{hook}}
+	rep := r.cycle()
+	if rep.Status != CycleFindings {
+		t.Fatalf("status=%s", rep.Status)
+	}
+	lines := cycleLines(r)
+	n := 0
+	for _, a := range hook.got {
+		if a.Kind == core.AlertCycle {
+			n++
+			if len(lines) == 1 && a.Text != lines[0].Text {
+				t.Errorf("webhook text %q differs from log %q", a.Text, lines[0].Text)
+			}
+		}
+	}
+	if len(lines) != 1 || n != 1 {
+		t.Fatalf("log lines=%d webhook heartbeats=%d, want 1 and 1", len(lines), n)
+	}
+}
+
+// The log (required) refuses the heartbeat while a webhook is configured: the report is
+// FAILED, no line reached the log.
+func TestSeqRequiredHeartbeatFailureWithWebhookFailsTheReport(t *testing.T) {
+	r, _ := seqRig(t, det("a", finding("a", "x", core.SevHigh)))
+	r.sink.failTag = TagCycle
+	r.deps.Alerts = core.FanOut{Required: r.sink, Optional: []core.AlertSink{&optSink{}}}
+	rep := r.cycle()
+	if rep.Status != CycleFailed || rep.Err == nil || !strings.Contains(rep.Err.Error(), "cycle line") {
+		t.Fatalf("status=%s err=%v", rep.Status, rep.Err)
+	}
+	if n := len(cycleLines(r)); n != 0 {
+		t.Errorf("cycle lines in the log = %d, want 0", n)
+	}
+}
+
+// No optional sink: one line per cycle, as before.
+func TestSeqNoOptionalSinkOneCycleLinePerCycle(t *testing.T) {
+	r, _ := seqRig(t, det("a", finding("a", "x", core.SevHigh)))
+	r.deps.Alerts = core.FanOut{Required: r.sink}
+	for i := 1; i <= 2; i++ {
+		r.cycle()
+		r.advance(5 * time.Minute)
+		if n := len(cycleLines(r)); n != i {
+			t.Fatalf("after cycle %d: %d cycle lines", i, n)
+		}
+	}
+	if !strings.HasPrefix(cycleLines(r)[0].Text, "CYCLE FINDINGS") {
+		t.Errorf("line = %q", cycleLines(r)[0].Text)
 	}
 }
