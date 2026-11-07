@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-11-07
+
 ### Fixed
 - `jb db rename-source` also rewrites the returners list of a document (a sorted set that includes the owner), renames labels that appear only as returners, and keeps membership when `--merge` drops duplicate rows.
 - `jb db compact` copies `events.returners` and `events.doc_ident` and verifies a content digest of every copied column, not only row counts and raw bytes. A guard test fails when a migration adds an `events` column that the copier does not copy.

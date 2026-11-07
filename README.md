@@ -174,7 +174,7 @@ By default the server lists only the 11 read-only operations (the other 11 of th
 
 ## Status
 
-Pre-1.0 and private. The latest tag is v0.10.4 (see [CHANGELOG.md](CHANGELOG.md)). Before 1.0 there is no backward compatibility, and the Go API, the flags and the file formats may change between minor versions.
+Pre-1.0 and private. The latest tag is v0.10.5 (see [CHANGELOG.md](CHANGELOG.md)). Before 1.0 there is no backward compatibility, and the Go API, the flags and the file formats may change between minor versions.
 
 - Feature freeze: after the accepted RFCs that were still unbuilt, `jb` takes no new command, port, file format or config key before 1.0. The one exception is `jb serve`, the dashboard. See [CONTRIBUTING.md](CONTRIBUTING.md#feature-freeze-the-stable-core). The parked RFC 0016 (inventory of your own cloud) waits behind it.
 - 1.0 is reached by criteria, not a date: every supported surface is pinned by a test that fails on a breaking change, and the maintainer decides to cut it. The surfaces and what counts as breaking on each are in [RFC 0018](docs/rfcs/0018-stability-policy.md). Going public is a separate decision.
