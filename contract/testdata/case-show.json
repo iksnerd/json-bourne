@@ -1,0 +1,38 @@
+{
+  "alerts": [],
+  "case": "string",
+  "config": "string",
+  "detectors": [
+    {
+      "enabled": "bool",
+      "name": "string",
+      "options": {
+        "fail_statuses": [
+          "number"
+        ],
+        "key_field": "string",
+        "min_events": "number",
+        "min_failure_share_rise": "number",
+        "status_field": "string"
+      },
+      "reads": [
+        "string"
+      ],
+      "type": "string"
+    }
+  ],
+  "sources": [
+    {
+      "credential_env": "string",
+      "enabled": "bool",
+      "index": "string",
+      "name": "string",
+      "type": "string",
+      "url": "string"
+    }
+  ],
+  "store": {
+    "default": "bool",
+    "path": "string"
+  }
+}

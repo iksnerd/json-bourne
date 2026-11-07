@@ -1,0 +1,21 @@
+{
+  "complete": "bool",
+  "failures": [
+    {
+      "error": "string",
+      "feed": "string",
+      "indicator": "string"
+    }
+  ],
+  "note": "string",
+  "results": [
+    {
+      "feed": "string",
+      "indicator": "string",
+      "observed": "string",
+      "verdict": "string"
+    }
+  ],
+  "run": "string",
+  "skipped_non_ip": "number"
+}

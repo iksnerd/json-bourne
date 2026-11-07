@@ -1,0 +1,89 @@
+{
+  "Err": "null",
+  "Failed": "null",
+  "Gap": "string",
+  "New": "number",
+  "OptionalFailed": "number",
+  "Pruned": {
+    "Events": "number",
+    "Findings": "number",
+    "Runs": "number"
+  },
+  "Recovered": "number",
+  "Repeated": "number",
+  "Result": {
+    "baseline": [
+      "string"
+    ],
+    "complete": "bool",
+    "detectors": [
+      {
+        "findings": "number",
+        "name": "string",
+        "status": "string"
+      }
+    ],
+    "findings": [
+      {
+        "baseline": [
+          "string"
+        ],
+        "detail": {
+          "actor": "string",
+          "actor_label": "string",
+          "baseline_empty": "bool",
+          "cur_filtered": "number",
+          "cur_genuine": "number",
+          "cur_ignored": "number",
+          "cur_parsable": "number",
+          "last_genuine": "string",
+          "last_genuine_in": "string",
+          "prev_filtered": "number",
+          "prev_genuine": "number",
+          "prev_ignored": "number",
+          "prev_parsable": "number",
+          "unparsable_cur": "number",
+          "unparsable_prev": "number"
+        },
+        "detector": "string",
+        "severity": "string",
+        "summary": "string",
+        "tag": "string",
+        "window": [
+          "string"
+        ]
+      }
+    ],
+    "run": "string",
+    "sources": [
+      {
+        "events": "number",
+        "name": "string",
+        "outcome": "string",
+        "status": "string"
+      }
+    ],
+    "stored": "bool",
+    "window": [
+      "string"
+    ]
+  },
+  "Run": "string",
+  "Status": "string",
+  "Suppressed": "number",
+  "Surfaced": [
+    {
+      "at": "string",
+      "detector": "string",
+      "kind": "string",
+      "run": "string",
+      "severity": "string",
+      "tag": "string",
+      "text": "string"
+    }
+  ],
+  "Window": {
+    "From": "string",
+    "To": "string"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "checks": [
+    {
+      "detail": "string",
+      "group": "string",
+      "name": "string",
+      "status": "string"
+    }
+  ],
+  "ok": "bool",
+  "services": [
+    {
+      "config": "string",
+      "env_vars": [
+        "string"
+      ],
+      "kind": "string",
+      "leaves": "string",
+      "name": "string",
+      "state": "string",
+      "type": "string"
+    }
+  ]
+}

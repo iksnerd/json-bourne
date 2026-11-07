@@ -1,0 +1,53 @@
+{
+  "changes": [],
+  "counts": {
+    "absences": {
+      "added": "number",
+      "changed": "number",
+      "removed": "number"
+    },
+    "all": {
+      "added": "number",
+      "changed": "number",
+      "removed": "number"
+    },
+    "edges": {
+      "added": "number",
+      "changed": "number",
+      "removed": "number"
+    },
+    "facts": {
+      "added": "number",
+      "changed": "number",
+      "removed": "number"
+    },
+    "nodes": {
+      "added": "number",
+      "changed": "number",
+      "removed": "number"
+    }
+  },
+  "findings": [],
+  "from": {
+    "absences": "number",
+    "edges": "number",
+    "facts": "number",
+    "latest_observed": "string",
+    "nodes": "number",
+    "path": "string",
+    "ref": "string"
+  },
+  "nodes_not_compared": "number",
+  "not_comparable": [],
+  "note": "string",
+  "questions_compared": "number",
+  "to": {
+    "absences": "number",
+    "edges": "number",
+    "facts": "number",
+    "latest_observed": "string",
+    "nodes": "number",
+    "path": "string",
+    "ref": "string"
+  }
+}

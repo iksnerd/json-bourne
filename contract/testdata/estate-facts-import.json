@@ -1,0 +1,12 @@
+{
+  "added": "number",
+  "applied": "bool",
+  "entries": "number",
+  "facts": "number",
+  "file": "string",
+  "import": "string",
+  "method": "string",
+  "note": "string",
+  "source": "string",
+  "unchanged": "number"
+}

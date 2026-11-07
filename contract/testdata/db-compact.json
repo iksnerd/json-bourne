@@ -1,0 +1,17 @@
+{
+  "applied": "bool",
+  "copy_rows": "null",
+  "engine_free_bytes": "number",
+  "engine_used_bytes": "number",
+  "estimated_copy_bytes": "number",
+  "schema_version": "number",
+  "source_file_bytes": "number",
+  "source_rows": [
+    {
+      "rows": "number",
+      "table": "string"
+    }
+  ],
+  "target": "string",
+  "target_file_bytes": "number"
+}

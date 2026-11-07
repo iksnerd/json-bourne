@@ -1,0 +1,31 @@
+{
+  "checked": "string",
+  "watchers": [
+    {
+      "config": "string",
+      "everySeconds": "number",
+      "keepSeconds": "number",
+      "lastCycle": {
+        "ended": "string",
+        "failed": [],
+        "new": "number",
+        "recovered": "number",
+        "repeated": "number",
+        "run": "string",
+        "suppressed": "number",
+        "verdict": "string",
+        "windowFrom": "string",
+        "windowTo": "string"
+      },
+      "lockHeld": "bool",
+      "name": "string",
+      "pid": "number",
+      "reason": "string",
+      "repeatSeconds": "number",
+      "started": "string",
+      "state": "string",
+      "ttlSeconds": "number",
+      "windowSeconds": "number"
+    }
+  ]
+}

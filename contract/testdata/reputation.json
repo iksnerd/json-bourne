@@ -1,0 +1,15 @@
+{
+  "complete": "bool",
+  "limit": "number",
+  "note": "string",
+  "path": "string",
+  "rows": [
+    {
+      "indicator": "string",
+      "observed": "string",
+      "source": "string",
+      "verdict": "string"
+    }
+  ],
+  "truncated": "bool"
+}

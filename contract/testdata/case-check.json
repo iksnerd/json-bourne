@@ -1,0 +1,31 @@
+{
+  "actors": {
+    "ids": [
+      "string"
+    ],
+    "ok": "bool"
+  },
+  "configs": [
+    {
+      "ok": "bool",
+      "path": "string"
+    }
+  ],
+  "dir": "string",
+  "estate": {
+    "ids": [
+      "string"
+    ],
+    "ok": "bool"
+  },
+  "evidence": "string",
+  "guard": {
+    "ok": "bool",
+    "result": "string"
+  },
+  "id": "string",
+  "ok": "bool",
+  "opened": "string",
+  "status": "string",
+  "title": "string"
+}
