@@ -421,6 +421,53 @@ func TestAdaptersNeverImportEachOther(t *testing.T) {
 	}
 }
 
+// detectorAdapterImports returns the adapter packages a detector package imports. A
+// detector reads through core ports and touches no adapter, not even another detector
+// (RFC 0014: the history probe lives in the source, never in the detector).
+func detectorAdapterImports(pkg string, imports []string) []string {
+	var bad []string
+	if !strings.HasPrefix(pkg, mod+"/internal/adapters/detectors/") {
+		return nil
+	}
+	for _, imp := range imports {
+		if strings.HasPrefix(imp, mod+"/internal/adapters/") && imp != pkg {
+			bad = append(bad, imp)
+		}
+	}
+	return bad
+}
+
+func TestDetectorsImportNoAdapter(t *testing.T) {
+	out, err := exec.Command("go", "list", "-f", `{{.ImportPath}} {{join .Imports " "}}`, mod+"/internal/adapters/detectors/...").Output()
+	if err != nil {
+		t.Fatalf("go list: %v", err)
+	}
+	n := 0
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		f := strings.Fields(line)
+		n++
+		for _, imp := range detectorAdapterImports(f[0], f[1:]) {
+			t.Errorf("%s imports %s: a detector depends on core only; the source answers a history probe, not the detector", f[0], imp)
+		}
+	}
+	if n < 5 {
+		t.Fatalf("only %d detector packages listed: the scan is looking at the wrong thing", n)
+	}
+}
+
+// The rule is not done until it has been seen to fail: a planted import is flagged.
+func TestDetectorAdapterRuleFlagsAPlantedImport(t *testing.T) {
+	det := mod + "/internal/adapters/detectors/newkey"
+	if got := detectorAdapterImports(det, []string{"context", mod + "/internal/core"}); len(got) != 0 {
+		t.Errorf("clean imports flagged: %v", got)
+	}
+	for _, planted := range []string{mod + "/internal/adapters/kibana", mod + "/internal/adapters/detectors/signup"} {
+		if got := detectorAdapterImports(det, []string{planted}); len(got) != 1 {
+			t.Errorf("planted import %s not flagged: %v", planted, got)
+		}
+	}
+}
+
 // osExecAllowed are the only packages that may import os/exec. internal/adapters/plugin
 // starts the operator's allowlisted plugins; internal/casefile asks git whether the
 // evidence directory is ignored. Everything else (core, app, config, every other

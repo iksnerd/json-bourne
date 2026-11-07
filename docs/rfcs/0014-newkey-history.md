@@ -192,3 +192,22 @@ Tests to write first and see fail:
 - `internal/app`: two sources on the same cluster and index are counted once; two indices are summed; a disabled source is absent; the same history path runs for `hunt`, `activity` and `watch`; concurrent detectors each get a history; `hunt --until` and a watch window give the same candidates.
 - End to end through `jb.Hunt` against a fake Kibana: synthetic traffic that reproduces the downstream rule (3 or more hits on the sensitive paths, with 49 and with 50 earlier hits of any kind) gives a finding and no finding. The data is synthetic. There is no recorded firing of this reason on real data.
 - `internal/archtest` stays green: `core` has no new imports and the detector imports no adapter. A new assertion fails if a detector package imports an adapter.
+
+## Reference implementations
+
+Proposed: `internal/core/history.go` (the three ports), `internal/adapters/detectors/newkey/history.go`, `internal/adapters/kibana/keycount.go`, the `key_match` and `history` checks in `internal/config`, `internal/app/history.go` with the one call site in `internal/app/hunt.go`, the `TestDetectorsImportNoAdapter` rule in `internal/archtest`, and the text in `docs/CONFIG.md`, `docs/POLICY.md` and `CHANGELOG.md`, all in the commit that adds this note.
+
+Shipped: none.
+
+## Changes
+
+Points the build had to settle where the text was silent. None changes the design.
+
+- `KeyHistory` has only `Counts`, so the `CountAll` liveness step (design 5) runs inside the `internal/app` implementation of `Counts`: a zero for any index is an error from `Counts`, and the detector reports it like any probe failure.
+- The finding's `history_mode` comes from an optional `MatchMode()` method on the `KeyHistory` that `internal/app` builds (the mode of its sources, or `phrase+term` when they differ). It is a local interface in `newkey`, not a core port.
+- `internal/app` groups sources by `DocScope` plus an `IndexName()` method on the Kibana source. A source that is not `DocScoped` or names no index is its own group. Two different patterns that overlap are two groups and would add up.
+- A history is built for every `HistoryDetector` and fails only when `Counts` is called, so a `newkey` without a `history` block is not refused for the sources it reads.
+- When `Counts` fails, no candidate is judged and the error says how many candidates (all of them) were not judged. A candidate cut at `max_candidates`, or missing from the answer, is counted in the same sentence beside the findings already proven.
+- One candidate key outside the character set makes the whole `CountKeys` call fail before any request, so that cycle is incomplete.
+- On `Detect` with `history` configured, the missing-history error comes before the lookback check; `DetectWithHistory` does the lookback check (a usage error).
+- `CountKeys` names buckets `k0`, `k1`, and so on, so a key is only ever a value. It sets `track_total_hits: false`; `CountAll` sets it true.

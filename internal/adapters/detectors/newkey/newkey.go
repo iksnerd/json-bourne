@@ -103,6 +103,11 @@ type Config struct {
 	// Note is carried in Detail["note"]; required with MinSeverity critical and
 	// refused without MinSeverity.
 	Note string `yaml:"note"`
+
+	// History, when set, replaces the preceding-window baseline with a count of every
+	// event of the key over a longer lookback, asked of the sources (RFC 0014). The
+	// detector then runs only through DetectWithHistory.
+	History *HistoryConfig `yaml:"history"`
 }
 
 // Limits on user_agent_matches.
@@ -122,7 +127,10 @@ type Detector struct {
 	floor     severityfloor.Floor
 }
 
-var _ core.Detector = (*Detector)(nil)
+var (
+	_ core.Detector        = (*Detector)(nil)
+	_ core.HistoryDetector = (*Detector)(nil)
+)
 
 // New validates c and applies defaults: Name "newkey", MinHits 3. KeyField,
 // PathField and at least one SensitivePaths entry are required.
@@ -159,6 +167,11 @@ func New(c Config) (*Detector, error) {
 	if err != nil {
 		return nil, fmt.Errorf("newkey: %w", err)
 	}
+	hist, err := c.History.validated()
+	if err != nil {
+		return nil, err
+	}
+	c.History = hist
 	d := &Detector{name: c.Name, uaRE: uaRE, floor: floor, ignore: make(map[string]struct{}, len(c.IgnoreKeys))}
 	seen := map[string]struct{}{}
 	for _, p := range c.SensitivePaths {
@@ -325,7 +338,17 @@ func (d *Detector) scan(ctx context.Context, r core.EventReader, w core.Window, 
 
 // Detect looks in cur (window w) for keys absent from prev (w.Previous()) that
 // hit sensitive paths.
+//
+// A detector configured with History cannot run this way: it returns an error that
+// names the missing history, and never falls back to the preceding window.
 func (d *Detector) Detect(ctx context.Context, cur, prev core.EventReader, w core.Window) ([]core.Finding, error) {
+	if d.cfg.History != nil {
+		return nil, fmt.Errorf("%s: history is configured but was not provided: this detector must run through DetectWithHistory, and does not fall back to the preceding window", d.name)
+	}
+	return d.detectPreceding(ctx, cur, prev, w)
+}
+
+func (d *Detector) detectPreceding(ctx context.Context, cur, prev core.EventReader, w core.Window) ([]core.Finding, error) {
 	if cur == nil || prev == nil {
 		return nil, fmt.Errorf("%s: nil event reader", d.name)
 	}

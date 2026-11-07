@@ -323,7 +323,15 @@ func Hunt(ctx context.Context, d Deps, run string, w core.Window) (Result, error
 	forEach(ctx, n, len(d.Detectors), func(i int) {
 		det := d.Detectors[i]
 		dc, dp := d.readersFor(det.Name(), cur, prev)
-		fs, err := det.Detect(ctx, dc, dp, w)
+		var fs []core.Finding
+		var err error
+		if hd, ok := det.(core.HistoryDetector); ok {
+			// The one place a detector gets a history, and so the same path for hunt,
+			// activity and watch. Each detector gets its own, built from its scope.
+			fs, err = hd.DetectWithHistory(ctx, dc, dp, w, d.historyFor(det.Name()))
+		} else {
+			fs, err = det.Detect(ctx, dc, dp, w)
+		}
 		// Findings returned beside an error are kept: they are proven from evidence
 		// the detector read, and the error alone makes the run incomplete (core.Detector).
 		r := DetectorResult{Name: det.Name(), Status: classify(err), Err: err, Findings: len(fs)}

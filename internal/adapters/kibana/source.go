@@ -58,6 +58,9 @@ type Source struct {
 	// never goes on without the documents it could not map.
 	Batch    core.BatchMapper
 	PageSize int // defaults to DefaultPageSize
+	// KeyMatch, when set, lets the source count keys for a detector's history probe
+	// (core.KeyCounter). Without it CountKeys and CountAll refuse.
+	KeyMatch *KeyMatch
 
 	mu    sync.Mutex
 	stats Stats

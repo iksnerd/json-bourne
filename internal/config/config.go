@@ -484,6 +484,9 @@ func Parse(data []byte) (*File, error) {
 	if err := f.checkQuietNeedsFilters(); err != nil {
 		return nil, err
 	}
+	if err := f.checkHistorySources(); err != nil {
+		return nil, err
+	}
 	if err := f.checkFieldsAreEmitted(); err != nil {
 		return nil, err
 	}
@@ -633,6 +636,36 @@ func (f *File) checkQuietNeedsFilters() error {
 			s := f.Sources[si]
 			if ks, ok := s.spec.(kibanaSpec); !ok || len(ks.Filter) == 0 {
 				return fmt.Errorf("detectors[%d] (%s): empty_is_quiet needs every source it reads to be a kibana source with a filter; source %q (sources[%d], %s) has none, so an empty window there would read as quiet instead of broken%s",
+					di, d.Type, s.spec.describe().Name, si, s.Type, scopeHint(d))
+			}
+		}
+	}
+	return nil
+}
+
+// keyCountCapable is implemented by a detector spec that asks its sources to count keys
+// (a newkey with a `history` block).
+type keyCountCapable interface{ needsKeyCounters() bool }
+
+// checkHistorySources refuses a history detector unless every source it reads (its
+// `sources:`, else all of them) is a kibana source with key_match. It does not need a
+// filter: history counts with the filter removed. A source of another type, or a kibana
+// source with a plugin mapper but no key_match, cannot count and is named. The check is
+// by concrete spec type, as checkQuietNeedsFilters is, and reads no environment.
+func (f *File) checkHistorySources() error {
+	for di, d := range f.Detectors {
+		k, ok := d.spec.(keyCountCapable)
+		if d.Disabled || !ok || !k.needsKeyCounters() {
+			continue
+		}
+		reads := f.readsSources(d)
+		if len(reads) == 0 {
+			return fmt.Errorf("detectors[%d] (%s): history needs at least one enabled source to count keys in", di, d.Type)
+		}
+		for _, si := range reads {
+			s := f.Sources[si]
+			if ks, ok := s.spec.(kibanaSpec); !ok || ks.KeyMatch == nil {
+				return fmt.Errorf("detectors[%d] (%s): history needs every source it reads to be a kibana source with key_match (field and mode); source %q (sources[%d], %s) has none, so it cannot count a key's earlier events%s",
 					di, d.Type, s.spec.describe().Name, si, s.Type, scopeHint(d))
 			}
 		}

@@ -41,10 +41,34 @@ type kibanaSpec struct {
 	Filter []filterClause `yaml:"filter"`
 	// SearchField is the field `jb hunt --search` matches a term against. Default "message".
 	SearchField string `yaml:"search_field"`
+	// KeyMatch says which raw field of the index holds a key and how it is matched, so a
+	// newkey detector with a `history` block can count a key's events there (RFC 0014).
+	KeyMatch *keyMatchSpec `yaml:"key_match"`
 
 	// search is the ad-hoc terms of one run, set by File.WithSearch and never by the file.
 	search      []string
 	searchField string // the run's override of SearchField; empty keeps SearchField
+}
+
+// keyMatchSpec is `key_match`: the field of the index that holds the key, and whether the
+// key is an exact keyword value (term) or a phrase in analysed text (phrase). The mode has
+// no default: the wrong one returns zero for every key, or over-counts.
+type keyMatchSpec struct {
+	Field string `yaml:"field"`
+	Mode  string `yaml:"mode"`
+}
+
+func (k *keyMatchSpec) validate() error {
+	if k == nil {
+		return nil
+	}
+	if !filterField.MatchString(k.Field) {
+		return errors.New("key_match.field is required: 1-128 characters of letters, digits, _ @ . -")
+	}
+	if k.Mode != kibana.ModeTerm && k.Mode != kibana.ModePhrase {
+		return fmt.Errorf("key_match.mode is required and must be %s (exact value in a keyword field) or %s (the key as a phrase in an analysed field); there is no default", kibana.ModeTerm, kibana.ModePhrase)
+	}
+	return nil
 }
 
 // filterClause is exactly one of match_phrase (analysed text, such as a log line), term
@@ -243,6 +267,9 @@ func (s kibanaSpec) validate() error {
 	if err := s.validateFilter(); err != nil {
 		return err
 	}
+	if err := s.KeyMatch.validate(); err != nil {
+		return err
+	}
 	if err := s.validateMapper(); err != nil {
 		return err
 	}
@@ -348,6 +375,9 @@ func (s kibanaSpec) build(env Env) (core.Source, error) {
 		PageSize:  s.PageSize,
 		Query:     s.query(),
 	}
+	if s.KeyMatch != nil {
+		src.KeyMatch = &kibana.KeyMatch{Field: s.KeyMatch.Field, Mode: s.KeyMatch.Mode}
+	}
 	if name, isPlugin := pluginName(s.Mapper); isPlugin {
 		al, err := PluginAllowlist()
 		if err != nil {
@@ -378,6 +408,9 @@ func (s kibanaSpec) describe() ServiceInfo {
 	leaves := "the search query (index, window, filter) and the API key, to " + host
 	if name, ok := pluginName(s.Mapper); ok {
 		leaves += "; every fetched document, to the local plugin " + name + " (a child process on this machine; jb grants it no network but does not enforce that)"
+	}
+	if s.KeyMatch != nil {
+		leaves += "; with a newkey `history` block, candidate keys (the values of its key_field, such as client addresses) in the body of a count request, to " + host
 	}
 	return ServiceInfo{Kind: "source", Type: "kibana", Name: s.label(), Enabled: true, EnvVars: []string{s.APIKeyEnv}, Host: hostPort(s.URL), Leaves: leaves}
 }
