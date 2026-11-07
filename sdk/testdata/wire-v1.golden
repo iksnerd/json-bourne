@@ -1,0 +1,31 @@
+const ProtocolVersion = 1
+const MaxRequestLine = 16777216
+struct request
+  V int json:"v"
+  ID int64 json:"id"
+  Config json.RawMessage json:"config"
+  Docs []json.RawMessage json:"docs"
+struct response
+  ID int64 json:"id"
+  Events []interface {} json:"events,omitempty"
+  Unparsable []int json:"unparsable,omitempty"
+  Error string json:"error,omitempty"
+struct wireEvent
+  TS string json:"ts"
+  Fields map[string]interface {} json:"fields"
+< {"config_schema":"free text","name":"wire","role":"mapper","v":1,"version":"1.2.3"}
+> {"v":1,"id":1,"config":{"mode":"a"},"docs":[{"k":"x"},{"bad":true},"not an object",null]}
+< {"id":1,"events":[{"ts":"2026-01-02T02:04:05.000006Z","fields":{"k":"x","status":401}},null,null,null],"unparsable":[1,2,3]}
+> {"v":1,"id":2,"config":{"mode":"a"},"docs":[]}
+< {"id":2}
+> {"v":1,"id":3,"config":{"mode":"fail"},"docs":[{"k":1}]}
+< {"id":3,"error":"config: bad mode"}
+> {"v":2,"id":4,"config":{},"docs":[]}
+< {"id":4,"error":"protocol version 2 not supported"}
+> {"v":1,"id":5,"config":{"mode":"a"},"docs":[{"panic":true}]}
+< {"id":5,"error":"internal error while mapping a document"}
+> {"v":1,"id":6,"config":{"mode":"a"},"docs":[{"fault":true}]}
+< {"id":6,"error":"fault in the document set"}
+> {"v":1,"id":7,"config":{"mode":"a"},"docs":[{"k":"y"}],"future":{"a":1}}
+< {"id":7,"events":[{"ts":"2026-01-02T02:04:05.000006Z","fields":{"k":"y","status":401}}]}
+< {"name":"n","role":"mapper","v":1,"version":"v"}

@@ -1,0 +1,32 @@
+schema version 2
+migration 0001 0001_init.sql sha256:6bd79e1ec4fe85ee74e6c58b197011d42e28690c0d30521c8b75be48e73c33fc
+migration 0002 0002_runs_pruned_at.sql sha256:964e420eb2ed592d1f29540515486a2219f841a935f96f6807a5b5ef1f297888
+column events.run_id VARCHAR nullable=NO
+column events.seq BIGINT nullable=NO
+column events.ts TIMESTAMP WITH TIME ZONE nullable=NO
+column events.source VARCHAR nullable=NO
+column events.kind VARCHAR nullable=NO
+column events.fields JSON nullable=YES
+column events.raw BLOB nullable=YES
+column events.doc_sha256 VARCHAR nullable=NO
+column findings.run_id VARCHAR nullable=NO
+column findings.seq BIGINT nullable=NO
+column findings.detector VARCHAR nullable=NO
+column findings.tag VARCHAR nullable=NO
+column findings.severity INTEGER nullable=NO
+column findings.window_from TIMESTAMP WITH TIME ZONE nullable=YES
+column findings.window_to TIMESTAMP WITH TIME ZONE nullable=YES
+column findings.baseline_from TIMESTAMP WITH TIME ZONE nullable=YES
+column findings.baseline_to TIMESTAMP WITH TIME ZONE nullable=YES
+column findings.summary VARCHAR nullable=NO
+column findings.detail JSON nullable=YES
+column reputation.indicator VARCHAR nullable=NO
+column reputation.verdict VARCHAR nullable=NO
+column reputation.observed_at TIMESTAMP WITH TIME ZONE nullable=NO
+column reputation.source VARCHAR nullable=NO
+column runs.run_id VARCHAR nullable=NO
+column runs.created_at TIMESTAMP WITH TIME ZONE nullable=NO
+column runs.pruned_at TIMESTAMP WITH TIME ZONE nullable=YES
+column schema_migrations.version INTEGER nullable=NO
+column schema_migrations.applied_at TIMESTAMP WITH TIME ZONE nullable=NO
+applied after migrating an empty store: 1,2

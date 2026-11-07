@@ -43,15 +43,15 @@ Counts below were taken from the repository on 2026-11-07 with a command.
 
 | Surface | What is in it | Pinned today by |
 |---|---|---|
-| Go package `jb` | The exported identifiers listed in the surface golden of RFC 0017: functions, option and result types, constants, errors | Proposed (RFC 0017 surface golden) |
-| Go package `sdk` | `ProtocolVersion`, `MaxRequestLine`, `ErrUnparsable`, `Event`, `Mapper`, `Plugin`, `Serve`, `ReadLine`, `DecodeStrict`, `Lookup`, `Coerce`, `ParseTime`, `FieldSpec`, `TimeSpec`, `Common` and the limit constants of `sdk/mapping.go` | Proposed (the same walk aimed at `sdk`); `sdk/sdk_test.go` and `TestPluginsAreStdlibOnlyAndInert` in `internal/archtest` for the import rule |
-| CLI | The command tree (32 command entries in `cmd/jb/testdata/flagsets.golden`), each flag with its type, default and shorthand, and the exit codes 0 success, 1 runtime failure or incomplete result, 2 usage error | `TestFlagSetsAreUnchanged` for flags; exit codes: documented in `cmd/jb/execute.go`, test unverified |
-| JSON of `--output json` | The key paths of `hunt`, `activity`, `watch status`, `case check`, `doctor`, `actor status`, and the other result documents | `jsonparity_test.go`, `jsonkeys_test.go`, `libparity_test.go` and `testdata/golden/hunt-activity` in `cmd/jb`; the other commands: proposed |
-| File formats | `jb.case/v1`, `jb.actor/v1`, `jb.estate/v2`, `jb.estate-snapshot/v2`, `jb.estate-facts/v1`, `jb.watch-status/v1`. The proposed `jb.assets/v1` is not supported until a loader exists | Loaders refuse another `apiVersion`; schemas for case, actor and estate in `schemas/` |
-| Plugin wire protocol | Version `v: 1` of [PLUGINS.md](../PLUGINS.md) | `internal/conformance` and the host tests; a golden of the messages: proposed |
-| Config keys | Every key and `type` value in [CONFIG.md](../CONFIG.md), and its default | The strict loader rejects unknown keys; a golden of the key set: proposed |
-| Operations and MCP tools | The 23 operations in `docs/operations.json`, their names, input schemas and `readOnly` flags; `jb mcp` lists the read-only operations by default and the mutating ones named by `--allow`, and a tool name is the operation name | `cmd/jb/operations_test.go`; `internal/mcp` tests |
-| Evidence store | The DuckDB schema version and forward-only migrations | Store tests named in RFC 0004 (`TestMigrateIsIdempotent` and others; I did not re-read them for this draft) |
+| Go package `jb` | The exported identifiers listed in the surface golden of RFC 0017: functions, option and result types, constants, errors | `TestAPISurface` and `testdata/api/jb.txt` (RFC 0017 surface golden) |
+| Go package `sdk` | `ProtocolVersion`, `MaxRequestLine`, `ErrUnparsable`, `Event`, `Mapper`, `Plugin`, `Serve`, `ReadLine`, `DecodeStrict`, `Lookup`, `Coerce`, `ParseTime`, `FieldSpec`, `TimeSpec`, `Common` and the limit constants of `sdk/mapping.go` | `TestAPISurface` and `testdata/api/sdk.txt`; `sdk/sdk_test.go` and `TestPluginsAreStdlibOnlyAndInert` in `internal/archtest` for the import rule |
+| CLI | The command tree (32 command entries in `cmd/jb/testdata/flagsets.golden`), each flag with its type, default and shorthand, and the exit codes 0 success, 1 runtime failure or incomplete result, 2 usage error | `TestFlagSetsAreUnchanged` for flags; `TestExitCodeValuesAreFixed`, `TestEveryCommandExitsTwoOnAnUnknownFlag` and `TestExitCodesPerOutcome` for exit codes |
+| JSON of `--output json` | The key paths of `hunt`, `activity`, `watch status`, `case check`, `doctor`, `actor status`, and the other result documents | `jsonparity_test.go`, `jsonkeys_test.go`, `libparity_test.go` and `testdata/golden/hunt-activity` in `cmd/jb`; the db commands by `TestDBCommandsPrintTheLibraryValue`; the other documents by `TestCLIDocumentsHaveTheLibraryKeyPaths` and `TestWatchOnceJSONKeyPaths` |
+| File formats | `jb.case/v1`, `jb.actor/v1`, `jb.estate/v2`, `jb.estate-snapshot/v2`, `jb.estate-facts/v1`, `jb.watch-status/v1`. The proposed `jb.assets/v1` is not supported until a loader exists | `TestEachLoaderReadsOnlyItsOwnAPIVersion` (case, actor, estate, snapshot, estate-facts) and `TestReadAcceptsOnlyWatchStatusV1`; schemas for case, actor and estate in `schemas/`, kept equal to the loaders by `internal/casefile/schema_test.go` |
+| Plugin wire protocol | Version `v: 1` of [PLUGINS.md](../PLUGINS.md) | `internal/conformance` and the host tests; `TestPluginWireProtocolV1HostSideIsUnchanged` (`internal/adapters/plugin/testdata/wire-v1.golden`) and `TestPluginWireProtocolV1PluginSideIsUnchanged` (`sdk/testdata/wire-v1.golden`) |
+| Config keys | Every key and `type` value in [CONFIG.md](../CONFIG.md), and its default | The strict loader rejects unknown keys; `TestConfigKeySetIsUnchanged` (`internal/config/testdata/config-keys.golden`) and `TestEveryConfigKeyIsDocumented` |
+| Operations and MCP tools | The 23 operations in `docs/operations.json`, their names, input schemas and `readOnly` flags; `jb mcp` lists the read-only operations by default and the mutating ones named by `--allow`, and a tool name is the operation name | `cmd/jb/operations_test.go`; `internal/mcp` tests; `TestMCPToolListIsUnchanged` (`cmd/jb/testdata/mcp-tools.golden`) and `TestMCPToolListAgreesWithOperationsJSON` |
+| Evidence store | The DuckDB schema version and forward-only migrations | `TestEvidenceSchemaIsUnchanged` (`internal/adapters/duckdb/testdata/schema.golden`): version, migration hashes, tables and columns |
 
 Not supported: the wording of messages and tables, stderr progress lines, the pages and scripts of `jb serve` and `/estate/graph.json`, everything under `internal/`, the keys inside `Finding.Detail`, which findings a detector reports, and the release archive layout.
 
@@ -87,7 +87,7 @@ The policy is held by tests that fail, in this order of strength:
 2. The RFC 0017 API surface golden for `jb` and `sdk`.
 3. Schema files for case, actor and estate, kept equal to the loaders by tests (RFC 0004 names these).
 4. The consumer contract module (`contract/`), being added by another agent. This RFC does not depend on it. If it lands, it pins JSON shapes from a consumer's side and is listed here.
-5. Proposed goldens: config key set, plugin messages, MCP tool list, JSON of the remaining commands.
+5. Goldens added on 2026-11-07: config key set, plugin messages, MCP tool list, evidence schema; and the exit-code, file-format and remaining-JSON tests listed in the table.
 
 A part of the surface with no test is listed as "proposed" above and MUST get one before 1.0, or be removed from the supported list.
 
@@ -139,13 +139,12 @@ Shipped:
 
 - `cmd/jb/flagsets_test.go` (`TestFlagSetsAreUnchanged`), `cmd/jb/operations_test.go`, `cmd/jb/jsonparity_test.go`, `jsonkeys_test.go`, `libparity_test.go`.
 - The loaders' `apiVersion` refusal tests in `internal/casefile`.
+- The surface golden of RFC 0017 for `jb` and `sdk` (`TestAPISurface`).
+- Goldens and tests added on 2026-11-07, named in the table: exit codes, config keys, plugin wire protocol, MCP tool list, remaining JSON documents, evidence schema, `apiVersion` strings.
 - `internal/archtest` (`TestRFCsAreWellFormed` for this file's shape; `TestPluginsAreStdlibOnlyAndInert` for `sdk` imports).
 
 Proposed:
 
-- The surface golden of RFC 0017 for `jb` and `sdk`.
-- Goldens for config keys, plugin messages, the MCP tool list and the remaining JSON documents.
-- A test that every exit code is as documented.
 - A check that a changed golden file comes with a changelog "Breaking" line (a rule for review at first; a script later).
 
 ## Reference implementations
@@ -168,3 +167,4 @@ Decided on 2026-11-07 by the maintainer, in a grilling session:
 
 - 2026-11-07: first draft.
 - 2026-11-07: accepted. MCP tools folded into Operations; "What 1.0 means" added.
+- 2026-11-07: surface tests added for exit codes, config keys, plugin wire protocol, MCP tool list, remaining JSON documents, evidence store and file-format versions; the table names them.
