@@ -442,7 +442,20 @@ func writeNoOverwrite(dir, file string, data []byte) error {
 		}
 		return fmt.Errorf("write %s: %w", filepath.Base(file), err)
 	}
+	syncDir(dir)
 	return nil
+}
+
+// syncDir flushes a directory entry (a rename or link just made) to disk. It is best
+// effort: some platforms and filesystems cannot sync a directory, and the file itself is
+// already synced, so a failure here is not an error.
+func syncDir(dir string) {
+	d, err := os.Open(dir)
+	if err != nil {
+		return
+	}
+	_ = d.Sync()
+	_ = d.Close()
 }
 
 // EstateArchiveDir is where promotion keeps the baseline it replaced, inside paths.estate.
