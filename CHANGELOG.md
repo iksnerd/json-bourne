@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-07
+
 ### Added
 - `newkey` takes an optional `history: {lookback, min_events, max_candidates}`: for the keys that meet `min_hits`, jb asks each distinct index one unfiltered count of every candidate over `[window.From - lookback, window.From)`, and a key under `min_events` is a finding (the history replaces the preceding-window baseline). A failed probe, a candidate beyond `max_candidates` or an index with no events in the lookback makes the run incomplete, never quiet. A kibana source takes `key_match: {field, mode: term|phrase}` (no default mode) and implements the new optional port `core.KeyCounter`; `core.KeyHistory` and `core.HistoryDetector` are the other new ports. Config accepts `history` only when every source the detector reads is a kibana source with `key_match` (RFC 0014).
 - `newkey` takes `min_severity` (`high` or `critical`) and `note`: a floor applied after the empty-baseline drop that can only raise a finding, with the parse and apply logic shared with `behaviour` in `internal/severityfloor` (RFC 0011 amendment).
