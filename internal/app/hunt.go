@@ -545,6 +545,10 @@ func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source
 				break
 			}
 			ev.Source = src.Name()
+			if err := docs.reserve(ev); err != nil {
+				p.fetchErr = err
+				break
+			}
 			if ev.DocKey == "" {
 				p.keyless = append(p.keyless, ev)
 				continue
@@ -646,8 +650,33 @@ func (p *pending) store(ctx context.Context, mu *sync.Mutex, sink core.Sink, run
 // DocKey the copy to store, which is the one from the smallest source name, and every
 // source that returned it. Memory is one event per distinct document.
 type docSet struct {
-	mu   sync.Mutex
-	docs map[string]*sharedDoc
+	mu    sync.Mutex
+	docs  map[string]*sharedDoc
+	bytes int64 // estimated size of what is held, bounded by sharedBufferLimit
+}
+
+// sharedBufferLimit bounds what the sources of one shared scope may hold in memory at
+// once (an estimate: the raw document plus a fixed overhead per event). The stored copy of
+// a shared document is chosen only after every source has been read, so the events wait in
+// memory; past the limit the source fails and the run is incomplete, never out of memory.
+var sharedBufferLimit int64 = 256 << 20
+
+// reserve accounts for one more held event and refuses it past the limit. A document
+// already held counts once: the copy that replaces it is not extra.
+func (d *docSet) reserve(ev core.Event) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if ev.DocKey != "" {
+		if _, held := d.docs[ev.DocKey]; held {
+			return nil
+		}
+	}
+	n := int64(len(ev.Raw)+len(ev.DocKey)) + 256
+	if d.bytes+n > sharedBufferLimit {
+		return fmt.Errorf("shared-scope buffer limit of %d MiB reached: sources of one cluster that overlap are held in memory until all are read; hunt fewer overlapping sources or a shorter window", sharedBufferLimit>>20)
+	}
+	d.bytes += n
+	return nil
 }
 
 type sharedDoc struct {
