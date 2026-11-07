@@ -51,6 +51,7 @@ templ estateView(p estatePage) {
 			<script src="/static/estate.js" defer></script>
 			<script src="/static/estate-search.js" defer></script>
 			<script src="/static/estate-export.js" defer></script>
+			<script src="/static/sheet-copy.js" defer></script>
 		}
 	}
 }
@@ -191,7 +192,19 @@ templ assessmentTable(rows []assessRow, withSubject bool, empty string) {
 					if withSubject {
 						<td class="mono">{ a.Subject }</td>
 					}
-					<td>{ a.Label }</td><td>{ a.By }</td><td>{ a.Decided }</td><td class="mono">{ a.Basis }</td><td>{ a.Note }</td>
+					<td>{ a.Label }</td><td>{ a.By }</td><td>{ a.Decided }</td>
+					<td class="mono">
+						for i, r := range a.Refs {
+							if i > 0 {
+								{ ", " }
+							}
+							if r.Resolved {
+								<a href={ templ.URL(r.Href) }>{ r.Text }</a>
+							} else {
+								{ r.Text } <span class="note">(unresolved)</span>
+							}
+						}
+					</td><td>{ a.Note }</td>
 				</tr>
 			}
 		</table>
@@ -227,10 +240,16 @@ templ nodeView(p nodePage) {
 	@layout(p.Title, p.Nav) {
 		<h1>Node <span class="mono">{ p.Node.Label }</span></h1>
 		@nodeRecord(p, false)
+		<script src="/static/sheet-copy.js" defer></script>
 	}
 }
 
 templ nodeRecord(p nodePage, panel bool) {
+	<p>
+		<button class="btn" type="button" id="sheet-copy" hidden>copy this record as plain text</button>
+		<span class="note" id="sheet-copy-status" aria-live="polite"></span>
+	</p>
+	<div id="sheet-record">
 	<p class="note">Caveat: { p.Caveat }</p>
 	<table>
 		<tr><th>id</th><td class="mono">{ p.Node.ID }</td></tr>
@@ -240,10 +259,30 @@ templ nodeRecord(p nodePage, panel bool) {
 		<tr><th>observed</th><td>{ p.Node.Observed }</td></tr>
 		<tr><th>map</th><td>{ p.GraphID }</td></tr>
 	</table>
+	<h2>Where this node comes from</h2>
+	<table>
+		<tr><th>estate file (id)</th><th>layer</th><th></th></tr>
+		for _, o := range p.Origins {
+			<tr>
+				<td class="mono">{ o.Map }</td>
+				<td>{ o.Layer }</td>
+				<td>
+					if o.Here {
+						this sheet
+					} else {
+						<a href={ templ.URL(o.Href) }>open this node in that file</a>
+					}
+				</td>
+			</tr>
+		}
+	</table>
 	<h2>Facts</h2>
 	if len(p.Facts) > 0 {
 		for _, grp := range p.Facts {
-			<h3 class="mono">{ grp.Key }</h3>
+			<h3 class="mono" id={ grp.ID }>{ grp.Key }</h3>
+			for _, ct := range grp.Cited {
+				<p class="note">Cited by an assessment (opinion): { ct.Label } by { ct.By }, decided { ct.Decided }.</p>
+			}
 			<table>
 				<tr><th>value</th><th>source</th><th>method</th><th>observed</th></tr>
 				for _, f := range grp.Facts {
@@ -256,48 +295,34 @@ templ nodeRecord(p nodePage, panel bool) {
 			no recorded fact about this node
 		}
 	}
-	<h2>Connections out</h2>
-	if len(p.Out) > 0 {
-		<table>
-			<tr><th>relation</th><th>to</th><th>source</th><th>method</th></tr>
-			for _, e := range p.Out {
-				<tr>
-					<td>
-@edgeLink(e.G, e.I, e.Relation, panel)
+	<h2>Connections</h2>
+	if len(p.Edges) > 0 {
+		for _, grp := range p.Edges {
+			<h3>{ grp.Relation }</h3>
+			<table>
+				<tr><th>direction</th><th>other node</th><th>source</th><th>method</th><th>confidence</th><th>observed</th></tr>
+				for _, e := range grp.Rows {
+					<tr>
+						<td>
+@edgeLink(e.G, e.I, e.Dir, panel)
 </td>
-					<td class="mono">
-@nodeLink(e.G, e.To, e.To, panel)
+						<td class="mono">
+@nodeLink(e.G, e.Other, e.Other, panel)
 </td>
-					<td>{ e.Source }</td>
-					<td class="mono">{ e.Method }</td>
-				</tr>
-			}
-		</table>
-	} else {
-		@alert("muted") {
-			no edge leaves this node
+						<td>{ e.Source }</td>
+						<td class="mono">{ e.Method }</td>
+						<td>{ e.Confidence }</td>
+						<td>{ e.Observed }</td>
+					</tr>
+				}
+			</table>
 		}
-	}
-	<h2>Connections in</h2>
-	if len(p.In) > 0 {
-		<table>
-			<tr><th>from</th><th>relation</th><th>source</th><th>method</th></tr>
-			for _, e := range p.In {
-				<tr>
-					<td class="mono">
-@nodeLink(e.G, e.From, e.From, panel)
-</td>
-					<td>
-@edgeLink(e.G, e.I, e.Relation, panel)
-</td>
-					<td>{ e.Source }</td>
-					<td class="mono">{ e.Method }</td>
-				</tr>
-			}
-		</table>
+		if p.EdgeTotal > tableCap {
+			<p class="note">showing { str(tableCap) } of { str(p.EdgeTotal) } edges.</p>
+		}
 	} else {
 		@alert("muted") {
-			no edge arrives at this node
+			no edge touches this node
 		}
 	}
 	<h2>Absences</h2>
@@ -328,6 +353,7 @@ templ nodeRecord(p nodePage, panel bool) {
 			<p class="note"><a href={ templ.URL(p.OverlayHref) }>read reputation and last seen for this address</a></p>
 		}
 	}
+	</div>
 	if panel {
 		<p class="note"><a href={ templ.URL(nodeHref(p.Node.G, p.Node.ID)) }>open this record as a page</a></p>
 	}

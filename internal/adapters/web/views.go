@@ -444,8 +444,30 @@ type factRow struct{ Key, Value, Source, Method, Observed string }
 // factGroup is every fact of one key. Values are listed in value order, so a key with
 // several values (two open ports, say) shows each one under the key once.
 type factGroup struct {
+	ID    string // anchor on the sheet: fact-0, fact-1, ... in key order
 	Key   string
 	Facts []factRow
+	Cited []citeRow // assessments (opinion) whose basis names this node#key
+}
+
+// citeRow is an assessment shown next to the fact group its basis cites.
+type citeRow struct{ Label, By, Decided string }
+
+// cmpTime orders two stored RFC 3339 times by instant, so a time with a zone offset sorts
+// where it belongs. A text that is not a time sorts after every time, by its bytes, so the
+// order stays total whatever a file holds.
+func cmpTime(a, b string) int {
+	ta, ea := time.Parse(time.RFC3339, a)
+	tb, eb := time.Parse(time.RFC3339, b)
+	switch {
+	case ea == nil && eb == nil:
+		return cmp.Or(ta.Compare(tb), cmp.Compare(a, b))
+	case ea == nil:
+		return -1
+	case eb == nil:
+		return 1
+	}
+	return cmp.Compare(a, b)
 }
 
 // groupFacts groups facts by key, any key. Groups are in key order and the facts of a
@@ -457,13 +479,13 @@ func groupFacts(fs []core.EstateFact) []factGroup {
 		rows = append(rows, factRowOf(f))
 	}
 	slices.SortStableFunc(rows, func(a, b factRow) int {
-		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Value, b.Value), cmp.Compare(a.Source, b.Source),
-			cmp.Compare(a.Method, b.Method), cmp.Compare(a.Observed, b.Observed))
+		return cmp.Or(cmp.Compare(a.Key, b.Key), cmpTime(a.Observed, b.Observed), cmp.Compare(a.Value, b.Value),
+			cmp.Compare(a.Source, b.Source), cmp.Compare(a.Method, b.Method))
 	})
 	var out []factGroup
 	for _, r := range rows {
 		if n := len(out); n == 0 || out[n-1].Key != r.Key {
-			out = append(out, factGroup{Key: r.Key})
+			out = append(out, factGroup{ID: "fact-" + strconv.Itoa(len(out)), Key: r.Key})
 		}
 		out[len(out)-1].Facts = append(out[len(out)-1].Facts, r)
 	}
@@ -472,7 +494,49 @@ func groupFacts(fs []core.EstateFact) []factGroup {
 
 // assessRow is one assessment as shown. It is opinion: the page prints assessmentNotice
 // with every list of them, whatever the file's caveat says.
-type assessRow struct{ ID, Subject, Label, By, Decided, Basis, Note string }
+type assessRow struct {
+	ID, Subject, Label, By, Decided, Basis, Note string
+	Refs                                         []basisRef
+}
+
+// basisRef is one basis entry. Href is set only when the entry resolves against the map:
+// a node id that exists, or node#key where that node has a fact with that key. An entry
+// that does not resolve keeps its text and is shown as unresolved, never dropped.
+type basisRef struct {
+	Text, Href string
+	Resolved   bool
+}
+
+// resolveBasis resolves one basis entry against the map g. cur is the node whose sheet is
+// shown ("" on a page with no sheet): a fact of that node links in-page.
+func resolveBasis(g core.EstateGraph, cur, b string) basisRef {
+	ref := basisRef{Text: c(b)}
+	id, key, hasKey := strings.Cut(b, "#")
+	for _, n := range g.Nodes {
+		if n.ID != id {
+			continue
+		}
+		href := nodeHref(g.ID, n.ID)
+		if id == cur {
+			href = ""
+		}
+		if !hasKey {
+			if href == "" {
+				href = nodeHref(g.ID, n.ID)
+			}
+			ref.Href, ref.Resolved = href, true
+			return ref
+		}
+		for _, grp := range groupFacts(n.Facts) {
+			if grp.Key == c(key) {
+				ref.Href, ref.Resolved = href+"#"+grp.ID, true
+				return ref
+			}
+		}
+		return ref
+	}
+	return ref
+}
 
 // assessmentNotice is the fixed text printed with every assessment section. It is not
 // taken from the file.
@@ -482,24 +546,52 @@ func factRowOf(f core.EstateFact) factRow {
 	return factRow{c(f.Key), c(f.Value), c(f.Source), c(f.Method), c(f.Observed)}
 }
 
-func assessRowOf(a core.EstateAssessment) assessRow {
+func assessRowOf(g core.EstateGraph, cur string, a core.EstateAssessment) assessRow {
 	basis := make([]string, 0, len(a.Basis))
+	refs := make([]basisRef, 0, len(a.Basis))
 	for _, b := range a.Basis {
 		basis = append(basis, c(b))
+		refs = append(refs, resolveBasis(g, cur, b))
 	}
-	return assessRow{c(a.ID), c(a.Subject), c(a.Label), c(a.By), c(a.Decided), strings.Join(basis, ", "), c(a.Note)}
+	return assessRow{c(a.ID), c(a.Subject), c(a.Label), c(a.By), c(a.Decided), strings.Join(basis, ", "), c(a.Note), refs}
+}
+
+// sortedAssessments is the map's assessments by decided time, then id, then label, so the
+// order never depends on the order in the file. It copies; the map is not changed.
+func sortedAssessments(g core.EstateGraph) []core.EstateAssessment {
+	out := slices.Clone(g.Assessments)
+	slices.SortStableFunc(out, func(a, b core.EstateAssessment) int {
+		return cmp.Or(cmpTime(a.Decided, b.Decided), cmp.Compare(a.ID, b.ID), cmp.Compare(a.Label, b.Label), cmp.Compare(a.Subject, b.Subject))
+	})
+	return out
 }
 
 // assessmentsOf returns the rows of the assessments about one node ("" means all of
 // them), at most tableCap.
 func assessmentsOf(g core.EstateGraph, subject string) []assessRow {
+	cur := subject
 	var out []assessRow
-	for _, a := range g.Assessments {
+	for _, a := range sortedAssessments(g) {
 		if (subject == "" || a.Subject == subject) && len(out) < tableCap {
-			out = append(out, assessRowOf(a))
+			out = append(out, assessRowOf(g, cur, a))
 		}
 	}
 	return out
+}
+
+// citedBy returns, for each fact group of node id, the assessments whose basis is id#key.
+func citedBy(g core.EstateGraph, id string, groups []factGroup) {
+	sorted := sortedAssessments(g)
+	for i := range groups {
+		for _, a := range sorted {
+			for _, b := range a.Basis {
+				if b == id+"#"+groups[i].Key {
+					groups[i].Cited = append(groups[i].Cited, citeRow{c(a.Label), c(a.By), c(a.Decided)})
+					break
+				}
+			}
+		}
+	}
 }
 
 // citingOf returns the assessments about other nodes that cite this node in their basis,
@@ -507,13 +599,13 @@ func assessmentsOf(g core.EstateGraph, subject string) []assessRow {
 // by "#" and a fact key; an entry that only starts with the same characters does not.
 func citingOf(g core.EstateGraph, id string) []assessRow {
 	var out []assessRow
-	for _, a := range g.Assessments {
+	for _, a := range sortedAssessments(g) {
 		if a.Subject == id || len(out) >= tableCap {
 			continue
 		}
 		for _, b := range a.Basis {
 			if b == id || strings.HasPrefix(b, id+"#") {
-				out = append(out, assessRowOf(a))
+				out = append(out, assessRowOf(g, id, a))
 				break
 			}
 		}
@@ -649,6 +741,44 @@ const (
 	headingUnclassified = "Unclassified"
 )
 
+// layerIndex is the layer of a subject: 0 operated, 1 adversary, 2 anything else.
+func layerIndex(subject string) int {
+	switch subject {
+	case "operated":
+		return 0
+	case "adversary":
+		return 1
+	}
+	return 2
+}
+
+// layerHeading is the fixed heading text of a subject's layer.
+func layerHeading(subject string) string {
+	return [...]string{headingOperated, headingAdversary, headingUnclassified}[layerIndex(subject)]
+}
+
+// originRow is one estate file that holds the node, and the layer that file is in.
+type originRow struct {
+	Map, Layer, Href string
+	Here             bool
+}
+
+// originsOf lists every map that holds a node with this id, in map id order. The file's
+// identity is its estate id, which the loader keeps unique across files.
+func originsOf(gs []core.EstateGraph, cur, id string) []originRow {
+	var out []originRow
+	for _, g := range gs {
+		for _, n := range g.Nodes {
+			if n.ID == id {
+				out = append(out, originRow{c(g.ID), layerHeading(g.Subject), nodeHref(g.ID, id), g.ID == cur})
+				break
+			}
+		}
+	}
+	slices.SortStableFunc(out, func(a, b originRow) int { return cmp.Compare(a.Map, b.Map) })
+	return out
+}
+
 type graphLayer struct {
 	Heading string
 	Graphs  []graphView
@@ -659,13 +789,7 @@ type graphLayer struct {
 func layersOf(gs []core.EstateGraph, kinds, confs []string, now time.Time) []graphLayer {
 	layers := []graphLayer{{Heading: headingOperated}, {Heading: headingAdversary}, {Heading: headingUnclassified}}
 	for _, g := range gs {
-		i := 2
-		switch g.Subject {
-		case "operated":
-			i = 0
-		case "adversary":
-			i = 1
-		}
+		i := layerIndex(g.Subject)
 		layers[i].Graphs = append(layers[i].Graphs, buildGraph(g, kinds, confs, now))
 	}
 	out := layers[:0]
@@ -797,10 +921,12 @@ type nodePage struct {
 	Caveat     string
 	GraphID    string
 	Node       nodeRow
-	Out, In    []edgeRow
+	Edges      []edgeGroup // the node's edges grouped by relation
+	EdgeTotal  int         // every edge of the node, before the table cap
 	Absences   []absenceRow
 	Facts      []factGroup
 	Assess     []assessRow
+	Origins    []originRow // every estate file that holds this node id, with its layer
 	Citing     []assessRow // assessments about other nodes that cite this one in their basis
 	// OverlayHref is set for an ip node: where its reputation and last-seen overlay is read.
 	OverlayHref string
@@ -822,16 +948,15 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 		if x.Kind == "ip" {
 			p.OverlayHref = overlayHref(g.ID, x.ID)
 		}
+		p.Origins = originsOf(gs, g.ID, id)
 		p.Facts = groupFacts(x.Facts)
-		for i, e := range g.Edges {
-			if e.From == id && len(p.Out) < tableCap {
-				p.Out = append(p.Out, edgeRowOf(g.ID, i, e))
-			}
-			if e.To == id && len(p.In) < tableCap {
-				p.In = append(p.In, edgeRowOf(g.ID, i, e))
-			}
-		}
-		for _, a := range g.Absences {
+		citedBy(g, id, p.Facts)
+		p.Edges, p.EdgeTotal = edgesOf(g, id)
+		abs := slices.Clone(g.Absences)
+		slices.SortStableFunc(abs, func(a, b core.EstateAbsence) int {
+			return cmp.Or(cmp.Compare(a.Source, b.Source), cmp.Compare(a.Method, b.Method), cmpTime(a.Observed, b.Observed), cmp.Compare(a.Answer, b.Answer))
+		})
+		for _, a := range abs {
 			if a.Subject == id && len(p.Absences) < tableCap {
 				p.Absences = append(p.Absences, absenceRow{c(a.Subject), c(a.Source), c(a.Method), c(a.Observed), c(a.Answer)})
 			}
@@ -840,6 +965,53 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.missing(w, r, "no such node in that estate map")
+}
+
+// sheetEdge is one edge as the node sheet lists it: its direction from the sheet's node
+// and the node at the other end.
+type sheetEdge struct {
+	Dir, Other string
+	edgeRow
+}
+
+// edgeGroup is the edges of one relation.
+type edgeGroup struct {
+	Relation string
+	Rows     []sheetEdge
+}
+
+// edgesOf lists the edges that touch node id, grouped by relation. Groups are in relation
+// order and rows in order of the other node, then direction, source, method, time and
+// confidence, so the same file always renders the same page. At most tableCap rows are
+// kept; the second result counts them all.
+func edgesOf(g core.EstateGraph, id string) ([]edgeGroup, int) {
+	var rows []sheetEdge
+	for i, e := range g.Edges {
+		r := edgeRowOf(g.ID, i, e)
+		if e.From == id {
+			rows = append(rows, sheetEdge{"out", r.To, r})
+		}
+		if e.To == id {
+			rows = append(rows, sheetEdge{"in", r.From, r})
+		}
+	}
+	slices.SortStableFunc(rows, func(a, b sheetEdge) int {
+		return cmp.Or(cmp.Compare(a.Relation, b.Relation), cmp.Compare(a.Other, b.Other), cmp.Compare(a.Dir, b.Dir),
+			cmp.Compare(a.Source, b.Source), cmp.Compare(a.Method, b.Method), cmpTime(a.Observed, b.Observed),
+			cmp.Compare(a.Confidence, b.Confidence))
+	})
+	total := len(rows)
+	if len(rows) > tableCap {
+		rows = rows[:tableCap]
+	}
+	var out []edgeGroup
+	for _, r := range rows {
+		if n := len(out); n == 0 || out[n-1].Relation != r.Relation {
+			out = append(out, edgeGroup{Relation: r.Relation})
+		}
+		out[len(out)-1].Rows = append(out[len(out)-1].Rows, r)
+	}
+	return out, total
 }
 
 type edgePage struct {
