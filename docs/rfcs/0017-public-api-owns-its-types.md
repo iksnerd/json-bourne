@@ -184,9 +184,9 @@ Proposed:
 
 ## Reference implementations
 
-Shipped: none.
+Shipped: step 1, the surface golden (`api_surface_test.go`, `testdata/api/jb.txt`, `testdata/api/sdk.txt`, `testdata/api/known-leaks.txt`, `-update-api`). The walk follows only types of this module; standard-library and third-party types appear by name, so the golden does not depend on the Go version.
 
-Proposed: every step in section 6.
+Proposed: steps 2 to 7 in section 6 (steps 2 to 5 and 7 parked, step 6 waits for open question 3).
 
 ## Open questions
 
@@ -202,3 +202,4 @@ Decided on 2026-11-07 by the maintainer, in a grilling session:
 
 - 2026-11-07: first draft.
 - 2026-11-07: accepted for steps 1 and 6; steps 2 to 5 and 7 parked.
+- 2026-11-07: step 1 shipped.

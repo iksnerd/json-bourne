@@ -1,0 +1,47 @@
+func github.com/iksnerd/json-bourne/sdk.Coerce(any, string, string) (any, error)
+type github.com/iksnerd/json-bourne/sdk.Common
+func github.com/iksnerd/json-bourne/sdk.DecodeStrict(encoding/json.RawMessage, any) error
+const github.com/iksnerd/json-bourne/sdk.DefaultMaxDocBytes untyped int = 1048576
+const github.com/iksnerd/json-bourne/sdk.DefaultMaxLineBytes untyped int = 8192
+var github.com/iksnerd/json-bourne/sdk.ErrUnparsable error
+type github.com/iksnerd/json-bourne/sdk.Event
+type github.com/iksnerd/json-bourne/sdk.FieldSpec
+const github.com/iksnerd/json-bourne/sdk.HardMaxLineBytes untyped int = 65536
+func github.com/iksnerd/json-bourne/sdk.Lookup(any, string) (any, bool)
+type github.com/iksnerd/json-bourne/sdk.Mapper
+const github.com/iksnerd/json-bourne/sdk.MaxConfigBytes untyped int = 65536
+const github.com/iksnerd/json-bourne/sdk.MaxFields untyped int = 64
+const github.com/iksnerd/json-bourne/sdk.MaxPathSegments untyped int = 8
+const github.com/iksnerd/json-bourne/sdk.MaxRequestLine untyped int = 16777216
+func github.com/iksnerd/json-bourne/sdk.ParseTime(any, string) (time.Time, error)
+type github.com/iksnerd/json-bourne/sdk.Plugin
+const github.com/iksnerd/json-bourne/sdk.ProtocolVersion untyped int = 1
+func github.com/iksnerd/json-bourne/sdk.ReadLine(*bufio.Reader, int) ([]byte, error)
+func github.com/iksnerd/json-bourne/sdk.Serve(io.Reader, io.Writer, github.com/iksnerd/json-bourne/sdk.Plugin) error
+type github.com/iksnerd/json-bourne/sdk.TimeSpec
+type github.com/iksnerd/json-bourne/sdk.Common struct
+field github.com/iksnerd/json-bourne/sdk.Common#000 Fields map[string]github.com/iksnerd/json-bourne/sdk.FieldSpec "json:\"fields\""
+field github.com/iksnerd/json-bourne/sdk.Common#001 Time *github.com/iksnerd/json-bourne/sdk.TimeSpec "json:\"time\""
+field github.com/iksnerd/json-bourne/sdk.Common#002 Required []string "json:\"required\""
+method github.com/iksnerd/json-bourne/sdk.Common pointer Build(func(string) (any, bool)) (map[string]any, error)
+method github.com/iksnerd/json-bourne/sdk.Common pointer EventTime(map[string]any, func(string) (any, bool)) (time.Time, error)
+method github.com/iksnerd/json-bourne/sdk.Common pointer Validate() error
+type github.com/iksnerd/json-bourne/sdk.Event struct
+field github.com/iksnerd/json-bourne/sdk.Event#000 Time time.Time
+field github.com/iksnerd/json-bourne/sdk.Event#001 Fields map[string]any
+type github.com/iksnerd/json-bourne/sdk.FieldSpec struct
+field github.com/iksnerd/json-bourne/sdk.FieldSpec#000 From string "json:\"from\""
+field github.com/iksnerd/json-bourne/sdk.FieldSpec#001 Type string "json:\"type\""
+field github.com/iksnerd/json-bourne/sdk.FieldSpec#002 Layout string "json:\"layout\""
+field github.com/iksnerd/json-bourne/sdk.FieldSpec#003 Omit []string "json:\"omit\""
+field github.com/iksnerd/json-bourne/sdk.FieldSpec#004 Required bool "json:\"required\""
+type github.com/iksnerd/json-bourne/sdk.Mapper interface{Map(map[string]any, int) (github.com/iksnerd/json-bourne/sdk.Event, error)}
+type github.com/iksnerd/json-bourne/sdk.Plugin struct
+field github.com/iksnerd/json-bourne/sdk.Plugin#000 Name string
+field github.com/iksnerd/json-bourne/sdk.Plugin#001 Version string
+field github.com/iksnerd/json-bourne/sdk.Plugin#002 ConfigSchema string
+field github.com/iksnerd/json-bourne/sdk.Plugin#003 New func(encoding/json.RawMessage) (github.com/iksnerd/json-bourne/sdk.Mapper, error)
+type github.com/iksnerd/json-bourne/sdk.TimeSpec struct
+field github.com/iksnerd/json-bourne/sdk.TimeSpec#000 DocField string "json:\"doc_field\""
+field github.com/iksnerd/json-bourne/sdk.TimeSpec#001 From string "json:\"from\""
+field github.com/iksnerd/json-bourne/sdk.TimeSpec#002 Layout string "json:\"layout\""
