@@ -138,7 +138,13 @@ func (s *Store) RenameSource(ctx context.Context, req core.RenameSourceRequest) 
 			SELECT ts, kind, doc_sha256 FROM events WHERE source = ?)`, req.Old, req.New); err != nil {
 		return res, err
 	}
-	if res.Events == 0 {
+	// A label that owns no document may still be a returner of documents owned by another
+	// label; it exists, and renaming it rewrites that membership.
+	var returnerOnly int64
+	if err := one(&returnerOnly, `SELECT count(*) FROM events WHERE source <> ? AND list_contains(returners, ?)`, req.Old, req.Old); err != nil {
+		return res, err
+	}
+	if res.Events == 0 && returnerOnly == 0 {
 		return res, fmt.Errorf("%w: %q", core.ErrNoSuchSource, req.Old)
 	}
 	if res.Overlap > 0 && !req.Merge {
@@ -160,6 +166,20 @@ func (s *Store) RenameSource(ctx context.Context, req core.RenameSourceRequest) 
 				return res, err
 			}
 		}
+		// The rows about to go may carry returners the surviving row does not. Fold them
+		// into the survivors (with the new owner, which a survivor stored without a list
+		// does not name) first; the relabel step below maps the old label to the new one.
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE events SET returners = list_sort(list_distinct(list_concat(
+				coalesce(events.returners, []::VARCHAR[]), [CAST(? AS VARCHAR)], x.carried)))
+			FROM (
+				SELECT ts, kind, doc_sha256, flatten(list(returners)) AS carried
+				FROM events WHERE rowid IN (`+dropCandidates+`) AND returners IS NOT NULL
+				GROUP BY ts, kind, doc_sha256) x
+			WHERE events.source = ? AND events.ts = x.ts AND events.kind = x.kind AND events.doc_sha256 = x.doc_sha256`,
+			req.New, req.New, req.Old, req.New); err != nil {
+			return res, fmt.Errorf("rename source: keep membership of dropped duplicates: %w", err)
+		}
 		r, err := tx.ExecContext(ctx, `DELETE FROM events WHERE rowid IN (`+dropCandidates+`)`, req.New, req.Old)
 		if err != nil {
 			return res, fmt.Errorf("rename source: drop duplicates: %w", err)
@@ -172,6 +192,18 @@ func (s *Store) RenameSource(ctx context.Context, req core.RenameSourceRequest) 
 		if err := renameHook("relabel"); err != nil {
 			return res, err
 		}
+	}
+	// Membership: map the old label to the new one in every returners list (also lists of
+	// documents another label owns, and documents whose only link to the old label is that
+	// list), keep it a sorted set, and make sure the list of a document being relabelled
+	// names its new owner. Rows without a list stay without one.
+	oldLit, newLit := quoteLit(req.Old), quoteLit(req.New)
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE events SET returners = list_sort(list_distinct(list_concat(
+			list_transform(returners, lambda r: CASE WHEN r = `+oldLit+` THEN `+newLit+` ELSE r END),
+			CASE WHEN source = `+oldLit+` THEN [CAST(`+newLit+` AS VARCHAR)] ELSE []::VARCHAR[] END)))
+		WHERE returners IS NOT NULL AND (source = `+oldLit+` OR list_contains(returners, `+oldLit+`))`); err != nil {
+		return res, fmt.Errorf("rename source: relabel returners: %w", err)
 	}
 	r, err := tx.ExecContext(ctx, `UPDATE events SET source = ? WHERE source = ?`, req.New, req.Old)
 	if err != nil {

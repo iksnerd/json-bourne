@@ -529,7 +529,9 @@ func (s *Store) PruneRunEvents(ctx context.Context, req core.EventPruneRequest) 
 
 // compactTables are the tables the copy carries, in an order that puts the small ones
 // first. The schema of the copy is built by this package's own migrations, so it is the
-// schema this build writes, not a guess from the source.
+// schema this build writes, not a guess from the source. cols must list EVERY column of
+// the table: the copy and its content digest use exactly this list, and
+// TestCompactCopiesEveryColumn fails when a migration adds a column that is not here.
 var compactTables = []struct {
 	name string
 	cols string
@@ -538,7 +540,7 @@ var compactTables = []struct {
 	{"runs", "run_id, created_at, pruned_at"},
 	{"findings", "run_id, seq, detector, tag, severity, window_from, window_to, baseline_from, baseline_to, summary, detail"},
 	{"reputation", "indicator, verdict, observed_at, source"},
-	{"events", "run_id, seq, ts, source, kind, fields, raw, doc_sha256"},
+	{"events", "run_id, seq, ts, source, kind, fields, raw, doc_sha256, returners"},
 }
 
 func quoteIdent(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
@@ -707,19 +709,24 @@ func (s *Store) copyInto(ctx context.Context, src, path string) (err error) {
 			return fmt.Errorf("compact: copy %s: %w", t.name, err)
 		}
 	}
-	// Row counts and the uncompressed raw size must agree before the copy is closed.
-	var a, b int64
-	for _, c := range []string{src, cpName} {
-		dst := &a
-		if c == cpName {
-			dst = &b
+	// The content of every copied column must agree before the copy is closed, not only
+	// the row counts: an order-independent digest of each table over the same column list
+	// the copy used.
+	for _, t := range compactTables {
+		var a, b string
+		for _, c := range []string{src, cpName} {
+			dst := &a
+			if c == cpName {
+				dst = &b
+			}
+			q := `SELECT CAST(coalesce(sum(CAST(hash(` + t.cols + `) AS HUGEINT)), 0) AS VARCHAR) FROM ` + quoteIdent(c) + `.main.` + t.name
+			if err := s.db.QueryRowContext(ctx, q).Scan(dst); err != nil {
+				return fmt.Errorf("compact: digest %s: %w", t.name, err)
+			}
 		}
-		if err := s.db.QueryRowContext(ctx, `SELECT CAST(coalesce(sum(octet_length(raw)), 0) AS BIGINT) FROM `+quoteIdent(c)+`.main.events`).Scan(dst); err != nil {
-			return fmt.Errorf("compact: measure raw documents: %w", err)
+		if a != b {
+			return fmt.Errorf("compact: table %s differs in content between the copy and the source; the copy was discarded", t.name)
 		}
-	}
-	if a != b {
-		return fmt.Errorf("compact: the copy holds %d raw bytes and the source %d; the copy was discarded", b, a)
 	}
 	if _, err := s.db.ExecContext(ctx, `USE `+quoteIdent(src)); err != nil {
 		return err

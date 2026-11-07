@@ -419,7 +419,11 @@ func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.E
 		if ev.Time.IsZero() {
 			return fmt.Errorf("event %d of run %q has no time", total, run)
 		}
-		d := eventDoc{Seq: total, TS: ts(ev.Time), Source: ev.Source, Kind: ev.Kind, Raw: ev.Raw, Returners: ev.Returners}
+		returners, err := lawfulReturners(ev)
+		if err != nil {
+			return fmt.Errorf("event %d of run %q: %w", total, run, err)
+		}
+		d := eventDoc{Seq: total, TS: ts(ev.Time), Source: ev.Source, Kind: ev.Kind, Raw: ev.Raw, Returners: returners}
 		if ev.Fields != nil {
 			if d.Fields, err = json.Marshal(ev.Fields); err != nil {
 				return fmt.Errorf("event %d of run %q: fields: %w", total, run, err)
@@ -449,10 +453,37 @@ func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.E
 	if err := flush(); err != nil {
 		return err
 	}
+	// The run holds events again, so a pruned_at marker from an earlier prune no longer
+	// describes it. Only an events save clears it; SaveFindings leaves it alone. A hunt
+	// group stores one runs row per source run, so the marker is per source run, never
+	// per group: re-saving one source run does not touch its siblings.
+	if _, err := tx.ExecContext(ctx, `UPDATE runs SET pruned_at = NULL WHERE run_id = ? AND pruned_at IS NOT NULL`, run); err != nil {
+		return fmt.Errorf("clear pruned marker of run %q: %w", run, err)
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit run %q: %w", run, err)
 	}
 	return nil
+}
+
+// lawfulReturners returns the membership list the store keeps for ev: a sorted set that
+// contains the owner (ev.Source). Empty stays empty, meaning only the owner returned the
+// document. An empty label is refused. A missing owner is added, not refused, so the list
+// always answers "who returned this". The caller's slice is not modified.
+func lawfulReturners(ev core.Event) ([]string, error) {
+	if len(ev.Returners) == 0 {
+		return nil, nil
+	}
+	out := make([]string, 0, len(ev.Returners)+1)
+	for _, r := range ev.Returners {
+		if r == "" {
+			return nil, errors.New("returners holds an empty source label")
+		}
+		out = append(out, r)
+	}
+	out = append(out, ev.Source)
+	slices.Sort(out)
+	return slices.Compact(out), nil
 }
 
 type findingDoc struct {
