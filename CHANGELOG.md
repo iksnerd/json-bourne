@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ### Fixed
 - The `newkey` history probe used the first source's `key_match` and time field for every source on a cluster, so a known key could count as new depending on source order. Sources with the same settings still share one request; sources with different settings are probed separately and their counts add, in a fixed order.
+- Hunt: a document two sources of one cluster both return is stored under the smallest source name that returned it, not under whichever source read it first, so hunting twice with the sources in the other order, or with concurrent reads, stores the same rows instead of doubling them.
+- Hunt: a detector scoped to a source reads the documents that source returned by document identity, not by content, so two different documents with identical contents are two documents and a document with no identity is attributed only to its own source.
 
 ## [0.10.1] - 2026-11-07
 
