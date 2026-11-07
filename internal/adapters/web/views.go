@@ -502,6 +502,25 @@ func assessmentsOf(g core.EstateGraph, subject string) []assessRow {
 	return out
 }
 
+// citingOf returns the assessments about other nodes that cite this node in their basis,
+// at most tableCap. A basis entry cites a node when it is the node's id or the id followed
+// by "#" and a fact key; an entry that only starts with the same characters does not.
+func citingOf(g core.EstateGraph, id string) []assessRow {
+	var out []assessRow
+	for _, a := range g.Assessments {
+		if a.Subject == id || len(out) >= tableCap {
+			continue
+		}
+		for _, b := range a.Basis {
+			if b == id || strings.HasPrefix(b, id+"#") {
+				out = append(out, assessRowOf(a))
+				break
+			}
+		}
+	}
+	return out
+}
+
 type edgeRow struct {
 	G                                  string
 	I                                  int
@@ -721,6 +740,7 @@ type nodePage struct {
 	Absences   []absenceRow
 	Facts      []factGroup
 	Assess     []assessRow
+	Citing     []assessRow // assessments about other nodes that cite this one in their basis
 	// OverlayHref is set for an ip node: where its reputation and last-seen overlay is read.
 	OverlayHref string
 }
@@ -737,7 +757,7 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 		if x.ID != id {
 			continue
 		}
-		p := nodePage{Nav: "estate", Title: "Node " + c(x.Label), Caveat: c(g.Caveat), GraphID: c(g.ID), Node: nodeRowOf(g.ID, x), Assess: assessmentsOf(g, id)}
+		p := nodePage{Nav: "estate", Title: "Node " + c(x.Label), Caveat: c(g.Caveat), GraphID: c(g.ID), Node: nodeRowOf(g.ID, x), Assess: assessmentsOf(g, id), Citing: citingOf(g, id)}
 		if x.Kind == "ip" {
 			p.OverlayHref = overlayHref(g.ID, x.ID)
 		}

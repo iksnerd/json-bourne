@@ -283,6 +283,9 @@ templ nodeRecord(p nodePage, panel bool) {
 	<h2>Assessments (opinion)</h2>
 	<p class="note">{ assessmentNotice }</p>
 	@assessmentTable(p.Assess, false, "no assessment about this node")
+	<h2>Assessments citing this node (opinion)</h2>
+	<p class="note">{ assessmentNotice }</p>
+	@assessmentTable(p.Citing, true, "no assessment cites this node in its basis")
 	if p.OverlayHref != "" {
 		if panel {
 			<div hx-get={ p.OverlayHref } hx-trigger="load" hx-swap="innerHTML">

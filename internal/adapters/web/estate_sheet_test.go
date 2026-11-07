@@ -81,3 +81,46 @@ func TestNodeSheetEscapesFactKeyAndValue(t *testing.T) {
 		}
 	}
 }
+
+func TestNodeSheetListsAssessmentsAboutAndCitingTheNode(t *testing.T) {
+	for _, body := range bothRenders(t, sheetHandler(), estNode) {
+		// About the node: author, date, label, basis, note, under the opinion wording.
+		for _, w := range []string{"Assessments (opinion)", assessmentNotice, ">about-self<", ">analyst<", "2026-11-06T12:00:00Z", "ip:192.0.2.10#port.open"} {
+			if !strings.Contains(body, w) {
+				t.Errorf("assessment about the node lacks %q", w)
+			}
+		}
+		// Citing the node in a basis: its own heading, the opinion notice again, its subject and basis.
+		i := strings.Index(body, "Assessments citing this node (opinion)")
+		if i < 0 {
+			t.Fatalf("no section for assessments that cite the node:\n%s", body)
+		}
+		cite := body[i:]
+		for _, w := range []string{assessmentNotice, ">cites-ip<", ">other<", "2026-11-06T13:00:00Z", "host:b.example.com", "ip:192.0.2.10#tech", "see the ip"} {
+			if !strings.Contains(cite, w) {
+				t.Errorf("citing section lacks %q", w)
+			}
+		}
+		// A basis that only starts with the same characters is not a citation.
+		if strings.Contains(body, "unrelated") || strings.Contains(body, "prefix only") {
+			t.Error("a prefix of the id is not a citation")
+		}
+	}
+}
+
+func TestNodeSheetEscapesAssessmentNoteAndBasis(t *testing.T) {
+	h := sheetHandler()
+	for _, target := range []string{estNode, "/estate/node?g=e1&id=host:b.example.com"} {
+		for _, body := range bothRenders(t, h, target) {
+			for _, bad := range []string{"<script>alert(13)", "<script>alert(14)", evilNot, evilBas} {
+				if strings.Contains(body, bad) {
+					t.Errorf("%s: hostile assessment text unescaped: %q", target, bad)
+				}
+			}
+		}
+	}
+	_, _, body := get(t, h, "/estate/node?g=e1&id=host:b.example.com")
+	if !strings.Contains(body, "&lt;script&gt;alert(14)") {
+		t.Errorf("hostile basis should appear escaped:\n%s", body)
+	}
+}
