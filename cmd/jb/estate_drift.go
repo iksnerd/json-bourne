@@ -58,7 +58,7 @@ func newEstateRefreshCmd(d deps) *cobra.Command {
 			if err := errors.Join(rejectZero(cmd, "max-targets", maxTargets), rejectZero(cmd, "timeout", timeout)); err != nil {
 				return usageErrorf("%v", err)
 			}
-			res, err := jb.EstateRefresh(cmd.Context(), caseDir, jb.EstateRefreshOptions{EstateOptions: d.estateOptions(file),
+			res, err := jb.EstateRefresh(d.estateCtx(cmd.Context()), caseDir, jb.EstateRefreshOptions{EstateOptions: d.estateOptions(file),
 				Config: cfgPath, RDAPURL: rdapURL, Resolver: resolver, Timeout: timeout, MaxTargets: maxTargets})
 			if err != nil {
 				return err

@@ -119,8 +119,8 @@ func TestHuntSearchDoesNotChangeTheCallersConfig(t *testing.T) {
 	if _, err := Hunt(t.Context(), cfg, o); err != nil {
 		t.Logf("hunt: %v", err)
 	}
-	if len(cfg.Search()) != 0 {
-		t.Fatalf("Hunt left the search on the caller's config: %v", cfg.Search())
+	if len(cfg.f.Search()) != 0 {
+		t.Fatalf("Hunt left the search on the caller's config: %v", cfg.f.Search())
 	}
 }
 

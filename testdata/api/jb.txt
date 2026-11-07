@@ -23,7 +23,7 @@ const github.com/iksnerd/json-bourne.CheckSkipped github.com/iksnerd/json-bourne
 alias github.com/iksnerd/json-bourne.CheckStatus = github.com/iksnerd/json-bourne/internal/app.CheckStatus
 const github.com/iksnerd/json-bourne.CheckWarn github.com/iksnerd/json-bourne/internal/app.CheckStatus = "warn"
 alias github.com/iksnerd/json-bourne.CompactResult = github.com/iksnerd/json-bourne/internal/core.CompactResult
-alias github.com/iksnerd/json-bourne.Config = github.com/iksnerd/json-bourne/internal/config.File
+type github.com/iksnerd/json-bourne.Config
 const github.com/iksnerd/json-bourne.CycleFailed github.com/iksnerd/json-bourne/internal/app.CycleStatus = "failed"
 const github.com/iksnerd/json-bourne.CycleFindings github.com/iksnerd/json-bourne/internal/app.CycleStatus = "findings"
 const github.com/iksnerd/json-bourne.CycleIncomplete github.com/iksnerd/json-bourne/internal/app.CycleStatus = "incomplete"
@@ -105,7 +105,6 @@ const github.com/iksnerd/json-bourne.EstateMaxNames untyped int = 2000
 alias github.com/iksnerd/json-bourne.EstateNotComparable = github.com/iksnerd/json-bourne/internal/app.NotComparable
 const github.com/iksnerd/json-bourne.EstateNote untyped string = "An estate map shows who holds and runs infrastructure, not who typed the commands. A CDN or proxy edge address's ownership says nothing about the visitor behind it. Lookups went to a DNS resolver and an RDAP service only; no address was contacted."
 type github.com/iksnerd/json-bourne.EstateOptions
-type github.com/iksnerd/json-bourne.EstatePorts
 func github.com/iksnerd/json-bourne.EstatePromote(string, string, github.com/iksnerd/json-bourne.EstateOptions) (*github.com/iksnerd/json-bourne.EstatePromoteResult, error)
 type github.com/iksnerd/json-bourne.EstatePromoteResult
 func github.com/iksnerd/json-bourne.EstateRefresh(context.Context, string, github.com/iksnerd/json-bourne.EstateRefreshOptions) (*github.com/iksnerd/json-bourne.EstateRefreshResult, error)
@@ -115,7 +114,7 @@ alias github.com/iksnerd/json-bourne.EstateService = github.com/iksnerd/json-bou
 alias github.com/iksnerd/json-bourne.EstateSnapshotFailure = github.com/iksnerd/json-bourne/internal/casefile.SnapshotFailure
 alias github.com/iksnerd/json-bourne.EventPruneResult = github.com/iksnerd/json-bourne/internal/core.EventPruneResult
 alias github.com/iksnerd/json-bourne.Finding = github.com/iksnerd/json-bourne/internal/core.Finding
-func github.com/iksnerd/json-bourne.Hunt(context.Context, *github.com/iksnerd/json-bourne/internal/config.File, github.com/iksnerd/json-bourne.HuntOptions) (*github.com/iksnerd/json-bourne/internal/app.Result, error)
+func github.com/iksnerd/json-bourne.Hunt(context.Context, *github.com/iksnerd/json-bourne.Config, github.com/iksnerd/json-bourne.HuntOptions) (*github.com/iksnerd/json-bourne/internal/app.Result, error)
 func github.com/iksnerd/json-bourne.HuntCase(context.Context, string, github.com/iksnerd/json-bourne.CaseHuntOptions) (*github.com/iksnerd/json-bourne/internal/app.Result, error)
 type github.com/iksnerd/json-bourne.HuntOptions
 func github.com/iksnerd/json-bourne.Intel(context.Context, string, []string, github.com/iksnerd/json-bourne.IntelOptions) (*github.com/iksnerd/json-bourne.IntelResult, error)
@@ -127,7 +126,7 @@ type github.com/iksnerd/json-bourne.IntelRow
 func github.com/iksnerd/json-bourne.IsUsage(error) bool
 alias github.com/iksnerd/json-bourne.KindUsage = github.com/iksnerd/json-bourne/internal/core.KindUsage
 alias github.com/iksnerd/json-bourne.LabelUsage = github.com/iksnerd/json-bourne/internal/core.LabelUsage
-func github.com/iksnerd/json-bourne.LoadConfig(string) (*github.com/iksnerd/json-bourne/internal/config.File, error)
+func github.com/iksnerd/json-bourne.LoadConfig(string) (*github.com/iksnerd/json-bourne.Config, error)
 const github.com/iksnerd/json-bourne.MaxHistoricalWindow time.Duration = 2678400000000000
 const github.com/iksnerd/json-bourne.MaxPruneRunIDs untyped int = 20
 const github.com/iksnerd/json-bourne.MaxReputationIndicators untyped int = 100
@@ -247,6 +246,7 @@ field github.com/iksnerd/json-bourne.CaseHuntOptions#000 HuntOptions github.com/
 field github.com/iksnerd/json-bourne.CaseHuntOptions#001 Config string
 type github.com/iksnerd/json-bourne.CaseShowOptions struct
 field github.com/iksnerd/json-bourne.CaseShowOptions#000 Config string "jb:\"config\" desc:\"one of the case's configs, or a file inside the case (default: the only one)\""
+type github.com/iksnerd/json-bourne.Config struct
 type github.com/iksnerd/json-bourne.DBCompactOptions struct
 field github.com/iksnerd/json-bourne.DBCompactOptions#000 Config string "jb:\"config\" desc:\"YAML config naming the store (with --case: one of the case's configs)\""
 field github.com/iksnerd/json-bourne.DBCompactOptions#001 To string "jb:\"to\" desc:\"the new file to write the compacted copy to (must not exist)\""
@@ -439,14 +439,6 @@ type github.com/iksnerd/json-bourne.EstateOptions struct
 field github.com/iksnerd/json-bourne.EstateOptions#000 File string
 field github.com/iksnerd/json-bourne.EstateOptions#001 Env github.com/iksnerd/json-bourne/internal/config.Env
 field github.com/iksnerd/json-bourne.EstateOptions#002 Now func() time.Time
-field github.com/iksnerd/json-bourne.EstateOptions#003 Ports github.com/iksnerd/json-bourne.EstatePorts
-type github.com/iksnerd/json-bourne.EstatePorts struct
-field github.com/iksnerd/json-bourne.EstatePorts#000 PTR github.com/iksnerd/json-bourne/internal/core.PTRResolver
-field github.com/iksnerd/json-bourne.EstatePorts#001 RDAP github.com/iksnerd/json-bourne/internal/core.RDAPRegistry
-field github.com/iksnerd/json-bourne.EstatePorts#002 BGP github.com/iksnerd/json-bourne/internal/core.BGPSource
-field github.com/iksnerd/json-bourne.EstatePorts#003 CT github.com/iksnerd/json-bourne/internal/core.CTSource
-field github.com/iksnerd/json-bourne.EstatePorts#004 DNS github.com/iksnerd/json-bourne/internal/core.DNSForward
-field github.com/iksnerd/json-bourne.EstatePorts#005 Sleep func(context.Context, time.Duration) error
 type github.com/iksnerd/json-bourne.EstatePromoteResult struct
 field github.com/iksnerd/json-bourne.EstatePromoteResult#000 Promoted string "json:\"promoted\""
 field github.com/iksnerd/json-bourne.EstatePromoteResult#001 Baseline string "json:\"baseline\""
@@ -704,41 +696,6 @@ method github.com/iksnerd/json-bourne/internal/app.SourceResult value Outcome() 
 method github.com/iksnerd/json-bourne/internal/app.SourceResult value UnparsableShare() float64
 type github.com/iksnerd/json-bourne/internal/app.Status string
 type github.com/iksnerd/json-bourne/internal/app.Verdict string
-type github.com/iksnerd/json-bourne/internal/casefile.Case struct
-field github.com/iksnerd/json-bourne/internal/casefile.Case#000 APIVersion string "yaml:\"apiVersion\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#001 ID string "yaml:\"id\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#002 Title string "yaml:\"title\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#003 Status string "yaml:\"status\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#004 Opened string "yaml:\"opened\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#005 Classification string "yaml:\"classification\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#006 Owners []string "yaml:\"owners\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#007 Scope github.com/iksnerd/json-bourne/internal/casefile.Scope "yaml:\"scope\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#008 Windows map[string]string "yaml:\"windows\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#009 Retention github.com/iksnerd/json-bourne/internal/casefile.Retention "yaml:\"retention\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#010 Paths github.com/iksnerd/json-bourne/internal/casefile.Paths "yaml:\"paths\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#011 Config []string "yaml:\"config\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#012 Handling github.com/iksnerd/json-bourne/internal/casefile.Handling "yaml:\"handling\""
-field github.com/iksnerd/json-bourne/internal/casefile.Case#013 Dir string "yaml:\"-\""
-method github.com/iksnerd/json-bourne/internal/casefile.Case pointer EvidenceDir() string
-method github.com/iksnerd/json-bourne/internal/casefile.Case pointer Validate() error
-type github.com/iksnerd/json-bourne/internal/casefile.Handling struct
-field github.com/iksnerd/json-bourne/internal/casefile.Handling#000 PassiveOnly *bool "yaml:\"passive_only\""
-field github.com/iksnerd/json-bourne/internal/casefile.Handling#001 RedactInReports []string "yaml:\"redact_in_reports\""
-type github.com/iksnerd/json-bourne/internal/casefile.Paths struct
-field github.com/iksnerd/json-bourne/internal/casefile.Paths#000 Assets string "yaml:\"assets\""
-field github.com/iksnerd/json-bourne/internal/casefile.Paths#001 Actors string "yaml:\"actors\""
-field github.com/iksnerd/json-bourne/internal/casefile.Paths#002 Estate string "yaml:\"estate\""
-field github.com/iksnerd/json-bourne/internal/casefile.Paths#003 Notes string "yaml:\"notes\""
-field github.com/iksnerd/json-bourne/internal/casefile.Paths#004 Reports string "yaml:\"reports\""
-field github.com/iksnerd/json-bourne/internal/casefile.Paths#005 Evidence string "yaml:\"evidence\""
-type github.com/iksnerd/json-bourne/internal/casefile.Retention struct
-field github.com/iksnerd/json-bourne/internal/casefile.Retention#000 EvidenceDays *int "yaml:\"evidence_days\""
-field github.com/iksnerd/json-bourne/internal/casefile.Retention#001 FindingsDays *int "yaml:\"findings_days\""
-type github.com/iksnerd/json-bourne/internal/casefile.Scope struct
-field github.com/iksnerd/json-bourne/internal/casefile.Scope#000 Domains []string "yaml:\"domains\""
-field github.com/iksnerd/json-bourne/internal/casefile.Scope#001 Hosts []string "yaml:\"hosts\""
-field github.com/iksnerd/json-bourne/internal/casefile.Scope#002 ASNs []uint32 "yaml:\"asns\""
-field github.com/iksnerd/json-bourne/internal/casefile.Scope#003 CIDRs []string "yaml:\"cidrs\""
 type github.com/iksnerd/json-bourne/internal/casefile.SnapshotFailure struct
 field github.com/iksnerd/json-bourne/internal/casefile.SnapshotFailure#000 Target string "yaml:\"target\""
 field github.com/iksnerd/json-bourne/internal/casefile.SnapshotFailure#001 Lookup string "yaml:\"lookup\""
@@ -752,9 +709,6 @@ type github.com/iksnerd/json-bourne/internal/config.AlertDescription struct
 field github.com/iksnerd/json-bourne/internal/config.AlertDescription#000 Type string "json:\"type\""
 field github.com/iksnerd/json-bourne/internal/config.AlertDescription#001 CredentialEnv string "json:\"credential_env,omitempty\""
 field github.com/iksnerd/json-bourne/internal/config.AlertDescription#002 Options map[string]any "json:\"options,omitempty\""
-type github.com/iksnerd/json-bourne/internal/config.AlertEntry struct
-field github.com/iksnerd/json-bourne/internal/config.AlertEntry#000 Type string
-method github.com/iksnerd/json-bourne/internal/config.AlertEntry pointer UnmarshalYAML(*gopkg.in/yaml.v3.Node) error
 type github.com/iksnerd/json-bourne/internal/config.CaseShow struct
 field github.com/iksnerd/json-bourne/internal/config.CaseShow#000 Case string "json:\"case\""
 field github.com/iksnerd/json-bourne/internal/config.CaseShow#001 Config string "json:\"config\""
@@ -772,69 +726,7 @@ field github.com/iksnerd/json-bourne/internal/config.DetectorDescription#002 Ena
 field github.com/iksnerd/json-bourne/internal/config.DetectorDescription#003 Sources []string "json:\"sources,omitempty\""
 field github.com/iksnerd/json-bourne/internal/config.DetectorDescription#004 Reads []string "json:\"reads,omitempty\""
 field github.com/iksnerd/json-bourne/internal/config.DetectorDescription#005 Options map[string]any "json:\"options,omitempty\""
-type github.com/iksnerd/json-bourne/internal/config.DetectorEntry struct
-field github.com/iksnerd/json-bourne/internal/config.DetectorEntry#000 Type string
-field github.com/iksnerd/json-bourne/internal/config.DetectorEntry#002 Sources []string
-field github.com/iksnerd/json-bourne/internal/config.DetectorEntry#003 Disabled bool
-method github.com/iksnerd/json-bourne/internal/config.DetectorEntry value DisplayName() string
-method github.com/iksnerd/json-bourne/internal/config.DetectorEntry pointer UnmarshalYAML(*gopkg.in/yaml.v3.Node) error
 type github.com/iksnerd/json-bourne/internal/config.Env func(string) (string, bool)
-type github.com/iksnerd/json-bourne/internal/config.EstateConfig struct
-field github.com/iksnerd/json-bourne/internal/config.EstateConfig#000 External []string "yaml:\"external\""
-field github.com/iksnerd/json-bourne/internal/config.EstateConfig#001 BGPURL string "yaml:\"bgp_url\""
-field github.com/iksnerd/json-bourne/internal/config.EstateConfig#002 CrtshURL string "yaml:\"crtsh_url\""
-type github.com/iksnerd/json-bourne/internal/config.FeedEntry struct
-field github.com/iksnerd/json-bourne/internal/config.FeedEntry#000 Type string
-method github.com/iksnerd/json-bourne/internal/config.FeedEntry pointer UnmarshalYAML(*gopkg.in/yaml.v3.Node) error
-type github.com/iksnerd/json-bourne/internal/config.File struct
-field github.com/iksnerd/json-bourne/internal/config.File#000 Commands []string "yaml:\"commands\""
-field github.com/iksnerd/json-bourne/internal/config.File#001 Sources []github.com/iksnerd/json-bourne/internal/config.SourceEntry "yaml:\"sources\""
-field github.com/iksnerd/json-bourne/internal/config.File#002 Detectors []github.com/iksnerd/json-bourne/internal/config.DetectorEntry "yaml:\"detectors\""
-field github.com/iksnerd/json-bourne/internal/config.File#003 Store github.com/iksnerd/json-bourne/internal/config.Store "yaml:\"store\""
-field github.com/iksnerd/json-bourne/internal/config.File#004 Feeds []github.com/iksnerd/json-bourne/internal/config.FeedEntry "yaml:\"feeds\""
-field github.com/iksnerd/json-bourne/internal/config.File#005 Intel github.com/iksnerd/json-bourne/internal/config.IntelConfig "yaml:\"intel\""
-field github.com/iksnerd/json-bourne/internal/config.File#006 Alerts []github.com/iksnerd/json-bourne/internal/config.AlertEntry "yaml:\"alerts\""
-field github.com/iksnerd/json-bourne/internal/config.File#007 Estate github.com/iksnerd/json-bourne/internal/config.EstateConfig "yaml:\"estate\""
-method github.com/iksnerd/json-bourne/internal/config.File pointer Build(github.com/iksnerd/json-bourne/internal/config.Env) (*github.com/iksnerd/json-bourne/internal/config.Runtime, error)
-method github.com/iksnerd/json-bourne/internal/config.File pointer BuildAlerts(github.com/iksnerd/json-bourne/internal/config.Env) ([]github.com/iksnerd/json-bourne/internal/core.AlertSink, error)
-method github.com/iksnerd/json-bourne/internal/config.File pointer BuildDetectors() ([]github.com/iksnerd/json-bourne/internal/core.Detector, error)
-method github.com/iksnerd/json-bourne/internal/config.File pointer BuildFeeds(github.com/iksnerd/json-bourne/internal/config.Env) ([]github.com/iksnerd/json-bourne/internal/core.Feed, error)
-method github.com/iksnerd/json-bourne/internal/config.File pointer Describe() github.com/iksnerd/json-bourne/internal/config.Description
-method github.com/iksnerd/json-bourne/internal/config.File pointer DisabledDetectors() []string
-method github.com/iksnerd/json-bourne/internal/config.File pointer DisabledFeeds() []string
-method github.com/iksnerd/json-bourne/internal/config.File pointer DisabledSources() []string
-method github.com/iksnerd/json-bourne/internal/config.File pointer EstateEnabled(string) bool
-method github.com/iksnerd/json-bourne/internal/config.File pointer IntelOnly() bool
-method github.com/iksnerd/json-bourne/internal/config.File pointer IntelOptions() github.com/iksnerd/json-bourne/internal/config.IntelOptions
-method github.com/iksnerd/json-bourne/internal/config.File pointer Search() []string
-method github.com/iksnerd/json-bourne/internal/config.File pointer Services() []github.com/iksnerd/json-bourne/internal/config.ServiceInfo
-method github.com/iksnerd/json-bourne/internal/config.File pointer StorePath() string
-method github.com/iksnerd/json-bourne/internal/config.File pointer UseCase(*github.com/iksnerd/json-bourne/internal/casefile.Case)
-method github.com/iksnerd/json-bourne/internal/config.File pointer UseSearch([]string, string) error
-method github.com/iksnerd/json-bourne/internal/config.File pointer WithSearch([]string, string) error
-type github.com/iksnerd/json-bourne/internal/config.IntelConfig struct
-field github.com/iksnerd/json-bourne/internal/config.IntelConfig#000 IPFields []string "yaml:\"ip_fields\""
-field github.com/iksnerd/json-bourne/internal/config.IntelConfig#001 MaxIndicators *int "yaml:\"max_indicators\""
-type github.com/iksnerd/json-bourne/internal/config.IntelOptions struct
-field github.com/iksnerd/json-bourne/internal/config.IntelOptions#000 IPFields []string
-field github.com/iksnerd/json-bourne/internal/config.IntelOptions#001 MaxIndicators int
-type github.com/iksnerd/json-bourne/internal/config.Runtime struct
-field github.com/iksnerd/json-bourne/internal/config.Runtime#000 Sources []github.com/iksnerd/json-bourne/internal/core.Source
-field github.com/iksnerd/json-bourne/internal/config.Runtime#001 Detectors []github.com/iksnerd/json-bourne/internal/core.Detector
-field github.com/iksnerd/json-bourne/internal/config.Runtime#002 Scopes map[string][]string
-field github.com/iksnerd/json-bourne/internal/config.Runtime#003 DisabledSources []string
-field github.com/iksnerd/json-bourne/internal/config.Runtime#004 DisabledDetectors []string
-method github.com/iksnerd/json-bourne/internal/config.Runtime pointer Close() error
-type github.com/iksnerd/json-bourne/internal/config.ServiceInfo struct
-field github.com/iksnerd/json-bourne/internal/config.ServiceInfo#000 Kind string
-field github.com/iksnerd/json-bourne/internal/config.ServiceInfo#001 Type string
-field github.com/iksnerd/json-bourne/internal/config.ServiceInfo#002 Name string
-field github.com/iksnerd/json-bourne/internal/config.ServiceInfo#003 Enabled bool
-field github.com/iksnerd/json-bourne/internal/config.ServiceInfo#004 EnvVars []string
-field github.com/iksnerd/json-bourne/internal/config.ServiceInfo#005 Host string
-field github.com/iksnerd/json-bourne/internal/config.ServiceInfo#006 HostEnv string
-field github.com/iksnerd/json-bourne/internal/config.ServiceInfo#007 Resolver bool
-field github.com/iksnerd/json-bourne/internal/config.ServiceInfo#008 Leaves string
 type github.com/iksnerd/json-bourne/internal/config.SourceDescription struct
 field github.com/iksnerd/json-bourne/internal/config.SourceDescription#000 Type string "json:\"type\""
 field github.com/iksnerd/json-bourne/internal/config.SourceDescription#001 Name string "json:\"name\""
@@ -843,12 +735,6 @@ field github.com/iksnerd/json-bourne/internal/config.SourceDescription#003 URL s
 field github.com/iksnerd/json-bourne/internal/config.SourceDescription#004 Index string "json:\"index,omitempty\""
 field github.com/iksnerd/json-bourne/internal/config.SourceDescription#005 CredentialEnv string "json:\"credential_env,omitempty\""
 field github.com/iksnerd/json-bourne/internal/config.SourceDescription#006 Options map[string]any "json:\"options,omitempty\""
-type github.com/iksnerd/json-bourne/internal/config.SourceEntry struct
-field github.com/iksnerd/json-bourne/internal/config.SourceEntry#000 Type string
-field github.com/iksnerd/json-bourne/internal/config.SourceEntry#002 Disabled bool
-method github.com/iksnerd/json-bourne/internal/config.SourceEntry pointer UnmarshalYAML(*gopkg.in/yaml.v3.Node) error
-type github.com/iksnerd/json-bourne/internal/config.Store struct
-field github.com/iksnerd/json-bourne/internal/config.Store#000 Path string "yaml:\"path\""
 type github.com/iksnerd/json-bourne/internal/config.StoreDescription struct
 field github.com/iksnerd/json-bourne/internal/config.StoreDescription#000 Path string "json:\"path,omitempty\""
 field github.com/iksnerd/json-bourne/internal/config.StoreDescription#001 Default bool "json:\"default\""
@@ -878,27 +764,6 @@ field github.com/iksnerd/json-bourne/internal/core.Alert#004 Text string "json:\
 field github.com/iksnerd/json-bourne/internal/core.Alert#005 Run string "json:\"run,omitempty\""
 field github.com/iksnerd/json-bourne/internal/core.Alert#006 At string "json:\"at\""
 field github.com/iksnerd/json-bourne/internal/core.Alert#007 Watcher string "json:\"watcher,omitempty\""
-type github.com/iksnerd/json-bourne/internal/core.AlertSink interface{Deliver(context.Context, github.com/iksnerd/json-bourne/internal/core.Alert) error}
-type github.com/iksnerd/json-bourne/internal/core.BGPAnnouncement struct
-field github.com/iksnerd/json-bourne/internal/core.BGPAnnouncement#000 Query string
-field github.com/iksnerd/json-bourne/internal/core.BGPAnnouncement#001 Holder github.com/iksnerd/json-bourne/internal/core.BGPHolder
-field github.com/iksnerd/json-bourne/internal/core.BGPAnnouncement#002 Prefixes []net/netip.Prefix
-field github.com/iksnerd/json-bourne/internal/core.BGPAnnouncement#003 Truncated bool
-type github.com/iksnerd/json-bourne/internal/core.BGPHolder struct
-field github.com/iksnerd/json-bourne/internal/core.BGPHolder#000 ASN uint32
-field github.com/iksnerd/json-bourne/internal/core.BGPHolder#001 Holder string
-type github.com/iksnerd/json-bourne/internal/core.BGPOrigin struct
-field github.com/iksnerd/json-bourne/internal/core.BGPOrigin#000 Query string
-field github.com/iksnerd/json-bourne/internal/core.BGPOrigin#001 Prefix net/netip.Prefix
-field github.com/iksnerd/json-bourne/internal/core.BGPOrigin#002 Origin []github.com/iksnerd/json-bourne/internal/core.BGPHolder
-type github.com/iksnerd/json-bourne/internal/core.BGPSource interface{LookupASN(context.Context, uint32) (github.com/iksnerd/json-bourne/internal/core.BGPAnnouncement, error); LookupIP(context.Context, net/netip.Addr) (github.com/iksnerd/json-bourne/internal/core.BGPOrigin, error)}
-type github.com/iksnerd/json-bourne/internal/core.CTAnswer struct
-field github.com/iksnerd/json-bourne/internal/core.CTAnswer#000 Query string
-field github.com/iksnerd/json-bourne/internal/core.CTAnswer#001 Names []string
-field github.com/iksnerd/json-bourne/internal/core.CTAnswer#002 Wildcards int
-field github.com/iksnerd/json-bourne/internal/core.CTAnswer#003 OutOfScope int
-field github.com/iksnerd/json-bourne/internal/core.CTAnswer#004 Truncated bool
-type github.com/iksnerd/json-bourne/internal/core.CTSource interface{LookupSubdomains(context.Context, string) (github.com/iksnerd/json-bourne/internal/core.CTAnswer, error)}
 type github.com/iksnerd/json-bourne/internal/core.CompactResult struct
 field github.com/iksnerd/json-bourne/internal/core.CompactResult#000 Applied bool "json:\"applied\""
 field github.com/iksnerd/json-bourne/internal/core.CompactResult#001 Target string "json:\"target\""
@@ -910,20 +775,6 @@ field github.com/iksnerd/json-bourne/internal/core.CompactResult#006 TargetBytes
 field github.com/iksnerd/json-bourne/internal/core.CompactResult#007 SchemaVersion int "json:\"schema_version\""
 field github.com/iksnerd/json-bourne/internal/core.CompactResult#008 Source []github.com/iksnerd/json-bourne/internal/core.TableCount "json:\"source_rows\""
 field github.com/iksnerd/json-bourne/internal/core.CompactResult#009 Copy []github.com/iksnerd/json-bourne/internal/core.TableCount "json:\"copy_rows\""
-type github.com/iksnerd/json-bourne/internal/core.DNSAnswer struct
-field github.com/iksnerd/json-bourne/internal/core.DNSAnswer#000 Query string
-field github.com/iksnerd/json-bourne/internal/core.DNSAnswer#001 Values []string
-field github.com/iksnerd/json-bourne/internal/core.DNSAnswer#002 Truncated bool
-type github.com/iksnerd/json-bourne/internal/core.DNSForward interface{Lookup(context.Context, string, github.com/iksnerd/json-bourne/internal/core.DNSType) (github.com/iksnerd/json-bourne/internal/core.DNSAnswer, error)}
-type github.com/iksnerd/json-bourne/internal/core.DNSType string
-type github.com/iksnerd/json-bourne/internal/core.Detector interface{Detect(context.Context, github.com/iksnerd/json-bourne/internal/core.EventReader, github.com/iksnerd/json-bourne/internal/core.EventReader, github.com/iksnerd/json-bourne/internal/core.Window) ([]github.com/iksnerd/json-bourne/internal/core.Finding, error); Name() string}
-type github.com/iksnerd/json-bourne/internal/core.Event struct
-field github.com/iksnerd/json-bourne/internal/core.Event#000 Time time.Time
-field github.com/iksnerd/json-bourne/internal/core.Event#001 Source string
-field github.com/iksnerd/json-bourne/internal/core.Event#002 Kind string
-field github.com/iksnerd/json-bourne/internal/core.Event#003 Fields map[string]any
-field github.com/iksnerd/json-bourne/internal/core.Event#004 Raw []byte
-field github.com/iksnerd/json-bourne/internal/core.Event#005 DocKey string
 type github.com/iksnerd/json-bourne/internal/core.EventPruneResult struct
 field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#000 Applied bool "json:\"applied\""
 field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#001 ByRunID bool "json:\"by_run_id\""
@@ -934,8 +785,6 @@ field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#005 Runs []g
 field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#006 Plan github.com/iksnerd/json-bourne/internal/core.PruneTotals "json:\"plan\""
 field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#007 Deleted github.com/iksnerd/json-bourne/internal/core.PruneTotals "json:\"deleted\""
 field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#008 Marked int64 "json:\"run_records_marked_pruned\""
-type github.com/iksnerd/json-bourne/internal/core.EventReader interface{Events(context.Context, github.com/iksnerd/json-bourne/internal/core.Window) iter.Seq2[github.com/iksnerd/json-bourne/internal/core.Event, error]}
-type github.com/iksnerd/json-bourne/internal/core.Feed interface{Lookup(context.Context, []string) ([]github.com/iksnerd/json-bourne/internal/core.Reputation, error); Name() string}
 type github.com/iksnerd/json-bourne/internal/core.Finding struct
 field github.com/iksnerd/json-bourne/internal/core.Finding#000 Detector string
 field github.com/iksnerd/json-bourne/internal/core.Finding#001 Tag string
@@ -962,10 +811,6 @@ field github.com/iksnerd/json-bourne/internal/core.LabelUsage#003 RawBytes int64
 field github.com/iksnerd/json-bourne/internal/core.LabelUsage#004 FieldsBytes int64 "json:\"fields_bytes\""
 field github.com/iksnerd/json-bourne/internal/core.LabelUsage#005 Oldest time.Time "json:\"oldest,omitempty\""
 field github.com/iksnerd/json-bourne/internal/core.LabelUsage#006 Newest time.Time "json:\"newest,omitempty\""
-type github.com/iksnerd/json-bourne/internal/core.PTRAnswer struct
-field github.com/iksnerd/json-bourne/internal/core.PTRAnswer#000 Query string
-field github.com/iksnerd/json-bourne/internal/core.PTRAnswer#001 Names []string
-type github.com/iksnerd/json-bourne/internal/core.PTRResolver interface{LookupPTR(context.Context, net/netip.Addr) (github.com/iksnerd/json-bourne/internal/core.PTRAnswer, error)}
 type github.com/iksnerd/json-bourne/internal/core.PruneResult struct
 field github.com/iksnerd/json-bourne/internal/core.PruneResult#000 Runs int64
 field github.com/iksnerd/json-bourne/internal/core.PruneResult#001 Events int64
@@ -986,28 +831,8 @@ field github.com/iksnerd/json-bourne/internal/core.PruneTotals#002 Events int64 
 field github.com/iksnerd/json-bourne/internal/core.PruneTotals#003 RawBytes int64 "json:\"raw_bytes\""
 field github.com/iksnerd/json-bourne/internal/core.PruneTotals#004 FieldsBytes int64 "json:\"fields_bytes\""
 field github.com/iksnerd/json-bourne/internal/core.PruneTotals#005 Findings int64 "json:\"findings\""
-type github.com/iksnerd/json-bourne/internal/core.RDAPEntity struct
-field github.com/iksnerd/json-bourne/internal/core.RDAPEntity#000 Handle string
-field github.com/iksnerd/json-bourne/internal/core.RDAPEntity#001 Name string
-field github.com/iksnerd/json-bourne/internal/core.RDAPEntity#002 Roles []string
-type github.com/iksnerd/json-bourne/internal/core.RDAPNetwork struct
-field github.com/iksnerd/json-bourne/internal/core.RDAPNetwork#000 Query string
-field github.com/iksnerd/json-bourne/internal/core.RDAPNetwork#001 Handle string
-field github.com/iksnerd/json-bourne/internal/core.RDAPNetwork#002 Name string
-field github.com/iksnerd/json-bourne/internal/core.RDAPNetwork#003 Country string
-field github.com/iksnerd/json-bourne/internal/core.RDAPNetwork#004 Start string
-field github.com/iksnerd/json-bourne/internal/core.RDAPNetwork#005 End string
-field github.com/iksnerd/json-bourne/internal/core.RDAPNetwork#006 ParentHandle string
-field github.com/iksnerd/json-bourne/internal/core.RDAPNetwork#007 Entities []github.com/iksnerd/json-bourne/internal/core.RDAPEntity
-type github.com/iksnerd/json-bourne/internal/core.RDAPRegistry interface{LookupIP(context.Context, net/netip.Addr) (github.com/iksnerd/json-bourne/internal/core.RDAPNetwork, error)}
-type github.com/iksnerd/json-bourne/internal/core.Reputation struct
-field github.com/iksnerd/json-bourne/internal/core.Reputation#000 Indicator string
-field github.com/iksnerd/json-bourne/internal/core.Reputation#001 Verdict string
-field github.com/iksnerd/json-bourne/internal/core.Reputation#002 Observed time.Time
-field github.com/iksnerd/json-bourne/internal/core.Reputation#003 Source string
 type github.com/iksnerd/json-bourne/internal/core.RunKind string
 type github.com/iksnerd/json-bourne/internal/core.Severity int
-type github.com/iksnerd/json-bourne/internal/core.Source interface{Fetch(context.Context, github.com/iksnerd/json-bourne/internal/core.Window) iter.Seq2[github.com/iksnerd/json-bourne/internal/core.Event, error]; Name() string}
 type github.com/iksnerd/json-bourne/internal/core.StoreUsage struct
 field github.com/iksnerd/json-bourne/internal/core.StoreUsage#000 Path string "json:\"path\""
 field github.com/iksnerd/json-bourne/internal/core.StoreUsage#001 SchemaVersion int "json:\"schema_version\""

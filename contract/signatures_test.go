@@ -113,9 +113,8 @@ func TestEveryFunctionOfTheREADMETableIsInTheCompileTable(t *testing.T) {
 }
 
 // Not covered by a typed assignment, on purpose:
-//   - EstatePorts fields (PTR, RDAP, BGP, CT, DNS): their types come from internal
-//     packages, so a program outside the module cannot name an implementation; the zero
-//     value is the only value it can use, and the zero value is what these tests use.
+//   - Config has no exported field or method (RFC 0017, step 6), so there is nothing to
+//     list beyond LoadConfig and the functions that take a *Config, which are above.
 //   - The aliased result types (Result, ActivityResult, CaseShowResult, CycleReport,
 //     WatchStatusResult, StoreUsage and others) are aliases of internal types. Their
 //     exported fields are API, but a compile table cannot list them without naming

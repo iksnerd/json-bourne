@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 
 	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/adapters/rdap"
+	"github.com/iksnerd/json-bourne/internal/estateseam"
 )
 
 const estateMaxFailsShow = 25
@@ -26,8 +28,12 @@ func rejectZero[T ~int | ~int64](cmd *cobra.Command, flag string, v T) error {
 
 // estateOptions are the options every estate command shares, from the process-level inputs.
 func (d deps) estateOptions(file string) jb.EstateOptions {
-	return jb.EstateOptions{File: file, Env: d.env, Now: d.now, Ports: jb.EstatePorts{
-		PTR: d.ptr, RDAP: d.rdap, BGP: d.bgp, CT: d.ct, DNS: d.fwd, Sleep: d.sleep}}
+	return jb.EstateOptions{File: file, Env: d.env, Now: d.now}
+}
+
+// estateCtx carries the test doubles of the adapters (see [estateseam]) into the library call.
+func (d deps) estateCtx(ctx context.Context) context.Context {
+	return estateseam.With(ctx, estateseam.Ports{PTR: d.ptr, RDAP: d.rdap, BGP: d.bgp, CT: d.ct, DNS: d.fwd, Sleep: d.sleep})
 }
 
 func newEstateCmdWith(d deps) *cobra.Command {
@@ -69,7 +75,7 @@ func newEstateCmdWith(d deps) *cobra.Command {
 			if err := errors.Join(rejectZero(cmd, "max-ips", maxIPs), rejectZero(cmd, "timeout", timeout)); err != nil {
 				return usageErrorf("%v", err)
 			}
-			res, err := jb.EstateIP(cmd.Context(), caseDir, args, jb.EstateIPOptions{EstateOptions: d.estateOptions(file),
+			res, err := jb.EstateIP(d.estateCtx(cmd.Context()), caseDir, args, jb.EstateIPOptions{EstateOptions: d.estateOptions(file),
 				RDAPURL: rdapURL, Resolver: resolver, Timeout: timeout, MaxIPs: maxIPs})
 			if err != nil {
 				return err

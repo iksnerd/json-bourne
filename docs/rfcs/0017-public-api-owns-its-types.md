@@ -186,7 +186,9 @@ Proposed:
 
 Shipped: step 1, the surface golden (`api_surface_test.go`, `testdata/api/jb.txt`, `testdata/api/sdk.txt`, `testdata/api/known-leaks.txt`, `-update-api`). The walk follows only types of this module; standard-library and third-party types appear by name, so the golden does not depend on the Go version.
 
-Proposed: steps 2 to 7 in section 6 (steps 2 to 5 and 7 parked, step 6 waits for open question 3).
+Shipped: step 6. `Config` is `struct{ f *config.File }` with no exported field or method (`TestConfigIsOpaque`, and the surface golden). `EstatePorts` and `EstateOptions.Ports` are removed; the module's own tests and `cmd/jb` set the doubles on the call's context through `internal/estateseam`, which is not public API. The golden shrank from 1093 to 918 lines and `known-leaks.txt` from 92 to 55 types.
+
+Proposed: steps 2 to 5 and 7 in section 6 (parked).
 
 ## Open questions
 
@@ -194,7 +196,7 @@ Decided on 2026-11-07 by the maintainer, in a grilling session:
 
 1. **Is this inside the freeze?** Yes, for steps 1 and 6.
 2. **Shallow or deep copy of `Finding.Detail`?** Moot while the result types stay aliases.
-3. **Does any program outside this repo read `jb.Config` fields or set `EstatePorts`?** Open. The other user was asked on 2026-11-07 (hub #01a1b55d). Step 6 does not start before the answer; if yes, add a method for the one thing it needs.
+3. **Does any program outside this repo read `jb.Config` fields or set `EstatePorts`?** No. The other user confirmed on 2026-11-07 (hub #01a1b57a) that it reads no `Config` field and never sets `EstatePorts`, so step 6 added no method to `Config`.
 4. **Does `Operation` belong in `jb`?** Parked with steps 2 to 5.
 5. **Stop after step 1?** Yes: steps 2 to 5 and 7 are parked until a concrete need reopens them.
 
@@ -203,3 +205,4 @@ Decided on 2026-11-07 by the maintainer, in a grilling session:
 - 2026-11-07: first draft.
 - 2026-11-07: accepted for steps 1 and 6; steps 2 to 5 and 7 parked.
 - 2026-11-07: step 1 shipped.
+- 2026-11-07: step 6 shipped; open question 3 answered.
