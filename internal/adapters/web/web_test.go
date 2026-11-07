@@ -29,6 +29,7 @@ type fake struct {
 	summary   core.EventSummary
 	events    []core.StoredEvent
 	findings  []core.StoredFinding
+	page      core.FindingsPage // answer of FindingsBetween
 	rep       []core.Reputation
 	failWith  error // every call fails
 	limits    map[string]int
@@ -735,4 +736,9 @@ func TestAllowedHostsKeepsHeadersAndReadOnly(t *testing.T) {
 			t.Errorf("%s with an allowed Host = %d, want 405", m, rec.Code)
 		}
 	}
+}
+
+func (f *fake) FindingsBetween(_ context.Context, q core.FindingsQuery) (core.FindingsPage, error) {
+	f.note("between", q.Limit)
+	return f.page, f.failWith
 }

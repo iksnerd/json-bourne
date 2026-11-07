@@ -371,3 +371,62 @@ func (d *Dashboard) LastSeen(ctx context.Context, field, value string, since tim
 	}
 	return ts.Time.UTC(), true, nil
 }
+
+// FindingsBetween returns the findings whose run was saved in [From, To), newest run
+// first, then most severe first within a run, at most Limit; More says a further row
+// matched. The text is fixed; only the number of placeholders varies, and every value is
+// bound. A run prefix is matched with the delimiter-safe shape PruneRuns uses
+// (prefix + a UTC stamp), so "watch-a-" never reaches "watch-ab-". The detail document
+// is not selected.
+func (d *Dashboard) FindingsBetween(ctx context.Context, q core.FindingsQuery) (core.FindingsPage, error) {
+	var page core.FindingsPage
+	if q.Limit <= 0 {
+		return page, errors.New("findings between: limit must be positive")
+	}
+	where := []string{"r.created_at >= CAST(? AS TIMESTAMPTZ)", "r.created_at < CAST(? AS TIMESTAMPTZ)"}
+	args := []any{q.From.UTC().Format(time.RFC3339Nano), q.To.UTC().Format(time.RFC3339Nano)}
+	if len(q.Severities) > 0 {
+		where = append(where, "f.severity IN ("+strings.TrimSuffix(strings.Repeat("?,", len(q.Severities)), ",")+")")
+		for _, s := range q.Severities {
+			args = append(args, int(s))
+		}
+	}
+	if len(q.RunPrefixes) > 0 {
+		terms := make([]string, len(q.RunPrefixes))
+		for i, p := range q.RunPrefixes {
+			terms[i] = "(starts_with(f.run_id, ?) AND regexp_full_match(split_part(f.run_id, '/', 1), ?))"
+			args = append(args, p, regexp.QuoteMeta(p)+`\d{8}T\d{6}Z`)
+		}
+		where = append(where, "("+strings.Join(terms, " OR ")+")")
+	}
+	args = append(args, q.Limit+1)
+	rows, err := d.s.db.QueryContext(ctx, `
+		SELECT r.created_at, f.run_id, f.detector, f.tag, f.severity, f.window_from, f.window_to, f.summary
+		FROM findings f JOIN runs r ON r.run_id = f.run_id
+		WHERE `+strings.Join(where, " AND ")+`
+		ORDER BY r.created_at DESC, f.run_id, f.severity DESC, f.seq
+		LIMIT ?`, args...)
+	if err != nil {
+		return page, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			x      core.TimelineFinding
+			sev    int
+			wf, wt sql.NullTime
+		)
+		if err := rows.Scan(&x.Created, &x.Run, &x.Detector, &x.Tag, &sev, &wf, &wt, &x.Summary); err != nil {
+			return page, err
+		}
+		x.Created, x.Severity, x.Window = x.Created.UTC(), core.Severity(sev), core.Window{From: nt(wf), To: nt(wt)}
+		page.Rows = append(page.Rows, x)
+	}
+	if err := rows.Err(); err != nil {
+		return page, err
+	}
+	if len(page.Rows) > q.Limit {
+		page.Rows, page.More = page.Rows[:q.Limit], true
+	}
+	return page, nil
+}

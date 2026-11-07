@@ -89,6 +89,9 @@ type DashboardStore interface {
 	RecentEvents(ctx context.Context, group string, limit int) ([]StoredEvent, error)
 	RunFindings(ctx context.Context, group string, limit int) ([]StoredFinding, error)
 	LatestFindings(ctx context.Context, limit int) ([]StoredFinding, error)
+	// FindingsBetween returns the findings whose run was saved in [q.From, q.To), newest
+	// first, at most q.Limit, and says whether more matched.
+	FindingsBetween(ctx context.Context, q FindingsQuery) (FindingsPage, error)
 	LatestReputation(ctx context.Context, limit int) ([]Reputation, error)
 	// ReputationReader answers the estate overlay: the latest row per source for one address.
 	ReputationReader
@@ -176,4 +179,58 @@ type EstateAbsence struct {
 // there is no estate directory or it holds no file.
 type EstateReader interface {
 	Estates(ctx context.Context) ([]EstateGraph, error)
+}
+
+// FindingsQuery selects findings by the time their run was saved: [From, To).
+type FindingsQuery struct {
+	From, To    time.Time
+	Severities  []Severity // none means all
+	RunPrefixes []string   // each "watch-" or "watch-NAME-"; none means all runs
+	Limit       int        // must be positive
+}
+
+// TimelineFinding is a stored finding with the time its run was saved.
+type TimelineFinding struct {
+	Created time.Time
+	StoredFinding
+}
+
+// FindingsPage is the rows and whether more matched than Limit.
+type FindingsPage struct {
+	Rows []TimelineFinding
+	More bool
+}
+
+// WatchHistoryReader reads the cycle history of every watcher of a case from the files
+// the watchers wrote. It only reads. ErrAbsent (wrapped) when a watcher has no log.
+type WatchHistoryReader interface {
+	// Watchers lists the watchers found, "" for the unnamed one, in name order.
+	Watchers(ctx context.Context) ([]string, error)
+	// Read returns one watcher's cycles and its judged gaps at the instant now.
+	Read(ctx context.Context, name string, now time.Time) (WatchHistory, error)
+}
+
+// WatchHistory is what the log and the status record of one watcher show.
+type WatchHistory struct {
+	Cycles   []WatchCycleLine   // oldest first
+	Gaps     []WatchNoCycle     // spans judged by the heartbeat rule, oldest first
+	Every    time.Duration      // zero: unknown
+	Keep     time.Duration      // zero: unknown
+	Last     *WatchCycleSummary // from the status record; the only source of a duration
+	Cut      bool               // the log is larger than the read bound
+	Unparsed int                // lines that were read and not understood
+}
+
+// WatchCycleLine is one parsed cycle line, with the span of its gap report when the
+// matching watch-gap alert was read.
+type WatchCycleLine struct {
+	At             time.Time
+	Run, Verdict   string
+	GapReported    bool
+	GapFrom, GapTo time.Time // zero when the span was not read
+}
+
+// WatchNoCycle is a span with no cycle line. To is zero for an open span.
+type WatchNoCycle struct {
+	From, To time.Time
 }
