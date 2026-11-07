@@ -114,6 +114,39 @@ type FanOut struct {
 	Optional []AlertSink
 }
 
+// SplitSink is a sink whose required and optional parts can be addressed apart. The
+// watch loop uses it for the end-of-cycle heartbeat: the optional sinks get it first, so
+// that the line the required log writes can state the final verdict of the cycle.
+type SplitSink interface {
+	AlertSink
+	// DeliverOptional offers a to the optional sinks only. Failures come back together as
+	// one *OptionalDeliveryError.
+	DeliverOptional(ctx context.Context, a Alert) error
+	// DeliverRequired offers a to the required sink only.
+	DeliverRequired(ctx context.Context, a Alert) error
+}
+
+var _ SplitSink = FanOut{}
+
+// DeliverRequired implements SplitSink.
+func (f FanOut) DeliverRequired(ctx context.Context, a Alert) error {
+	return f.Required.Deliver(ctx, a)
+}
+
+// DeliverOptional implements SplitSink.
+func (f FanOut) DeliverOptional(ctx context.Context, a Alert) error {
+	var errs []error
+	for _, s := range f.Optional {
+		if err := s.Deliver(ctx, a); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return &OptionalDeliveryError{Err: errors.Join(errs...)}
+	}
+	return nil
+}
+
 // Deliver implements AlertSink.
 func (f FanOut) Deliver(ctx context.Context, a Alert) error {
 	if err := f.Required.Deliver(ctx, a); err != nil {
