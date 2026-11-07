@@ -54,7 +54,7 @@ func (h History) Watchers(ctx context.Context) ([]string, error) {
 // The record is used only if it belongs to name. core.ErrAbsent (wrapped) when there is
 // no log.
 func (h History) Read(ctx context.Context, name string, now time.Time) (core.WatchHistory, error) {
-	var out core.WatchHistory
+	out := core.WatchHistory{GapFactor: HeartbeatFactor}
 	if err := app.ValidWatchName(name); err != nil {
 		return out, err
 	}

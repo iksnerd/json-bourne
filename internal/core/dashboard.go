@@ -212,13 +212,14 @@ type WatchHistoryReader interface {
 
 // WatchHistory is what the log and the status record of one watcher show.
 type WatchHistory struct {
-	Cycles   []WatchCycleLine   // oldest first
-	Gaps     []WatchNoCycle     // spans judged by the heartbeat rule, oldest first
-	Every    time.Duration      // zero: unknown
-	Keep     time.Duration      // zero: unknown
-	Last     *WatchCycleSummary // from the status record; the only source of a duration
-	Cut      bool               // the log is larger than the read bound
-	Unparsed int                // lines that were read and not understood
+	Cycles    []WatchCycleLine   // oldest first
+	Gaps      []WatchNoCycle     // spans judged by the heartbeat rule, oldest first
+	Every     time.Duration      // zero: unknown
+	GapFactor int                // how many Every a span may last before it is a gap
+	Keep      time.Duration      // zero: unknown
+	Last      *WatchCycleSummary // from the status record; the only source of a duration
+	Cut       bool               // the log is larger than the read bound
+	Unparsed  int                // lines that were read and not understood
 }
 
 // WatchCycleLine is one parsed cycle line, with the span of its gap report when the

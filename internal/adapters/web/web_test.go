@@ -25,16 +25,18 @@ const (
 
 // fake is a DashboardStore over canned data. It records the limits it was asked for.
 type fake struct {
-	runs      []core.RunGroup
-	summary   core.EventSummary
-	events    []core.StoredEvent
-	findings  []core.StoredFinding
-	page      core.FindingsPage // answer of FindingsBetween
-	rep       []core.Reputation
-	failWith  error // every call fails
-	limits    map[string]int
-	closed    int
-	summaryFn func(core.DashboardFields)
+	runs         []core.RunGroup
+	summary      core.EventSummary
+	events       []core.StoredEvent
+	findings     []core.StoredFinding
+	page         core.FindingsPage // answer of FindingsBetween
+	betweenFn    func(core.FindingsQuery)
+	betweenBlock bool
+	rep          []core.Reputation
+	failWith     error // every call fails
+	limits       map[string]int
+	closed       int
+	summaryFn    func(core.DashboardFields)
 
 	// The estate overlays. overlayCalls counts the questions asked of the store for them.
 	overlayCalls int
@@ -156,12 +158,13 @@ func hostileEstate() core.EstateGraph {
 
 func newDeps(f *fake) Deps {
 	return Deps{
-		Open:   func(context.Context) (core.DashboardStore, error) { return f, nil },
-		Log:    fakeLog{lines: []string{now.Format(time.RFC3339) + " CYCLE watch-1 CYCLE INCOMPLETE: 1 component(s) did not finish", "line " + hostileSum}},
-		State:  fakeState{st: core.WatchState{Seen: map[string]core.SeenTag{"spray:192.0.2.7": {At: now, Severity: core.SevHigh}}, Health: map[string]core.HealthSeen{"kibana:a": {At: now}, hostileSum: {At: now}}}},
-		Estate: fakeEstate{g: []core.EstateGraph{hostileEstate()}},
-		Fields: core.DashboardFields{Path: "path", Status: "status", Key: "client_ip"},
-		Now:    func() time.Time { return now },
+		Open:    func(context.Context) (core.DashboardStore, error) { return f, nil },
+		Log:     fakeLog{lines: []string{now.Format(time.RFC3339) + " CYCLE watch-1 CYCLE INCOMPLETE: 1 component(s) did not finish", "line " + hostileSum}},
+		State:   fakeState{st: core.WatchState{Seen: map[string]core.SeenTag{"spray:192.0.2.7": {At: now, Severity: core.SevHigh}}, Health: map[string]core.HealthSeen{"kibana:a": {At: now}, hostileSum: {At: now}}}},
+		Estate:  fakeEstate{g: []core.EstateGraph{hostileEstate()}},
+		History: tlHistory(),
+		Fields:  core.DashboardFields{Path: "path", Status: "status", Key: "client_ip"},
+		Now:     func() time.Time { return now },
 	}
 }
 
@@ -177,7 +180,7 @@ func get(t *testing.T, h http.Handler, target string) (int, http.Header, string)
 
 var allPages = []string{
 	"/", "/run?id=watch-1", "/run?id=hunt-2", "/findings", "/reputation", "/watch",
-	"/estate", "/estate/node?g=e1&id=ip:192.0.2.10", "/estate/edge?g=e1&i=0",
+	"/estate", "/estate/node?g=e1&id=ip:192.0.2.10", "/estate/edge?g=e1&i=0", "/timeline",
 }
 
 func TestEveryPageSetsSecurityHeadersAndNoCORS(t *testing.T) {
@@ -738,7 +741,14 @@ func TestAllowedHostsKeepsHeadersAndReadOnly(t *testing.T) {
 	}
 }
 
-func (f *fake) FindingsBetween(_ context.Context, q core.FindingsQuery) (core.FindingsPage, error) {
+func (f *fake) FindingsBetween(ctx context.Context, q core.FindingsQuery) (core.FindingsPage, error) {
 	f.note("between", q.Limit)
+	if f.betweenFn != nil {
+		f.betweenFn(q)
+	}
+	if f.betweenBlock {
+		<-ctx.Done() // a slow query: wait for the caller's time limit
+		return core.FindingsPage{}, ctx.Err()
+	}
 	return f.page, f.failWith
 }
