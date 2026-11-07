@@ -2,7 +2,7 @@
 
 [Back to the README](../README.md)
 
-Status: draft. Scope: how one investigation is defined as data, so the tool stays separate from any one incident.
+Status: v1; the loaders and commands in the table below are implemented, the rows marked proposed are not. Scope: how one investigation is defined as data, so the tool stays separate from any one incident.
 
 | Part | State |
 |---|---|

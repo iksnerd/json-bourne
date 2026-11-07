@@ -8,7 +8,9 @@ An RFC is a written design that the maintainer accepts before the code is built.
 
 ## Freeze
 
-Before 1.0 the accepted-but-unbuilt RFCs listed in [CONTRIBUTING.md](../../CONTRIBUTING.md) ("Feature freeze") are the last feature work. A new draft RFC for a feature is parked, not built, until the maintainer lifts the freeze.
+Since v0.7.0 `jb` takes no new command, port, file format or config key before 1.0 ([CONTRIBUTING.md](../../CONTRIBUTING.md), "Feature freeze"); `jb serve` is the exception. A new draft RFC for a feature is parked, not built, until the maintainer lifts the freeze. RFC 0016 is parked. The stability policy for 1.0, and what 1.0 means, is [RFC 0018](0018-stability-policy.md).
+
+Accepted RFCs stay `accepted` here when only part of them is built (for example RFC 0017, steps 1 and 6); the Reference implementations section of each file says what exists.
 
 ## When you need one
 
@@ -76,10 +78,10 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0007](0007-case-show.md) | Case show | accepted |
 | [0008](0008-config-commands.md) | Config commands | accepted |
 | [0009](0009-no-store.md) | Hunt and activity without storing | accepted |
+| [0010](0010-operations.md) | Operations | accepted |
 | [0011](0011-behaviour-severity-and-per-key.md) | Behaviour severity floor and per-key threshold | accepted |
 | [0012](0012-partial-findings.md) | Partial findings | accepted |
 | [0013](0013-library-surface.md) | Library surface | implemented |
-| [0010](0010-operations.md) | Operations | accepted |
 | [0014](0014-newkey-history.md) | History probe for the newkey detector | accepted |
 | [0015](0015-estate-subject.md) | Subject of an estate file | accepted |
 | [0016](0016-own-cloud-inventory.md) | Inventory of the operator's own cloud | draft (parked) |
