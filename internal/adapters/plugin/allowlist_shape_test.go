@@ -32,7 +32,7 @@ func TestAllowlistRefusesHugeMappingFast(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "keys per mapping") {
 		t.Fatalf("one huge mapping must be refused by the shape limit, got %v", err)
 	}
-	if d := time.Since(start); d > time.Second {
-		t.Errorf("refusal took %v, want well under a second", d)
+	if d := time.Since(start); d > 5*time.Second {
+		t.Errorf("refusal took %v, want seconds at most (the quadratic decode took ~50 s; -race slows the linear parse to about a second)", d)
 	}
 }
