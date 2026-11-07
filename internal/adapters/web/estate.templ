@@ -32,6 +32,11 @@ templ estateView(p estatePage) {
 				<input class="input" type="search" id="estate-search" autocomplete="off" placeholder="id or label" aria-controls="estate-graphs" hidden/>
 				<span class="note" id="estate-search-status" aria-live="polite"></span>
 			</p>
+			<p>
+				<button class="btn" type="button" id="estate-export-svg" hidden>export drawn graph as SVG</button>
+				<button class="btn" type="button" id="estate-export-json" hidden>export drawn graph as JSON</button>
+				<span class="note" id="estate-export-status" aria-live="polite"></span>
+			</p>
 			<div id="estate-graphs">
 				@estateGraphs(p)
 			</div>
@@ -45,6 +50,7 @@ templ estateView(p estatePage) {
 			<script src="/static/d3.min.js" defer></script>
 			<script src="/static/estate.js" defer></script>
 			<script src="/static/estate-search.js" defer></script>
+			<script src="/static/estate-export.js" defer></script>
 		}
 	}
 }

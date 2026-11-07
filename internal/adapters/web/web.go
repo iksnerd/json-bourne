@@ -189,6 +189,7 @@ var staticFiles = map[string]string{
 	"estate.js":        "text/javascript; charset=utf-8",
 	"sheet.js":         "text/javascript; charset=utf-8",
 	"estate-search.js": "text/javascript; charset=utf-8",
+	"estate-export.js": "text/javascript; charset=utf-8",
 	"htmx.LICENSE.txt": "text/plain; charset=utf-8",
 	"d3.LICENSE.txt":   "text/plain; charset=utf-8",
 }
