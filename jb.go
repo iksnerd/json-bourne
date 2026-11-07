@@ -97,7 +97,8 @@ func LoadConfig(path string) (*Config, error) {
 
 // HuntOptions says which window to hunt and where credentials come from.
 type HuntOptions struct {
-	// Window is the length of the window. Zero means one hour. The baseline is the
+	// Window is the length of the window, in whole seconds (a fraction is a usage
+	// error). Zero means one hour. The baseline is the
 	// window of the same length immediately before it.
 	Window time.Duration
 	// Until ends the window at this time, for a past window. Zero means now. It must
@@ -288,6 +289,12 @@ func hunt(ctx context.Context, cfg *config.File, opts HuntOptions, n *notes, sco
 
 // plan returns the window and run id for opts, with the same rules as `jb hunt --until`.
 func plan(now time.Time, opts HuntOptions, prefix string) (core.Window, string, error) {
+	// The run id of a past window encodes whole seconds, and window edges are never
+	// rounded, so a length with a fraction is refused on both paths: two different
+	// accepted windows could otherwise share one id.
+	if opts.Window%time.Second != 0 {
+		return core.Window{}, "", usagef("Window must be whole seconds; got %s and window edges are not rounded", opts.Window)
+	}
 	if opts.Until.IsZero() {
 		to := now.UTC().Truncate(time.Second)
 		return core.Window{From: to.Add(-opts.Window), To: to}, prefix + "-" + to.Format("20060102T150405Z"), nil

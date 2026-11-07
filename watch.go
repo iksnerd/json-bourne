@@ -88,6 +88,9 @@ func Watch(ctx context.Context, caseDir string, opts WatchOptions) (*CycleReport
 			return nil, usagef("%s must not be negative, got %s", d.n, d.v)
 		}
 	}
+	if opts.Window%time.Second != 0 {
+		return nil, usagef("Window must be whole seconds; got %s and window edges are not rounded", opts.Window)
+	}
 	if opts.Every == 0 {
 		opts.Every = DefaultWatchEvery
 	}
