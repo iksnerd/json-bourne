@@ -370,12 +370,11 @@ func (s *server) notification(method string, params json.RawMessage) {
 	}
 }
 
+// idKey is the identity of a request id: its raw JSON token with surrounding whitespace
+// trimmed. The string "1", the number 1 and the number 1.0 are three different ids, and
+// two integers above 2^53 that differ in the low digits stay different.
 func idKey(id json.RawMessage) string {
-	var v any
-	if json.Unmarshal(id, &v) != nil {
-		return string(id)
-	}
-	return fmt.Sprintf("%T:%v", v, v)
+	return string(bytes.TrimSpace(id))
 }
 
 func (s *server) initialize(req request) bool {

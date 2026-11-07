@@ -788,12 +788,17 @@ func SaveEstateFile(c *Case, name string, e *Estate) error {
 		tmp.Close()
 		return err
 	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return fmt.Errorf("write estate file: %w", err)
+	}
 	if err := tmp.Close(); err != nil {
 		return err
 	}
 	if err := os.Rename(tmp.Name(), file); err != nil {
 		return fmt.Errorf("write estate file: %w", err)
 	}
+	syncDir(filepath.Dir(file))
 	return nil
 }
 
