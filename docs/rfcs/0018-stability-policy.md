@@ -1,6 +1,8 @@
 # RFC 0018: Stability policy for 1.0
-Status: draft
+Status: accepted
 Scope: define the surfaces `jb` would support from 1.0, what counts as a breaking change on each, how one is made, and which tests enforce it.
+
+Accepted: 2026-11-07 by the maintainer
 
 ## Summary
 
@@ -48,8 +50,7 @@ Counts below were taken from the repository on 2026-11-07 with a command.
 | File formats | `jb.case/v1`, `jb.actor/v1`, `jb.estate/v2`, `jb.estate-snapshot/v2`, `jb.estate-facts/v1`, `jb.watch-status/v1`. The proposed `jb.assets/v1` is not supported until a loader exists | Loaders refuse another `apiVersion`; schemas for case, actor and estate in `schemas/` |
 | Plugin wire protocol | Version `v: 1` of [PLUGINS.md](../PLUGINS.md) | `internal/conformance` and the host tests; a golden of the messages: proposed |
 | Config keys | Every key and `type` value in [CONFIG.md](../CONFIG.md), and its default | The strict loader rejects unknown keys; a golden of the key set: proposed |
-| Operations | The 23 operations in `docs/operations.json`, their names, input schemas and `readOnly` flags | `cmd/jb/operations_test.go` |
-| MCP tools | `jb mcp`: the read-only operations by default, and the mutating ones named by `--allow`. The tool names are the operation names | `internal/mcp` tests and `operations_test.go`; the tool list golden: proposed |
+| Operations and MCP tools | The 23 operations in `docs/operations.json`, their names, input schemas and `readOnly` flags; `jb mcp` lists the read-only operations by default and the mutating ones named by `--allow`, and a tool name is the operation name | `cmd/jb/operations_test.go`; `internal/mcp` tests |
 | Evidence store | The DuckDB schema version and forward-only migrations | Store tests named in RFC 0004 (`TestMigrateIsIdempotent` and others; I did not re-read them for this draft) |
 
 Not supported: the wording of messages and tables, stderr progress lines, the pages and scripts of `jb serve` and `/estate/graph.json`, everything under `internal/`, the keys inside `Finding.Detail`, which findings a detector reports, and the release archive layout.
@@ -89,6 +90,16 @@ The policy is held by tests that fail, in this order of strength:
 5. Proposed goldens: config key set, plugin messages, MCP tool list, JSON of the remaining commands.
 
 A part of the surface with no test is listed as "proposed" above and MUST get one before 1.0, or be removed from the supported list.
+
+### What 1.0 means
+
+1.0 is reached by criteria, not a date. All three hold:
+
+1. Every surface in the table above is pinned by a test that fails on a breaking change. A surface with no such test is removed from the list first.
+2. The surface golden of RFC 0017 exists for `jb` and `sdk`.
+3. The maintainer decides to cut it.
+
+Going public is a separate decision. It may come before or after 1.0.
 
 ### Who decides
 
@@ -145,12 +156,15 @@ Proposed: every item under Proposed.
 
 ## Open questions
 
-1. **Is detector output outside the contract?** Recommendation: yes until the detectors stop being tuned, with a changelog "Changed" line for each tuning. Decides: the maintainer.
-2. **How long is deprecation after 1.0?** Recommendation: one minor release and removal only in a major release. Decides: the maintainer, with the two users.
-3. **What must be tested before 1.0?** Recommendation: the five proposed goldens, or drop the surface from the list. Decides: the maintainer.
-4. **Does `contract/` join the enforcement list when it lands?** Recommendation: yes, as a consumer-side check. Decides: the maintainer.
-5. **When does 1.0 happen and when does `jb` go public?** This RFC does not say. Decides: the maintainer.
+Decided on 2026-11-07 by the maintainer, in a grilling session:
+
+1. **Detector output outside the contract.** Yes, until the detectors stop being tuned. A tuning change is listed under "Changed" in the changelog.
+2. **Deprecation after 1.0.** One minor release, and removal only in a major release. None before 1.0.
+3. **What must be tested before 1.0.** Every surface in the table has a test, or it comes off the list (see "What 1.0 means").
+4. **Does `contract/` join the enforcement list.** Yes. It landed on 2026-11-07 and is a consumer-side check.
+5. **When does 1.0 happen and when does `jb` go public.** 1.0 by the criteria above; going public is a separate decision for the maintainer and not made here.
 
 ## Changes
 
 - 2026-11-07: first draft.
+- 2026-11-07: accepted. MCP tools folded into Operations; "What 1.0 means" added.

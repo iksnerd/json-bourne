@@ -1,6 +1,8 @@
 # RFC 0017: Public API owns its types
-Status: draft
+Status: accepted
 Scope: decide which types of package `jb` are public contract, make package `jb` define them instead of aliasing internal types, and add a test that fails when the exported surface changes by accident.
+
+Accepted: 2026-11-07 by the maintainer
 
 ## Summary
 
@@ -8,7 +10,13 @@ Package `jb` exports 42 type aliases of internal types (counted below). A change
 
 `--output json` stays byte for byte the same. The change adds no command, port, file format or config key. Several Go-API changes are breaking and are allowed before 1.0 ([CONTRIBUTING.md](../../CONTRIBUTING.md), "Compatibility before 1.0").
 
-Nothing here is a promise until the maintainer accepts it.
+## Scope of acceptance
+
+The maintainer accepted two parts on 2026-11-07, after a review against the Hashimoto bar. The rest is parked, not refused.
+
+- **Accepted, build now:** step 1 (the surface golden of `jb` and `sdk`, which follows aliases and lists every field, tag and method, so a change in an internal type shows in a golden diff that must be explained) and step 6 (make `Config` opaque, remove `EstatePorts`). Step 6 waits for the answer of the one other user (open question 3).
+- **Parked:** steps 2 to 5 and 7, the conversion of the 38 result types into copies defined in `jb`. They add a second definition and a conversion function per type to maintain for good, to prevent a risk the golden already makes visible. The golden's "no `/internal/` path" rule is therefore a known-leaks list that records the aliases and only shrinks. Reopen the parked steps when a concrete change needs an internal type to differ from the public one; that is a new decision.
+- **Inside the freeze:** yes. The golden is a test and step 6 removes accidental surface (hardening). The conversion steps would have been a refactor and are not part of this acceptance.
 
 ## Motivation
 
@@ -182,12 +190,15 @@ Proposed: every step in section 6.
 
 ## Open questions
 
-1. **Is this inside the freeze?** It is a refactor, not a fix. Recommendation: allow it, because it adds no surface and reduces the chance of an accidental change. Decides: the maintainer.
-2. **Shallow or deep copy of `Finding.Detail`?** Recommendation: shallow, documented read-only, until a caller mutates it. Decides: the maintainer.
-3. **Does any program outside this repo read `jb.Config` fields or set `EstatePorts`?** Recommendation: ask the one other user before step 6; if yes, add a method for the one thing it needs. Decides: the maintainer, with that user.
-4. **Does `Operation` belong in `jb` or only in `docs/operations.json`?** Recommendation: define it in `jb` (it is returned by `jb.Operations`). Decides: the maintainer.
-5. **Stop after step 1?** Recommendation: build step 1 first and decide on the rest after reading its diff. Decides: the maintainer.
+Decided on 2026-11-07 by the maintainer, in a grilling session:
+
+1. **Is this inside the freeze?** Yes, for steps 1 and 6.
+2. **Shallow or deep copy of `Finding.Detail`?** Moot while the result types stay aliases.
+3. **Does any program outside this repo read `jb.Config` fields or set `EstatePorts`?** Open. The other user was asked on 2026-11-07 (hub #01a1b55d). Step 6 does not start before the answer; if yes, add a method for the one thing it needs.
+4. **Does `Operation` belong in `jb`?** Parked with steps 2 to 5.
+5. **Stop after step 1?** Yes: steps 2 to 5 and 7 are parked until a concrete need reopens them.
 
 ## Changes
 
 - 2026-11-07: first draft.
+- 2026-11-07: accepted for steps 1 and 6; steps 2 to 5 and 7 parked.
