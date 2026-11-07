@@ -319,17 +319,28 @@ The implementation is checked by these tests. They do not exist yet.
 
 ## Reference implementations
 
-Shipped: none.
+Shipped (2026-11-07, unreleased):
 
-Proposed:
-
-- `internal/core/dashboard.go`: `FindingsQuery`, `TimelineFinding`, `FindingsPage`, `FindingsBetween`, `WatchHistoryReader` and its types.
+- `internal/core/dashboard.go`: `FindingsQuery`, `TimelineFinding`, `FindingsPage`, `DashboardStore.FindingsBetween`, `WatchHistoryReader` and its types. `WatchHistory` also carries `GapFactor`, so the page prints the factor the reader judged with and does not copy it.
+- `internal/core/watchlog.go`: the anchored parser for cycle and watch-gap lines (`ParseWatchLogLine`). It is in `core`, not in `alertlog` as drafted, because the web adapter may import `core` only, and the Watch page now uses the same parser.
+- `internal/adapters/alertlog/tail.go`: `ReadTail`, a bounded tail read that reports a cut and refuses a file that is not regular.
 - `internal/adapters/duckdb/dashboard.go`: `FindingsBetween`.
-- `internal/adapters/alertlog/parse.go`: the anchored parser for cycle and gap lines.
-- `internal/watchrun/history.go`: `Watchers`, `Read`, the gap rule over `HeartbeatFactor`.
-- `internal/adapters/web/timeline.templ`, `views.go` (`timeline` handler), `web.go` (route, `Deps.History`).
-- `dashboard.go` (root): wiring.
+- `internal/watchrun/history.go`: `History` (`Watchers`, `Read`), `Gaps`; `internal/watchrun/status.go`: `Overdue`, the one strict comparison that `jb watch status` and the marker share.
+- `internal/adapters/web/timeline.go`, `timeline.templ`, `web.go` (route, `Deps.History`), `layout.templ` (nav).
+- `dashboard.go` (root): wiring. No exported identifier of package `jb` is added.
 - `docs/CONFIG.md`: the page.
+
+Measured on a synthetic log written by the real watch loop (6000 quiet cycles, `alertlog.Sink`, one read of the 262144 byte bound with no alert lines between the cycle lines):
+
+| Watcher | Bytes per cycle line | Cycles in one read |
+|---|---|---|
+| unnamed | 137 | 1913 |
+| `a` | 145 | 1807 |
+| `retrieval-watch` | 173 | 1515 |
+
+At an interval of 5 minutes, 1807 cycles are about 6.3 days. At 1 minute they are about 30 hours, so a 7 day window on a 1 minute watcher is always cut and says so. Each `ALERT` line adds about as many bytes as a cycle line, so a watcher that alerts every cycle shows about half as many. The page keeps at most 500 cycle rows per watcher (`timelineCycleRows`), so the log bound is not the tighter one at an interval of 5 minutes or more over a window of 24 hours.
+
+Browser smoke test (Playwright, 2026-11-07): `jb serve --case` on a temporary copy of `examples/case` with a hand-written log for one named and one unnamed watcher, a status record for the named one and findings in the store. `/timeline` rendered with the lanes, a marker for an 11 cycle silence and the unknown-interval notice for the unnamed watcher. Ticking a severity box (the htmx fragment) produced no console warning or error and no CSP violation. Not covered: the filter result was not inspected, only that it raised no error; Firefox and Safari.
 
 ## Open questions
 
@@ -343,3 +354,16 @@ Decided on 2026-11-07 by the maintainer, in a grilling session, with the draft's
 6. **Finding time for backfills.** `runs.created_at`, with the window shown, as drafted.
 7. **Retention horizon in the page.** Printed per watcher, as drafted.
 8. **Fixture size for the 256 KiB measure.** The implementer measures cycles per read bound on a synthetic log and records the number under "Reference implementations"; the maintainer decides only if it is small enough to matter.
+
+## Changes
+
+- 2026-11-07: draft.
+- 2026-11-07: accepted; open questions decided by the maintainer.
+- 2026-11-07: built. Deviations from the draft, each from the code:
+  - The line parser is `core.ParseWatchLogLine`, not `alertlog/parse.go`. The web adapter may not import an adapter, and the Watch page (Open question 4) needs the same parser. The round trip is tested in `internal/watchrun` against the real watch loop and the real `alertlog.Sink`.
+  - The page caps cycle rows at 500 per watcher and says so. The draft bounded the log read only; at a 1 minute interval one read holds about 1800 cycles.
+  - `WatchHistory.GapFactor` is added so the page prints the factor the reader used.
+  - A cycle row links to `/run` only if its run is among the 100 newest run groups or has a finding in the window; a quiet cycle older than that has no link, because the page does not query the store per cycle.
+  - The cycle line parser reads `gap=true` or `gap=false` only from the fixed text of an `INCOMPLETE` line. A first version looked for the text after a leading space and read no gap; the round-trip test caught it.
+  - No archtest rule was added for `internal/watchrun` and `net/http`: the existing rule that confines `net/http` to the remote adapters and the dashboard already fails for that package (checked by planting an import).
+  - The draft says the unnamed watcher and hunts are told apart by the run id. The page labels them `(unnamed)` and `(hunt)`; the parentheses cannot occur in a watcher name.
