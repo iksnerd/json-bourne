@@ -154,7 +154,7 @@ func Activity(ctx context.Context, d Deps, run string, w core.Window) (ActivityR
 	for i, det := range d.Detectors {
 		ad := ActivityDetector{Name: det.Name(), Status: hr.Detectors[i].Status, Err: hr.Detectors[i].Err, Findings: hr.Detectors[i].Findings}
 		if ad.Status == StatusOK {
-			dc, dp := d.readersFor(det.Name(), cur, prev, hr.aliases)
+			dc, dp := d.readersFor(det.Name(), cur, prev)
 			rep, aerr := det.(core.ActivityReporter).Activity(ctx, dc, dp, w)
 			if aerr != nil {
 				ad.Status, ad.Err = classify(aerr), aerr

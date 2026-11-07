@@ -57,6 +57,11 @@ type Event struct {
 	// to count a document once when two sources of one scope both return it. Empty means
 	// the source cannot say, and the event is never treated as a duplicate.
 	DocKey string
+	// Returners names the sources that returned this document, when more than one source of
+	// a scope did and Hunt stored it once (under Source, which is one of them). The store
+	// keeps it, so a detector scoped to any of them still reads the document in a later
+	// hunt. Empty means only Source returned it.
+	Returners []string
 }
 
 // DocScoped is an optional port of a Source: DocScope names the store whose DocKeys it

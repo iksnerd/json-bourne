@@ -1,6 +1,7 @@
-schema version 2
+schema version 3
 migration 0001 0001_init.sql sha256:6bd79e1ec4fe85ee74e6c58b197011d42e28690c0d30521c8b75be48e73c33fc
 migration 0002 0002_runs_pruned_at.sql sha256:964e420eb2ed592d1f29540515486a2219f841a935f96f6807a5b5ef1f297888
+migration 0003 0003_events_returners.sql sha256:80d78e8707b9a5be36bc70f6616952ff000d9a0789a949e71070284fb951eb5b
 column events.run_id VARCHAR nullable=NO
 column events.seq BIGINT nullable=NO
 column events.ts TIMESTAMP WITH TIME ZONE nullable=NO
@@ -9,6 +10,7 @@ column events.kind VARCHAR nullable=NO
 column events.fields JSON nullable=YES
 column events.raw BLOB nullable=YES
 column events.doc_sha256 VARCHAR nullable=NO
+column events.returners VARCHAR[] nullable=YES
 column findings.run_id VARCHAR nullable=NO
 column findings.seq BIGINT nullable=NO
 column findings.detector VARCHAR nullable=NO
@@ -29,4 +31,4 @@ column runs.created_at TIMESTAMP WITH TIME ZONE nullable=NO
 column runs.pruned_at TIMESTAMP WITH TIME ZONE nullable=YES
 column schema_migrations.version INTEGER nullable=NO
 column schema_migrations.applied_at TIMESTAMP WITH TIME ZONE nullable=NO
-applied after migrating an empty store: 1,2
+applied after migrating an empty store: 1,2,3

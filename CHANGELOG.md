@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- Hunt: a document two sources of one cluster both returned is stored once, and the store now keeps which sources returned it (store schema 3, a new `events.returners` column, migrated on first open). A detector scoped to a source reads the documents that source returned from the stored evidence, so a later hunt whose own fetch does not return them again no longer makes it read nothing. Across runs the set is the union of what the stored runs recorded.
+- Hunt: the stored copy of a shared document is owned by the smallest source among those that read cleanly. A source that failed (its run is rolled back) no longer takes a document with it that a healthy source also returned; the hunt is still incomplete.
+
 ## [0.10.2] - 2026-11-07
 
 ### Fixed

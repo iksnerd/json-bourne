@@ -662,10 +662,10 @@ field github.com/iksnerd/json-bourne/internal/app.Result#003 Until time.Time
 field github.com/iksnerd/json-bourne/internal/app.Result#004 Sources []github.com/iksnerd/json-bourne/internal/app.SourceResult
 field github.com/iksnerd/json-bourne/internal/app.Result#005 Detectors []github.com/iksnerd/json-bourne/internal/app.DetectorResult
 field github.com/iksnerd/json-bourne/internal/app.Result#006 Findings []github.com/iksnerd/json-bourne/internal/core.Finding
-field github.com/iksnerd/json-bourne/internal/app.Result#008 Disabled []github.com/iksnerd/json-bourne/internal/app.Disabled
-field github.com/iksnerd/json-bourne/internal/app.Result#009 Stored bool
-field github.com/iksnerd/json-bourne/internal/app.Result#010 Search []string
-field github.com/iksnerd/json-bourne/internal/app.Result#011 Notes []string "json:\"-\""
+field github.com/iksnerd/json-bourne/internal/app.Result#007 Disabled []github.com/iksnerd/json-bourne/internal/app.Disabled
+field github.com/iksnerd/json-bourne/internal/app.Result#008 Stored bool
+field github.com/iksnerd/json-bourne/internal/app.Result#009 Search []string
+field github.com/iksnerd/json-bourne/internal/app.Result#010 Notes []string "json:\"-\""
 method github.com/iksnerd/json-bourne/internal/app.Result value Complete() bool
 method github.com/iksnerd/json-bourne/internal/app.Result value Failed() []string
 method github.com/iksnerd/json-bourne/internal/app.Result value Failures() []github.com/iksnerd/json-bourne/internal/app.Failure

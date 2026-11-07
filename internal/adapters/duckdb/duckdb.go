@@ -29,6 +29,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -348,13 +349,14 @@ func checkRun(run string) error {
 const batchSize = 5000
 
 type eventDoc struct {
-	Seq    int64           `json:"seq"`
-	TS     string          `json:"ts"`
-	Source string          `json:"source"`
-	Kind   string          `json:"kind"`
-	Fields json.RawMessage `json:"fields,omitempty"`
-	Raw    []byte          `json:"raw,omitempty"` // base64 in JSON
-	SHA    string          `json:"sha"`
+	Seq       int64           `json:"seq"`
+	TS        string          `json:"ts"`
+	Source    string          `json:"source"`
+	Kind      string          `json:"kind"`
+	Fields    json.RawMessage `json:"fields,omitempty"`
+	Raw       []byte          `json:"raw,omitempty"` // base64 in JSON
+	Returners []string        `json:"returners,omitempty"`
+	SHA       string          `json:"sha"`
 }
 
 // SaveEvents replaces the events of run with evs in one transaction. If the
@@ -394,9 +396,9 @@ func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.E
 			return fmt.Errorf("encode events: %w", err)
 		}
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO events (run_id, seq, ts, source, kind, fields, raw, doc_sha256)
+			INSERT INTO events (run_id, seq, ts, source, kind, fields, raw, doc_sha256, returners)
 			SELECT ?, CAST(j->>'seq' AS BIGINT), CAST(j->>'ts' AS TIMESTAMPTZ),
-			       j->>'source', j->>'kind', j->'fields', from_base64(j->>'raw'), j->>'sha'
+			       j->>'source', j->>'kind', j->'fields', from_base64(j->>'raw'), j->>'sha', CAST(j->'returners' AS VARCHAR[])
 			FROM (SELECT unnest(CAST(? AS JSON[])) AS j)`, run, string(payload))
 		if err != nil {
 			return fmt.Errorf("insert events: %w", err)
@@ -415,7 +417,7 @@ func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.E
 		if ev.Time.IsZero() {
 			return fmt.Errorf("event %d of run %q has no time", total, run)
 		}
-		d := eventDoc{Seq: total, TS: ts(ev.Time), Source: ev.Source, Kind: ev.Kind, Raw: ev.Raw}
+		d := eventDoc{Seq: total, TS: ts(ev.Time), Source: ev.Source, Kind: ev.Kind, Raw: ev.Raw, Returners: ev.Returners}
 		if ev.Fields != nil {
 			if d.Fields, err = json.Marshal(ev.Fields); err != nil {
 				return fmt.Errorf("event %d of run %q: fields: %w", total, run, err)
@@ -724,22 +726,27 @@ type pagedEvent struct {
 // ts bound, then the keyset cursor (ts, run_id, seq) strictly after which to read. The
 // first page passes a cursor below every row.
 const eventsQuery = `
-WITH cand AS (
-	SELECT e.rowid AS rid, e.run_id, e.seq, e.ts, e.source, e.kind, e.doc_sha256, r.created_at,
+WITH base AS (
+	SELECT e.rowid AS rid, e.run_id, e.seq, e.ts, e.source, e.kind, e.doc_sha256, r.created_at, e.returners,
 	       row_number() OVER (PARTITION BY e.run_id, e.source, e.ts, e.kind, e.doc_sha256
 	                          ORDER BY e.seq) AS ord
 	FROM events e LEFT JOIN runs r ON r.run_id = e.run_id
 	WHERE e.ts >= CAST(? AS TIMESTAMPTZ) AND e.ts < CAST(? AS TIMESTAMPTZ)
+), cand AS (
+	-- who returned the document in any stored run, not only the newest one kept below
+	SELECT *, list_distinct(flatten(list(coalesce(returners, []::VARCHAR[]))
+	                                OVER (PARTITION BY source, ts, kind, doc_sha256, ord))) AS ret
+	FROM base
 ), winners AS (
 	SELECT * FROM cand
 	QUALIFY row_number() OVER (PARTITION BY source, ts, kind, doc_sha256, ord
 	                           ORDER BY created_at DESC NULLS LAST, run_id DESC) = 1
 ), page AS (
-	SELECT rid, run_id, seq FROM winners
+	SELECT rid, run_id, seq, ret FROM winners
 	WHERE (ts, run_id, seq) > (CAST(? AS TIMESTAMPTZ), ?, ?)
 	ORDER BY ts, run_id, seq LIMIT ` + "2000" + `
 )
-SELECT p.run_id, p.seq, e.ts, e.source, e.kind, CAST(e.fields AS VARCHAR), e.raw
+SELECT p.run_id, p.seq, e.ts, e.source, e.kind, CAST(e.fields AS VARCHAR), e.raw, CAST(to_json(p.ret) AS VARCHAR)
 FROM page p JOIN events e ON e.rowid = p.rid
 ORDER BY e.ts, p.run_id, p.seq`
 
@@ -763,9 +770,16 @@ func (s *Store) eventsPage(ctx context.Context, w core.Window, first bool, after
 		var (
 			pe     pagedEvent
 			fields sql.NullString
+			ret    sql.NullString
 		)
-		if err := rows.Scan(&pe.run, &pe.seq, &pe.Time, &pe.Source, &pe.Kind, &fields, &pe.Raw); err != nil {
+		if err := rows.Scan(&pe.run, &pe.seq, &pe.Time, &pe.Source, &pe.Kind, &fields, &pe.Raw, &ret); err != nil {
 			return nil, pagedEvent{}, err
+		}
+		if ret.Valid && ret.String != "" && ret.String != "[]" {
+			if err := json.Unmarshal([]byte(ret.String), &pe.Returners); err != nil {
+				return nil, pagedEvent{}, fmt.Errorf("event returners: %w", err)
+			}
+			slices.Sort(pe.Returners) // list_distinct has no order
 		}
 		pe.Time = pe.Time.UTC()
 		if pe.Fields, err = decodeObject(fields); err != nil {
