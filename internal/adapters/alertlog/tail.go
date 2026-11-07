@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 	"strings"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/safefile"
 )
 
 // MaxTailBytes bounds how much of the end of the log one read takes.
@@ -31,7 +31,7 @@ func (t Tailer) Tail(ctx context.Context, n int) ([]string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	f, err := os.Open(t.Path)
+	f, st, err := safefile.Open(t.Path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("%w: no alert log at %s", core.ErrAbsent, t.Path)
 	}
@@ -39,10 +39,6 @@ func (t Tailer) Tail(ctx context.Context, n int) ([]string, error) {
 		return nil, fmt.Errorf("alert log: %w", err)
 	}
 	defer f.Close()
-	st, err := f.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("alert log: %w", err)
-	}
 	off := int64(0)
 	if st.Size() > maxTailBytes {
 		off = st.Size() - maxTailBytes
@@ -77,7 +73,7 @@ func ReadTail(ctx context.Context, path string, max int64) (lines []string, cut 
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
 	}
-	f, err := os.Open(path)
+	f, st, err := safefile.Open(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, false, fmt.Errorf("%w: no alert log at %s", core.ErrAbsent, path)
 	}
@@ -85,13 +81,6 @@ func ReadTail(ctx context.Context, path string, max int64) (lines []string, cut 
 		return nil, false, fmt.Errorf("alert log: %w", err)
 	}
 	defer f.Close()
-	st, err := f.Stat()
-	if err != nil {
-		return nil, false, fmt.Errorf("alert log: %w", err)
-	}
-	if !st.Mode().IsRegular() {
-		return nil, false, fmt.Errorf("alert log %s is not a regular file", path)
-	}
 	off := int64(0)
 	if st.Size() > max {
 		off, cut = st.Size()-max, true

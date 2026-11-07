@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
-	"os"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/safefile"
 )
 
 var _ core.WatchStatePeeker = Store{}
@@ -24,20 +23,14 @@ func (s Store) Peek(ctx context.Context) (core.WatchState, error) {
 	if err := ctx.Err(); err != nil {
 		return core.WatchState{}, err
 	}
-	f, err := os.Open(s.Path)
-	if errors.Is(err, fs.ErrNotExist) {
+	b, err := safefile.ReadAll(s.Path, maxPeekBytes)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
 		return core.WatchState{}, fmt.Errorf("%w: no watch state at %s", core.ErrAbsent, s.Path)
-	}
-	if err != nil {
+	case errors.Is(err, safefile.ErrTooLarge), errors.Is(err, safefile.ErrNotRegular):
+		return core.WatchState{}, fmt.Errorf("%w: %v", core.ErrStateCorrupt, err)
+	case err != nil:
 		return core.WatchState{}, fmt.Errorf("read watch state: %w", err)
-	}
-	defer f.Close()
-	b, err := io.ReadAll(io.LimitReader(f, maxPeekBytes+1))
-	if err != nil {
-		return core.WatchState{}, fmt.Errorf("read watch state: %w", err)
-	}
-	if len(b) > maxPeekBytes {
-		return core.WatchState{}, fmt.Errorf("%w: %s is larger than %d bytes", core.ErrStateCorrupt, s.Path, maxPeekBytes)
 	}
 	st, perr := parse(b)
 	if perr != nil {

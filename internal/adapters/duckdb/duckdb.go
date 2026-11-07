@@ -163,6 +163,10 @@ func OpenContext(ctx context.Context, path string, readOnly bool, opt OpenOption
 		_ = db.Close()
 		return nil, fmt.Errorf("%w: file is schema %d, build is %d: upgrade jb", ErrSchemaAhead, have, Version)
 	}
+	if err := s.checkIntegrity(have); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	if readOnly && have < Version {
 		_ = db.Close()
 		return nil, fmt.Errorf("%w: file is schema %d, build is %d", ErrSchemaBehind, have, Version)
@@ -476,6 +480,9 @@ func (s *Store) SaveFindings(ctx context.Context, run string, fs []core.Finding)
 	}
 	docs := make([]findingDoc, 0, len(fs))
 	for i, f := range fs {
+		if f.Severity < core.SevInfo || f.Severity > core.SevCritical {
+			return fmt.Errorf("finding %d (%s): severity %d is outside %d..%d", i, f.Tag, int(f.Severity), int(core.SevInfo), int(core.SevCritical))
+		}
 		d := findingDoc{
 			Seq: int64(i), Detector: f.Detector, Tag: f.Tag, Severity: int(f.Severity),
 			From: tsPtr(f.Window.From), To: tsPtr(f.Window.To),
