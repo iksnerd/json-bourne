@@ -110,6 +110,9 @@ func Weigh(g core.EstateGraph, now time.Time) []Weight {
 // Kinds are the node kinds a file may hold, in the order a filter lists them.
 var Kinds = []string{"ip", "host", "domain", "asn", "org", "network", "service"}
 
+// Confidences are the edge confidences a file may hold, in the order a filter lists them.
+var Confidences = []string{"stated", "inferred"}
+
 // Options say what Build draws.
 type Options struct {
 	// Limit is the most nodes drawn; a negative value means no limit.
@@ -119,6 +122,9 @@ type Options struct {
 	// Kinds, when not empty, keeps only nodes of these kinds. The caller validates them
 	// against Kinds.
 	Kinds []string
+	// Confidences, when not empty, keeps only edges of these confidences. It removes edges,
+	// never nodes, and degree, component and corroboration still describe the whole file.
+	Confidences []string
 }
 
 // Layout is the drawn part of a graph.
@@ -227,7 +233,14 @@ func Build(g core.EstateGraph, o Options) Layout {
 		l.Nodes = append(l.Nodes, Node{ID: n.ID, Kind: n.Kind, Label: n.Label, Degree: degree[n.ID], Component: comp[n.ID]})
 	}
 	weights := Weigh(g, o.Now)
+	confs := map[string]bool{}
+	for _, c := range o.Confidences {
+		confs[c] = true
+	}
 	for _, e := range edges {
+		if len(confs) > 0 && !confs[e.Confidence] {
+			continue
+		}
 		if drawn[e.From] && drawn[e.To] {
 			w := weights[e.i]
 			l.Edges = append(l.Edges, Edge{From: e.From, To: e.To, Relation: e.Relation, Source: e.Source, Confidence: e.Confidence, Index: e.i,

@@ -19,6 +19,12 @@ templ estateView(p estatePage) {
 						<label class="label"><input type="checkbox" name="kind" value={ o.Kind } checked?={ o.Checked }/> { o.Kind }</label>
 					}
 				</fieldset>
+				<fieldset>
+					<legend class="label">edge confidence (none chosen shows all)</legend>
+					for _, o := range p.ConfOptions() {
+						<label class="label"><input type="checkbox" name="confidence" value={ o.Confidence } checked?={ o.Checked }/> { o.Confidence }</label>
+					}
+				</fieldset>
 				<noscript><button class="btn btn-primary" type="submit">filter</button></noscript>
 			</form>
 			<div id="estate-graphs">
@@ -95,8 +101,8 @@ templ graphBlock(g graphView) {
 			</tr>
 		}
 	</table>
-	if g.Filtered {
-		<h3>Edges ({ str(g.EdgeShown) } of { str(g.EdgeTotal) }, between the nodes shown)</h3>
+	if g.Filtered || g.ConfFiltered {
+		<h3>Edges ({ str(g.EdgeShown) } of { str(g.EdgeTotal) }, matching the filters)</h3>
 	} else {
 		<h3>Edges ({ str(g.EdgeTotal) })</h3>
 	}
@@ -120,6 +126,21 @@ templ graphBlock(g graphView) {
 	} else {
 		@alert("muted") {
 			no edges in this map
+		}
+	}
+	<h3>Edge kinds drawn</h3>
+	if len(g.Legend) > 0 {
+		<ul id={ "legend-" + g.ID }>
+			for _, r := range g.Legend {
+				<li>{ r.Relation }: { str(r.N) }</li>
+			}
+		</ul>
+		if g.LegendCut {
+			<p class="note">the interactive drawing holds the most connected nodes only, so these counts are of the lines drawn, not of every edge in the file.</p>
+		}
+	} else {
+		@alert("muted") {
+			no edge drawn
 		}
 	}
 	<h3>Absences</h3>

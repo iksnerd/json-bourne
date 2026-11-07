@@ -43,8 +43,17 @@ func nodeHref(g, id string) string {
 func edgeHref(g string, i int) string {
 	return "/estate/edge?g=" + escQuery(g) + "&i=" + strconv.Itoa(i)
 }
-func graphHref(g string, kinds []string) string {
-	return "/estate/graph.json?g=" + escQuery(g) + kindQuery(kinds)
+func graphHref(g string, kinds, confs []string) string {
+	return "/estate/graph.json?g=" + escQuery(g) + kindQuery(kinds) + confQuery(confs)
+}
+
+// confQuery is the edge confidence filter as query-string text, checked like kindQuery.
+func confQuery(confs []string) string {
+	var b strings.Builder
+	for _, c := range confs {
+		b.WriteString("&confidence=" + escQuery(c))
+	}
+	return b.String()
 }
 func overlayHref(g, id string) string {
 	return "/estate/overlay?g=" + escQuery(g) + "&id=" + escQuery(id)

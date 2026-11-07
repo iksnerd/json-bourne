@@ -543,6 +543,9 @@ type graphView struct {
 	ID, Caveat           string
 	Src                  string // where the browser fetches the graph data
 	Filtered             bool
+	ConfFiltered         bool // an edge confidence filter is on
+	Legend               []relCount
+	LegendCut            bool
 	NodeShown, EdgeShown int
 	Nodes                []nodeRow
 	Edges                []edgeRow
@@ -564,10 +567,34 @@ func edgeRowOf(g string, i int, e core.EstateEdge) edgeRow {
 	return edgeRow{c(g), i, c(e.From), c(e.To), c(e.Relation), c(e.Source), c(e.Method), c(e.Observed), c(e.Confidence), c(e.InferredFrom)}
 }
 
-func buildGraph(g core.EstateGraph, kinds []string, now time.Time) graphView {
+// relCount is how many drawn edges carry one relation.
+type relCount struct {
+	Relation string
+	N        int
+}
+
+// legendOf counts the edges of the interactive drawing by relation, in relation order.
+// It builds the layout the graph data route builds, so a count is the number of lines of
+// that relation the person sees. cut says the drawing holds only the most connected nodes.
+func legendOf(g core.EstateGraph, kinds, confs []string, now time.Time) ([]relCount, bool) {
+	l := estategraph.Build(g, estategraph.Options{Limit: graphJSONNodes, Now: now, Kinds: kinds, Confidences: confs})
+	n := map[string]int{}
+	for _, e := range l.Edges {
+		n[c(e.Relation)]++
+	}
+	out := make([]relCount, 0, len(n))
+	for r, k := range n {
+		out = append(out, relCount{r, k})
+	}
+	slices.SortFunc(out, func(a, b relCount) int { return cmp.Compare(a.Relation, b.Relation) })
+	return out, l.Cut
+}
+
+func buildGraph(g core.EstateGraph, kinds, confs []string, now time.Time) graphView {
 	v := graphView{ID: c(g.ID), Caveat: c(g.Caveat), NodeTotal: len(g.Nodes), EdgeTotal: len(g.Edges),
-		Assessments: assessmentsOf(g, ""), AssessmentTotal: len(g.Assessments), Filtered: len(kinds) > 0}
-	v.Src = graphHref(v.ID, kinds)
+		Assessments: assessmentsOf(g, ""), AssessmentTotal: len(g.Assessments), Filtered: len(kinds) > 0, ConfFiltered: len(confs) > 0}
+	v.Src = graphHref(v.ID, kinds, confs)
+	wantConf := kindSet(confs)
 	chosen := kindSet(kinds)
 	shown := map[string]bool{} // node ids that pass the filter
 	for _, n := range g.Nodes {
@@ -580,7 +607,7 @@ func buildGraph(g core.EstateGraph, kinds []string, now time.Time) graphView {
 		}
 	}
 	for i, e := range g.Edges {
-		if !v.Filtered || shown[e.From] && shown[e.To] {
+		if (!v.Filtered || shown[e.From] && shown[e.To]) && (!v.ConfFiltered || wantConf[e.Confidence]) {
 			v.EdgeShown++
 			if len(v.Edges) < tableCap {
 				v.Edges = append(v.Edges, edgeRowOf(g.ID, i, e))
@@ -594,7 +621,8 @@ func buildGraph(g core.EstateGraph, kinds []string, now time.Time) graphView {
 		v.Absences = append(v.Absences, absenceRow{c(a.Subject), c(a.Source), c(a.Method), c(a.Observed), c(a.Answer)})
 	}
 	// The drawing that needs no script: the most connected nodes in columns by kind.
-	l := estategraph.Build(g, estategraph.Options{Limit: graphNodes, Now: now, Kinds: kinds})
+	l := estategraph.Build(g, estategraph.Options{Limit: graphNodes, Now: now, Kinds: kinds, Confidences: confs})
+	v.Legend, v.LegendCut = legendOf(g, kinds, confs, now)
 	if len(l.Nodes) > 0 {
 		v.SVG, v.SVGCut, v.SVGW, v.SVGH = true, l.Cut, l.Width, l.Height
 		for _, n := range l.Nodes {
@@ -628,7 +656,7 @@ type graphLayer struct {
 
 // layersOf groups the graphs by subject. A graph is never merged with another: each keeps
 // its own nodes, edges and corroboration. A layer with no graph is left out.
-func layersOf(gs []core.EstateGraph, kinds []string, now time.Time) []graphLayer {
+func layersOf(gs []core.EstateGraph, kinds, confs []string, now time.Time) []graphLayer {
 	layers := []graphLayer{{Heading: headingOperated}, {Heading: headingAdversary}, {Heading: headingUnclassified}}
 	for _, g := range gs {
 		i := 2
@@ -638,7 +666,7 @@ func layersOf(gs []core.EstateGraph, kinds []string, now time.Time) []graphLayer
 		case "adversary":
 			i = 1
 		}
-		layers[i].Graphs = append(layers[i].Graphs, buildGraph(g, kinds, now))
+		layers[i].Graphs = append(layers[i].Graphs, buildGraph(g, kinds, confs, now))
 	}
 	out := layers[:0]
 	for _, l := range layers {
@@ -656,6 +684,7 @@ type estatePage struct {
 	Layers     []graphLayer
 	Cap        int
 	Kinds      []string // the kinds the filter keeps; empty means all
+	Confs      []string // the edge confidences the filter keeps; empty means all
 }
 
 // kindOptions are the node kinds the filter offers, each with whether it is chosen.
@@ -698,6 +727,37 @@ func kindsOf(r *http.Request) []string {
 	return out
 }
 
+// confOption is an edge confidence the filter offers, with whether it is chosen.
+type confOption struct {
+	Confidence string
+	Checked    bool
+}
+
+func (p estatePage) ConfOptions() []confOption {
+	chosen := kindSet(p.Confs)
+	out := make([]confOption, 0, len(estategraph.Confidences))
+	for _, k := range estategraph.Confidences {
+		out = append(out, confOption{k, chosen[k]})
+	}
+	return out
+}
+
+// confidencesOf reads the repeatable confidence parameter the way kindsOf reads kind:
+// an unknown value is dropped, never reflected, never an error.
+func confidencesOf(r *http.Request) []string {
+	asked := map[string]bool{}
+	for _, k := range r.URL.Query()["confidence"] {
+		asked[k] = true
+	}
+	var out []string
+	for _, k := range estategraph.Confidences {
+		if asked[k] {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
 func (s *server) loadEstates(ctx context.Context) ([]core.EstateGraph, note, bool) {
 	if s.d.Estate == nil {
 		return nil, note{}, true
@@ -714,7 +774,8 @@ func (s *server) estate(w http.ResponseWriter, r *http.Request) {
 		p.Note = note{Absent: "estate dir absent or empty: no estate file has been collected for this case (see `jb estate`)"}
 	}
 	p.Kinds = kindsOf(r)
-	p.Layers = layersOf(gs, p.Kinds, s.d.Now())
+	p.Confs = confidencesOf(r)
+	p.Layers = layersOf(gs, p.Kinds, p.Confs, s.d.Now())
 	if isHX(r) {
 		s.send(w, r, http.StatusOK, estateGraphs(p))
 		return
@@ -929,7 +990,7 @@ func (s *server) estateGraphJSON(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no such estate map", http.StatusNotFound)
 		return
 	}
-	l := estategraph.Build(g, estategraph.Options{Limit: graphJSONNodes, Now: s.d.Now(), Kinds: kindsOf(r)})
+	l := estategraph.Build(g, estategraph.Options{Limit: graphJSONNodes, Now: s.d.Now(), Kinds: kindsOf(r), Confidences: confidencesOf(r)})
 	out := jsonGraph{ID: c(g.ID), NodeTotal: l.NodeTotal, EdgeTotal: len(g.Edges), Components: l.Components, Cut: l.Cut, Filtered: l.Filtered,
 		Nodes: []jsonNode{}, Edges: []jsonEdge{}}
 	for _, x := range l.Nodes {
