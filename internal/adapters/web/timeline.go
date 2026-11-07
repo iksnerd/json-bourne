@@ -132,7 +132,10 @@ type timelinePage struct {
 	LaneLeft   int
 	LaneRight  int
 	SVGW       int
-	FindNote   string // empty when findings were read; else why none are shown
+	FindNote   string   // empty when findings were read; else why none are shown
+	GapsOnly   bool     // the only-gaps view: cycle rows are not listed
+	ViewHref   string   // the link that switches the view, other parameters kept
+	Summaries  []string // only-gaps view: one line per watcher lane, with the cycles not listed
 }
 
 type tlSortRow struct {
@@ -158,6 +161,8 @@ func (s *server) timeline(w http.ResponseWriter, r *http.Request) {
 	for _, v := range q["sev"] {
 		askedSev[v] = true
 	}
+	gapsOnly := q.Get("gaps") == "1" // only that value; anything else is the default view
+	p.GapsOnly = gapsOnly
 	var sevs []core.Severity
 	for _, o := range sevOptions[1:] {
 		sv, _ := core.ParseSeverity(o)
@@ -264,11 +269,11 @@ func (s *server) timeline(w http.ResponseWriter, r *http.Request) {
 		case len(h.Cycles) == 0:
 			p.Notices = append(p.Notices, "watcher "+c(label)+": no cycle line in the log. No span is drawn, because the start is unknown.")
 		}
+		horizon := "retention horizon unknown (no readable watch-status record)."
 		if h.Keep > 0 {
-			p.Horizons = append(p.Horizons, c(label)+": findings of its runs older than "+h.Keep.String()+" (before "+tm(now.Add(-h.Keep))+") are removed by retention, so an empty finding column before then is not a result.")
-		} else {
-			p.Horizons = append(p.Horizons, c(label)+": retention horizon unknown (no readable watch-status record).")
+			horizon = "findings of its runs older than " + h.Keep.String() + " (before " + tm(now.Add(-h.Keep)) + ") are removed by retention, so an empty finding column before then is not a result."
 		}
+		p.Horizons = append(p.Horizons, c(label)+": "+horizon)
 
 		// The reader returns cycles oldest first; the page does not rely on it.
 		slices.SortStableFunc(h.Cycles, func(a, b core.WatchCycleLine) int { return cmp.Or(a.At.Compare(b.At), cmp.Compare(a.Run, b.Run)) })
@@ -289,6 +294,20 @@ func (s *server) timeline(w http.ResponseWriter, r *http.Request) {
 			p.Notices = append(p.Notices, "INCOMPLETE: the newest "+strconv.Itoa(timelineCycleRows)+" cycles of "+c(label)+" in this window are shown; older ones in the window are not.")
 			cyc = cyc[len(cyc)-timelineCycleRows:]
 		}
+		// Only a plain cycle (QUIET or FINDINGS, no reported gap) is hidden in the only-gaps
+		// view. A cycle that reports a gap, any other verdict, stays: it is gap evidence too.
+		plain := func(cl core.WatchCycleLine) bool {
+			return !cl.GapReported && (cl.Verdict == "QUIET" || cl.Verdict == "FINDINGS")
+		}
+		if gapsOnly {
+			hidden := 0
+			for _, cl := range cyc {
+				if plain(cl) {
+					hidden++
+				}
+			}
+			p.Summaries = append(p.Summaries, c(label)+": "+strconv.Itoa(hidden)+" plain cycle row(s) hidden in this view. "+upperFirst(horizon))
+		}
 		for i, cl := range cyc {
 			dur := "not recorded"
 			if i == len(cyc)-1 && cl.Run == newest && h.Last != nil && h.Last.Run == cl.Run && !h.Last.Ended.Before(cl.At) {
@@ -306,8 +325,10 @@ func (s *server) timeline(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			detail += "; duration " + dur
-			rows = append(rows, tlSortRow{t: cl.At, rank: 1, watch: label, run: cl.Run, text: detail,
-				row: tlRow{Time: tm(cl.At), Kind: "cycle", Watcher: c(label), Detail: detail, Run: c(cl.Run)}})
+			if !gapsOnly || !plain(cl) {
+				rows = append(rows, tlSortRow{t: cl.At, rank: 1, watch: label, run: cl.Run, text: detail,
+					row: tlRow{Time: tm(cl.At), Kind: "cycle", Watcher: c(label), Detail: detail, Run: c(cl.Run)}})
+			}
 			laneTicks[label] = append(laneTicks[label], tick{cl.At, cl.Verdict, cl.Run})
 		}
 		for _, g := range h.Gaps {
@@ -479,9 +500,34 @@ func (s *server) timeline(w http.ResponseWriter, r *http.Request) {
 	}
 	p.SVGH = tlTop + len(labels)*tlLaneH + 4
 	p.AxisL, p.AxisR = tm(from), tm(now)
+	// The view switch keeps the other filters, in the page's own option order.
+	var pairs []string
+	if !gapsOnly {
+		pairs = append(pairs, "gaps=1")
+	}
+	for _, o := range p.Sevs {
+		if o.Checked {
+			pairs = append(pairs, "sev="+escQuery(o.Value))
+		}
+	}
+	pairs = append(pairs, "w="+escQuery(win.Key))
+	for _, o := range p.Watchers {
+		if o.Checked {
+			pairs = append(pairs, "watcher="+escQuery(o.Value))
+		}
+	}
+	p.ViewHref = "/timeline?" + strings.Join(pairs, "&")
 	if isHX(r) {
 		s.send(w, r, http.StatusOK, timelineResults(p))
 		return
 	}
 	s.send(w, r, http.StatusOK, timelineView(p))
+}
+
+// upperFirst makes the first letter of a sentence a capital; the text is ASCII.
+func upperFirst(x string) string {
+	if x == "" {
+		return x
+	}
+	return strings.ToUpper(x[:1]) + x[1:]
 }
