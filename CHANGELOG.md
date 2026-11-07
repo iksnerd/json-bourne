@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-07
+
 ### Added
 - `jb serve`, RFC 0019: a Timeline page (`GET /timeline`) shows the saved findings and the cycles of every watcher of the case, named or not, newest first on one page, as a table and as server-rendered SVG lanes. Filters: `w` (`1h`, `6h`, `24h`, `7d`; window ending now), `watcher` (repeatable; `_` is the unnamed watcher) and `sev` (repeatable). A "no cycle recorded" row marks a span between two cycle lines, or after the last one, longer than 3 intervals of the watcher (the factor and the strict comparison of `jb watch status`); it says that lines are absent and not why. A watcher with no readable `watch-status` record has no interval, so no gap is judged and the page says so. Cut results (500 findings, 500 cycles per watcher, 16 watchers, the 256 KiB log read bound) are shown as INCOMPLETE before the table. Severity and verdict are text and shape, never colour. No new script, file format or config key; the store question has a 3 second limit and the cycles still render if it fails. Not covered by a test: rendering in a real browser beyond the smoke test described in RFC 0019.
 
