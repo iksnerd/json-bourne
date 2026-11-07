@@ -2,7 +2,7 @@
 
 [Back to the README](../README.md)
 
-A mapper turns one raw document into an event. The built-in mappers (`default`, `nginx_ingress`) are Go code compiled into `jb`. A **plugin** is the same job done by a separate executable that you have allowlisted, so parsing for one product's log format does not have to live in the core binary.
+A mapper turns one raw document into an event. The built-in mappers (`default`, `nginx_ingress`, `keycloak`, `request_dump`) are Go code compiled into `jb`. A **plugin** is the same job done by a separate executable that you have allowlisted, so parsing for one product's log format does not have to live in the core binary.
 
 > **Not another project's plugin protocol.** The protocol below is `jb`'s own. It has the shape of a long-lived plugin protocol (a handshake line, one request in flight, a deadline, the process group killed on a break, a breaker after three breaks), but it is not an implementation of any published one, and a plugin written for another host will not run here. It is versioned by the `v` field: a host reads only the current version, and the number increments when the protocol changes incompatibly. Why `jb` keeps its own protocol is in [adr/0001-relationship-to-other-plugin-specifications.md](adr/0001-relationship-to-other-plugin-specifications.md).
 
@@ -42,7 +42,7 @@ Rules, each enforced in `internal/adapters/plugin` and each with a test that fai
 
 | Rule | Where |
 |---|---|
-| The allowlist file is not writable by group or others, is a regular file, is at most 1 MiB, and parses strictly. | load |
+| The allowlist file is not writable by group or others, is a regular file, is at most 1 MiB, has no mapping of more than 1000 keys, and parses strictly. | load |
 | The path resolves (symlinks followed) to a regular file whose directory is the directory of the allowlisted path. A symlink out of the plugin directory is refused. | every launch |
 | Neither the file nor its directory is writable by group or others, and the file is executable by its owner. | every launch |
 | With a `sha256`, the file's digest equals it. A pinned file that changed is refused. | **every launch**, not once |
