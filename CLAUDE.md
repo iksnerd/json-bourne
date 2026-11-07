@@ -46,6 +46,14 @@ Evidence-first incident response for when you are being attacked. Go, DuckDB, co
   runner, and release builds run them there, so a tight bound fails a release.
 - A test never uses a fixed date against a store that reads the real clock (retention, `--keep`,
   prune); derive times from `time.Now()`.
+- A new column or stored marker must be checked in every path that copies or rewrites that table
+  (compaction, source rename, prune, import), not only where it is written. v0.10.3 added
+  `events.returners` and missed rename and compaction; the compaction guard test
+  (`TestCompactCopiesEveryColumn`) now fails when a column is not copied. A schema golden or a row
+  count does not prove a copy kept the content.
+- Ownership (which source stores a row), identity (which document it is) and membership (who returned
+  it) are three different facts. Do not let a stored label serve as the identity key.
+- A fix whose test you never saw fail is unconfirmed. Write the test first, or say so in the report.
 - Never move a published tag. A bad release gets a new patch tag.
 - Feature freeze: no new command, port, file format or config key before 1.0 (`jb serve` excepted).
   See CONTRIBUTING.md.

@@ -4,6 +4,21 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- `jb db rename-source` also rewrites the returners list of a document (a sorted set that includes the owner), renames labels that appear only as returners, and keeps membership when `--merge` drops duplicate rows.
+- `jb db compact` copies `events.returners` and `events.doc_ident` and verifies a content digest of every copied column, not only row counts and raw bytes. A guard test fails when a migration adds an `events` column that the copier does not copy.
+- Re-saving a run's events clears the run's `pruned_at` marker. Stored returners are normalised on save (sorted, deduplicated, owner included) and an empty label is refused.
+- Hunt: a document shared by overlapping sources is one event across hunts, even when the source that stores it changes (store schema 4, `events.doc_ident`; rows written before schema 4 are not backfilled). When ownership falls back, the stored copy is the owner's own normalisation. The shared-scope buffer limit counts mapped fields, returners and every retained copy, and clones what it keeps.
+- Hunt: a source that is not part of a shared scope also stores its document identity as a digest of the cluster scope and the document key, so two clusters that hold the same index and `_id` are two documents. The same documents stored under a renamed source label are counted once, and `jb db usage` and the hunt warning no longer report that pair as double-counted.
+- A paged `Events` read that spans a write now returns an "evidence changed" error (`core.ErrEvidenceChanged`) instead of silently dropping rows; a detector read that hits it is incomplete.
+- `jb hunt`, `activity`, `search` and `watch` refuse a window that is not a whole number of seconds (usage error, exit 2). Before, two different historical windows could share one run id.
+- The Kibana adapter reads every count (`doc_count`, `hits.total`) as an exact integer; a fractional, negative, non-numeric or over-int64 count is a malformed reply that makes the source INCOMPLETE. It was silently truncated before.
+- The watch state, watch status and alert log readers refuse anything that is not a regular file (a FIFO no longer hangs them) and cap how much they read.
+- Opening a store fails with a named error when the migration ledger has gaps or the `events` or `runs` columns do not match the recorded schema version, read-only opens included. Saving a finding with a severity outside the defined range is an error.
+
+### Docs
+- Trust model notes for plugin pins and case paths (`docs/PLUGINS.md`, `docs/CASE-SPEC.md`).
+
 ## [0.10.4] - 2026-11-07
 
 ### Fixed

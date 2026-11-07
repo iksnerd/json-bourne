@@ -17,7 +17,8 @@ var (
 // the same document, by (ts, kind, doc_sha256), is stored under both. That is the
 // footprint of one set of documents saved under two names (a default kibana:<index>
 // label and later an explicit name): the identity rule keys on the label, so a
-// detector reading both counts each document twice.
+// detector reading both counts each document twice. A pair that carries the
+// same stored document identity (doc_ident) is not reported: the reader counts it once.
 //
 // The common case is one label in the window, answered by a single scan of the window's
 // narrow source column; only when two or more labels are present is the self-join on
@@ -42,11 +43,12 @@ func (s *Store) SourceOverlaps(ctx context.Context, w core.Window, limit int) ([
 	}
 	rows, err := s.db.QueryContext(ctx, `
 		WITH d AS (
-			SELECT DISTINCT ts, kind, doc_sha256, source FROM events
+			SELECT DISTINCT ts, kind, doc_sha256, source, doc_ident FROM events
 			WHERE ts >= CAST(? AS TIMESTAMPTZ) AND ts < CAST(? AS TIMESTAMPTZ))
 		SELECT a.source, b.source, count(*) AS docs
 		FROM d a JOIN d b USING (ts, kind, doc_sha256)
 		WHERE a.source < b.source
+		  AND NOT (a.doc_ident IS NOT NULL AND a.doc_ident = b.doc_ident)
 		GROUP BY a.source, b.source
 		ORDER BY docs DESC, a.source, b.source
 		LIMIT ?`, ts(w.From), ts(w.To), limit)

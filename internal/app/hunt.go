@@ -532,6 +532,7 @@ func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source
 				// event: scoped detectors select on it, so a mapper that labels its
 				// events differently must not move them out of the source's scope.
 				ev.Source = src.Name()
+				ev.DocKey = storedIdent(src, ev.DocKey)
 				r.Events++
 			} else {
 				sourceFailed = true
@@ -545,6 +546,19 @@ func ingest(ctx context.Context, mu *sync.Mutex, sink core.Sink, src core.Source
 	err := sink.SaveEvents(ctx, SourceRun(run, src.Name()), iter.Seq2[core.Event, error](counted))
 	mu.Unlock()
 	return finish(r, src, err, sourceFailed), nil
+}
+
+// storedIdent is the identity a non-shared source stores with an event: the scoped digest of
+// its DocKey, or none when the source names no scope or the event no key (an identity that
+// is not scoped could merge two different documents).
+func storedIdent(src core.Source, key string) string {
+	if key == "" {
+		return ""
+	}
+	if ds, ok := src.(core.DocScoped); ok && ds.DocScope() != "" {
+		return docIdent(ds.DocScope(), key)
+	}
+	return ""
 }
 
 // finish classifies the outcome of saving one source and adds what the source reports.
@@ -766,8 +780,13 @@ func (d *docSet) fail(source string) {
 // ident is the durable identity stored with a shared document: a digest of the scope and
 // the DocKey. It does not name a source, so the reader counts the document once whichever
 // source stores it in a given hunt. The sink stores it as the event's DocKey.
-func (d *docSet) ident(key string) string {
-	h := sha256.Sum256([]byte(d.scope + "\x00" + key))
+func (d *docSet) ident(key string) string { return docIdent(d.scope, key) }
+
+// docIdent is the stored identity of a document: a digest of its scope and DocKey. A DocKey
+// is only unique within its scope (two clusters can hold the same index and _id), so a
+// DocKey is never stored without its scope.
+func docIdent(scope, key string) string {
+	h := sha256.Sum256([]byte(scope + "\x00" + key))
 	return hex.EncodeToString(h[:])
 }
 
