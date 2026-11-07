@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-07
+
 ### Added
 - `jb serve`, render-only (no new route, store query or data source): a node's record groups its facts by key, each value with its source, method and time; it lists the assessments that cite the node in their basis, under the same opinion notice; the estate graph shows an edge-kind legend with a count per relation and an edge-confidence filter (`?confidence=stated|inferred`, repeatable) that works with the node-kind filter; a search box finds nodes by id or label (`/`, Escape, arrow keys); and two buttons save the drawn graph as SVG or JSON, built in the browser. Two new script files are served from the binary; there is still no inline script. Not covered by tests: the behaviour of the search keys and the export in a real browser.
 
