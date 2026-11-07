@@ -9,6 +9,7 @@ import (
 
 	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/estateseam"
 )
 
 // RFC 0018 pins the key paths of every `--output json` document. The library owns the
@@ -57,7 +58,7 @@ func TestCLIDocumentsHaveTheLibraryKeyPaths(t *testing.T) {
 		p, r := stubs()
 		_, out, _ := run(t, estateDeps(p, r), "estate", "--case", cliDir, "--output", "json", "192.0.2.10")
 		p, r = stubs()
-		lib, err := jb.EstateIP(ctx, libDir, []string{"192.0.2.10"}, jb.EstateIPOptions{EstateOptions: jb.EstateOptions{Now: testDeps(nil).now, Ports: jb.EstatePorts{PTR: p, RDAP: r}}})
+		lib, err := jb.EstateIP(estateseam.With(ctx, estateseam.Ports{PTR: p, RDAP: r}), libDir, []string{"192.0.2.10"}, jb.EstateIPOptions{EstateOptions: jb.EstateOptions{Now: testDeps(nil).now}})
 		same(t, out, lib, err)
 	})
 
@@ -70,7 +71,7 @@ func TestCLIDocumentsHaveTheLibraryKeyPaths(t *testing.T) {
 		d := st.deps()
 		_, out, _ := run(t, d, "estate", "ct", "--case", cliDir, "--output", "json", "example.com")
 		d2 := st2.deps()
-		lib, err := jb.EstateCT(ctx, libDir, []string{"example.com"}, jb.EstateExternalOptions{EstateOptions: jb.EstateOptions{Now: d2.now, Ports: jb.EstatePorts{CT: st2.ct, Sleep: d2.sleep}}})
+		lib, err := jb.EstateCT(estateseam.With(ctx, estateseam.Ports{CT: st2.ct, Sleep: d2.sleep}), libDir, []string{"example.com"}, jb.EstateExternalOptions{EstateOptions: jb.EstateOptions{Now: d2.now}})
 		same(t, out, lib, err)
 	})
 
