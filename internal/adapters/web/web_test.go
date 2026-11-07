@@ -279,7 +279,7 @@ func TestHostileStoredTextIsEscapedOnEveryPage(t *testing.T) {
 
 // ownScript matches exactly the script tags a page may carry: a vendored file of this
 // dashboard, loaded from this origin, deferred, with no inline body.
-var ownScript = regexp.MustCompile(`<script src="/static/(htmx\.min|d3\.min|estate|sheet)\.js" defer></script>`)
+var ownScript = regexp.MustCompile(`<script src="/static/(htmx\.min|d3\.min|estate|estate-search|sheet)\.js" defer></script>`)
 
 func TestPagesCarryOnlyTheVendoredScriptsAndNoInlineCode(t *testing.T) {
 	h := New(newDeps(hostileFake()), Options{Loopback: true})
