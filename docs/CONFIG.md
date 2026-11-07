@@ -929,6 +929,7 @@ The page makes no request to any other origin and uses no web font; its scripts 
 | `w` | `1h`, `6h`, `24h`, `7d` | Window ending now (the clock rounded down to the minute). Default `24h`; any other value gives the default. |
 | `watcher` | a watcher name, or `_` for the unnamed one | Repeatable. None chosen shows all; a value that is not a found watcher is ignored. With a filter, findings are limited to the runs of those watchers; without one, findings of hunts are listed too, with the watcher `(hunt)`. |
 | `sev` | `info`, `check`, `activity`, `high`, `critical` | Repeatable. Filters findings only, never cycles. |
+| `gaps` | `1` | Only the "no cycle recorded" rows and the findings are listed; each watcher gets a line with the number of cycles not listed. Any other value shows all cycles. Notices and the retention section are shown in both views. |
 
 A finding is placed at the time its run was saved, which for `hunt --until` is the day of the backfill and not the time of the events; the row then also shows the events window. The cycle line has no duration; the newest cycle of each watcher shows one (from the status record), every other cycle shows `not recorded`. Severity and verdict are words and shapes, never colour.
 

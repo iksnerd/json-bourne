@@ -83,6 +83,7 @@ Proposed, all of it.
 | `w` | `1h`, `6h`, `24h`, `7d` | Window ending now. Default `24h`. Any other value is ignored and the default is used. Maximum 7 days. |
 | `watcher` | A watcher name, or `_` for the unnamed watcher | Repeatable, as `kind` on the Estate page (`?watcher=a&watcher=_`). None chosen means all. A value that is not a discovered watcher is ignored. `_` cannot be a real name (`app.ValidWatchName` requires a letter first). |
 | `sev` | `info`, `check`, `activity`, `high`, `critical` | Repeatable. None chosen means all. Unknown values are ignored. Filters findings only, never cycles. |
+| `gaps` | `1` | Only gaps view: the table lists the findings and the markers, not the cycles; each watcher gets a summary line with the number of cycles not listed. Any other value is ignored (all cycles). A link in the results switches the view and keeps the other parameters. Render only: the data is the same. |
 
 With a `watcher` filter, findings are limited to the runs of those watchers and the cycles to their logs. Without one, findings of hunts (run ids that are not `watch*`) are shown too, with the watcher column `hunt`.
 
@@ -367,3 +368,4 @@ Decided on 2026-11-07 by the maintainer, in a grilling session, with the draft's
   - The cycle line parser reads `gap=true` or `gap=false` only from the fixed text of an `INCOMPLETE` line. A first version looked for the text after a leading space and read no gap; the round-trip test caught it.
   - No archtest rule was added for `internal/watchrun` and `net/http`: the existing rule that confines `net/http` to the remote adapters and the dashboard already fails for that package (checked by planting an import).
   - The draft says the unnamed watcher and hunts are told apart by the run id. The page labels them `(unnamed)` and `(hunt)`; the parentheses cannot occur in a watcher name.
+- 2026-11-07: added the `gaps=1` only-gaps view (render only; no new query or route; the notices and the retention section are shown in both views).
