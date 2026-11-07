@@ -85,4 +85,4 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0016](0016-own-cloud-inventory.md) | Inventory of the operator's own cloud | draft (parked) |
 | [0017](0017-public-api-owns-its-types.md) | Public API owns its types | accepted |
 | [0018](0018-stability-policy.md) | Stability policy for 1.0 | accepted |
-| [0019](0019-serve-timeline.md) | Timeline page for `jb serve` | draft |
+| [0019](0019-serve-timeline.md) | Timeline page for `jb serve` | accepted |

@@ -1,6 +1,8 @@
 # RFC 0019: Timeline page for `jb serve`
-Status: draft
+Status: accepted
 Scope: one new read-only page, `/timeline`, that shows findings and watch cycles on one time axis and marks the spans where a watcher left no cycle for longer than three of its intervals.
+
+Accepted: 2026-11-07 by the maintainer
 
 ## Summary
 
@@ -331,11 +333,13 @@ Proposed:
 
 ## Open questions
 
-1. **Duration for every cycle.** No file records it. Options: show it for the newest cycle only (this draft); add `took=` to the cycle line (a log format change); or derive "hunt time" from `runs.created_at` minus the stamp in the run id (hunt only, gone after `--keep`). Recommendation: ship without it and decide after use. The maintainer decides, with the requester.
-2. **Is "3 intervals" right for a marker?** It matches `stale`. A slow hunt that overruns shifts the next start, so a long overrun can read as a marker. Recommendation: keep 3, one constant, no flag. The maintainer decides.
-3. **Severity badge colour.** The Findings page colours severity (`sevVariant`). The timeline uses text and shape. Recommendation: keep the timeline neutral and leave the Findings page alone. The maintainer decides whether the Findings page should follow.
-4. **The Watch page's unanchored `cycleRE`.** The regexp is unanchored, and the Watch page scans lines from the end, so an `ALERT` line whose text holds `CYCLE QUIET` may be read as a cycle (read from the code, not run). Recommendation: fix it in a separate change that reuses the new parser. The maintainer decides.
-5. **Retire the Watch page's log tail?** The timeline covers cycles of all watchers. Recommendation: leave `/watch` as is for now and revisit after the timeline is used. The maintainer decides.
-6. **Where does `hunt` findings time come from for backfills?** `runs.created_at` is the day of the backfill. Recommendation: use it and show the window, as drafted. The maintainer decides if `window_to` is better for a case that backfills.
-7. **Retention horizon in the page.** Recommendation: print it per watcher as drafted. If the maintainer prefers, the timeline may refuse to show findings older than `keepSeconds` for watch runs.
-8. **Fixture size for the 256 KiB measure.** The implementer measures cycles per read bound on a synthetic log and records it. No decision needed unless the number is small enough to matter (for example under one day at a 5 minute interval); then the maintainer decides whether to raise the bound for this reader.
+Decided on 2026-11-07 by the maintainer, in a grilling session, with the draft's own recommendations:
+
+1. **Duration for every cycle.** Show it for the newest cycle only; older cycles read "not recorded". No log format change. Revisit after use.
+2. **Is "3 intervals" right for a marker?** Yes: one constant, no flag, the same factor as `jb watch status`.
+3. **Severity badge colour.** The timeline uses text and shape, no colour. The Findings page is not changed here.
+4. **The Watch page's unanchored `cycleRE`.** A bug, so the freeze allows it: fixed in a separate commit that reuses the new parser, with a test that feeds an `ALERT` line containing `CYCLE QUIET` (red first).
+5. **Retire the Watch page's log tail?** No. Leave `/watch` as is and revisit after the timeline is used.
+6. **Finding time for backfills.** `runs.created_at`, with the window shown, as drafted.
+7. **Retention horizon in the page.** Printed per watcher, as drafted.
+8. **Fixture size for the 256 KiB measure.** The implementer measures cycles per read bound on a synthetic log and records the number under "Reference implementations"; the maintainer decides only if it is small enough to matter.
