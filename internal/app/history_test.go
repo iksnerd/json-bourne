@@ -17,6 +17,7 @@ import (
 type countSrc struct {
 	*fakeSource
 	scope, index, mode string
+	field, timeField   string // the probe settings other than the index list
 	counts             map[string]int64
 	all                int64
 	keyErr             error
@@ -29,12 +30,15 @@ type countSrc struct {
 }
 
 func newCountSrc(name, scope, index string, counts map[string]int64) *countSrc {
-	return &countSrc{fakeSource: okSource(name), scope: scope, index: index, mode: "phrase", counts: counts, all: 1000}
+	return &countSrc{fakeSource: okSource(name), scope: scope, index: index, mode: "phrase", field: "message", timeField: "@timestamp", counts: counts, all: 1000}
 }
 
 func (c *countSrc) DocScope() string  { return c.scope }
 func (c *countSrc) IndexName() string { return c.index }
 func (c *countSrc) KeyMode() string   { return c.mode }
+
+// ProbeKey is what makes two sources interchangeable for one request: field, mode and time field.
+func (c *countSrc) ProbeKey() string { return c.field + "\x00" + c.mode + "\x00" + c.timeField }
 
 func (c *countSrc) CountKeys(_ context.Context, keys []string, w core.Window) (map[string]int64, error) {
 	c.mu.Lock()

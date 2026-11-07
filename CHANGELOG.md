@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- The `newkey` history probe used the first source's `key_match` and time field for every source on a cluster, so a known key could count as new depending on source order. Sources with the same settings still share one request; sources with different settings are probed separately and their counts add, in a fixed order.
+
 ## [0.10.1] - 2026-11-07
 
 ### Added
