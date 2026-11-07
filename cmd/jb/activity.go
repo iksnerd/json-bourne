@@ -145,6 +145,17 @@ func ageText(last, end time.Time) string {
 	return fmt.Sprintf("%dh%dm ago", int(d/time.Hour), int(d%time.Hour/time.Minute))
 }
 
+// lastWho names the subject the headline time belongs to, with its kind unless it is an actor.
+func lastWho(s core.ActivitySubject) string {
+	switch s.Kind {
+	case app.KindActor:
+		return s.Subject + ", "
+	case app.KindCommon:
+		return s.Subject + ", common action, "
+	}
+	return s.Subject + ", " + s.Kind + " action, "
+}
+
 func subjectNote(s core.ActivitySubject) string {
 	var parts []string
 	if s.Noise > 0 {
@@ -275,8 +286,8 @@ func verdictLine(r app.ActivityResult) string {
 		if len(r.Flagged) > 0 {
 			tail = "; common action(s) flagged by a moved failure share: " + strings.Join(r.Flagged, ", ")
 		}
-		if last, ok := r.Last(); ok {
-			return head + " last activity " + stamp(last) + " (" + ageText(last, r.Window.To) + ")" + tail + "."
+		if s, ok := r.LastActivity(); ok {
+			return head + " last activity " + stamp(s.Last) + " (" + lastWho(s) + ageText(s.Last, r.Window.To) + ")" + tail + "."
 		}
 		return head + strings.TrimPrefix(tail, ";") + "."
 	case app.VerdictQuiet:

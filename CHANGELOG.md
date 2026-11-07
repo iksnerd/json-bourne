@@ -9,6 +9,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - An estate file takes an optional top-level `subject`, `operated` or `adversary` (absent is unclassified). Snapshots copy it and `promote` keeps it, `jb estate diff` refuses two files of different subjects with a usage error, and the Estate page groups maps under "Operated", "Adversary and third-party" and "Unclassified" without merging nodes, edges or corroboration across files (RFC 0015).
 - `jb estate facts import` reads standard input when the file is `-`, and accepts JSON lines (a header object, then one entry object per line) as well as the single document, so a tool's output can be piped in. The library takes `EstateFactsImportOptions.Input`. The 1 MiB and 5000 fact caps apply to the stream, and an entry error names the entry by number.
 
+### Fixed
+- `jb activity` no longer reports another party's behaviour as the actor's last sighting. The `last activity` time of an `ACTIVE` line was the newest of every active subject, so a customer's password reset caught by a rare action could read as "the actor was last seen then". It is now the newest active actor, and the line names its subject (`last activity 2026-11-05T18:26:23Z (pago-actor, 18h0m ago)`); with no active actor it names the rare or common action that made the verdict ACTIVE. `ActivityResult.Last` follows the same rule and `ActivityResult.LastActivity` returns the subject. The JSON is unchanged.
+
 ## [0.6.0] - 2026-11-06
 
 ### Added

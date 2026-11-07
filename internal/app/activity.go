@@ -79,6 +79,9 @@ type ActivityResult struct {
 // share, not by how often it occurs (the behaviour detector's "common" class).
 const KindCommon = "common"
 
+// KindActor is the ActivitySubject.Kind of an actor the fingerprint detector names.
+const KindActor = "actor"
+
 // DetectorCounts is what one detector judged, from the subjects it reported.
 type DetectorCounts struct {
 	Read                          int // events the detector read in the window
@@ -113,17 +116,35 @@ func (r ActivityResult) SourceEvents() int64 {
 	return n
 }
 
-// Last is the latest genuine event time of any active subject, and whether there is one.
+// Last is the time of [ActivityResult.LastActivity], and whether there is one. It is the
+// actor's last genuine event when an actor is active, not the latest of every active subject.
 func (r ActivityResult) Last() (time.Time, bool) {
-	var last time.Time
+	s, ok := r.LastActivity()
+	return s.Last, ok
+}
+
+// LastActivity is the subject that stands for "the last activity" of an ACTIVE verdict: the
+// active actor subject with the latest Last, or, when no actor is active, the active subject
+// of any other kind (a rare action, a flagged common action) with the latest Last. A rare
+// action is a customer's or anyone's behaviour as likely as the actor's, so its time never
+// outranks an active actor's; it stays in its own row of the report.
+func (r ActivityResult) LastActivity() (core.ActivitySubject, bool) {
+	var actor, other core.ActivitySubject
 	for _, d := range r.Detectors {
 		for _, s := range d.Report.Subjects {
-			if s.Active && s.Last.After(last) {
-				last = s.Last
+			switch {
+			case !s.Active:
+			case s.Kind == KindActor && s.Last.After(actor.Last):
+				actor = s
+			case s.Kind != KindActor && s.Last.After(other.Last):
+				other = s
 			}
 		}
 	}
-	return last, !last.IsZero()
+	if !actor.Last.IsZero() {
+		return actor, true
+	}
+	return other, !other.Last.IsZero()
 }
 
 // Activity fetches the window and the one before it from every source, stores them, and
