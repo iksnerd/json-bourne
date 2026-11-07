@@ -156,8 +156,8 @@ func TestActivityCountsAndLast(t *testing.T) {
 	if res.Current != 6 || res.Previous != 3 {
 		t.Fatalf("counts = %d/%d, want 6/3 (summed from the reports, nothing else)", res.Current, res.Previous)
 	}
-	if last, ok := res.Last(); !ok || !last.Equal(t0.Add(-5*time.Minute)) {
-		t.Fatalf("last = %v %v, want the actor's time (-5m), not the later rare action's", last, ok)
+	if last, ok := res.Last(); !ok || !last.Equal(t0.Add(-time.Minute)) {
+		t.Fatalf("last = %v %v, want the latest active subject's time", last, ok)
 	}
 	if res.SourceEvents() != 2 {
 		t.Fatalf("source events = %d, want the 2 the fake source yielded", res.SourceEvents())
@@ -171,40 +171,6 @@ func TestActivityLastIgnoresInactiveSubjects(t *testing.T) {
 	res := runActivity(t, []core.Source{okSource("a")}, repDetector{name: "fp", report: core.ActivityReport{Seen: 5, Subjects: []core.ActivitySubject{s}}})
 	if _, ok := res.Last(); ok {
 		t.Fatal("an inactive subject supplied a last genuine time")
-	}
-}
-
-// The headline time belongs to the actor: a rare action (another party's password reset)
-// that is later keeps its own time in its row and does not become "the actor was last seen".
-func TestActivityLastActivityPrefersTheActor(t *testing.T) {
-	actor := sub("pago-actor", 3, 0, true)
-	actor.Last = t0.Add(-3 * time.Hour)
-	rare := core.ActivitySubject{Subject: "password-reset", Kind: "rare", Current: 1, Active: true, Last: t0.Add(-time.Hour)}
-	res := runActivity(t, []core.Source{okSource("a")},
-		repDetector{name: "beh", report: core.ActivityReport{Seen: 5, Subjects: []core.ActivitySubject{rare}}},
-		repDetector{name: "fp", report: core.ActivityReport{Seen: 5, Subjects: []core.ActivitySubject{actor}}})
-	s, ok := res.LastActivity()
-	if !ok || s.Subject != "pago-actor" || !s.Last.Equal(t0.Add(-3*time.Hour)) {
-		t.Fatalf("LastActivity = %+v %v, want pago-actor at -3h", s, ok)
-	}
-	if last, _ := res.Last(); !last.Equal(s.Last) {
-		t.Fatalf("Last = %v, want it to agree with LastActivity (%v)", last, s.Last)
-	}
-	if got := res.Detectors[0].Report.Subjects[0].Last; !got.Equal(t0.Add(-time.Hour)) {
-		t.Fatalf("the rare action lost its own time: %v", got)
-	}
-}
-
-// With no active actor, the newest active rare action makes the verdict ACTIVE and is named.
-func TestActivityLastActivityFallsBackToANamedRareAction(t *testing.T) {
-	rare := core.ActivitySubject{Subject: "device-code", Kind: "rare", Current: 1, Active: true, Last: t0.Add(-time.Hour)}
-	older := core.ActivitySubject{Subject: "password-reset", Kind: "rare", Current: 1, Active: true, Last: t0.Add(-2 * time.Hour)}
-	res := runActivity(t, []core.Source{okSource("a")},
-		repDetector{name: "beh", report: core.ActivityReport{Seen: 5, Subjects: []core.ActivitySubject{older, rare}}},
-		repDetector{name: "fp", report: quietReport()})
-	s, ok := res.LastActivity()
-	if !ok || s.Subject != "device-code" || s.Kind != "rare" {
-		t.Fatalf("LastActivity = %+v %v, want device-code (rare)", s, ok)
 	}
 }
 

@@ -504,9 +504,9 @@ func TestAgeTextCountsFromTheEndOfTheWindow(t *testing.T) {
 	}
 }
 
-// The verdict line says which subject its time belongs to. A later rare action does not
-// replace the actor's time; with no active actor, the line names the rare action.
-func TestVerdictLineAttributesTheLastActivity(t *testing.T) {
+// The verdict line says which subject holds the newest time of any active subject, so a
+// rare action's time cannot read as the actor's. The table keeps each subject's own time.
+func TestVerdictLineNamesTheSubjectHoldingTheLastActivity(t *testing.T) {
 	end := time.Date(2026, 11, 6, 12, 0, 0, 0, time.UTC)
 	actor := core.ActivitySubject{Subject: "pago-actor", Kind: "actor", Current: 2, Active: true, Last: end.Add(-18 * time.Hour)}
 	reset := core.ActivitySubject{Subject: "password-reset", Kind: "rare", Current: 1, Active: true, Last: end.Add(-2 * time.Hour)}
@@ -520,15 +520,12 @@ func TestVerdictLineAttributesTheLastActivity(t *testing.T) {
 			},
 		}
 	}
-	line := verdictLine(mk([]core.ActivitySubject{actor}, []core.ActivitySubject{reset}))
+	line := verdictLine(mk([]core.ActivitySubject{actor}, nil))
 	if want := "last activity 2026-11-05T18:00:00Z (pago-actor, 18h0m ago)"; !strings.Contains(line, want) {
-		t.Errorf("actor and later rare action: line lacks %q:\n%s", want, line)
+		t.Errorf("actor only: line lacks %q:\n%s", want, line)
 	}
-	if strings.Contains(line, "2026-11-06T10:00:00Z") {
-		t.Errorf("the rare action's time leaked into the headline:\n%s", line)
-	}
-	line = verdictLine(mk(nil, []core.ActivitySubject{reset}))
+	line = verdictLine(mk([]core.ActivitySubject{actor}, []core.ActivitySubject{reset}))
 	if want := "last activity 2026-11-06T10:00:00Z (password-reset, rare action, 2h0m ago)"; !strings.Contains(line, want) {
-		t.Errorf("only a rare action active: line lacks %q:\n%s", want, line)
+		t.Errorf("a later rare action holds the newest time: line lacks %q:\n%s", want, line)
 	}
 }

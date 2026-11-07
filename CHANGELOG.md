@@ -10,7 +10,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - `jb estate facts import` reads standard input when the file is `-`, and accepts JSON lines (a header object, then one entry object per line) as well as the single document, so a tool's output can be piped in. The library takes `EstateFactsImportOptions.Input`. The 1 MiB and 5000 fact caps apply to the stream, and an entry error names the entry by number.
 
 ### Fixed
-- `jb activity` no longer reports another party's behaviour as the actor's last sighting. The `last activity` time of an `ACTIVE` line was the newest of every active subject, so a customer's password reset caught by a rare action could read as "the actor was last seen then". It is now the newest active actor, and the line names its subject (`last activity 2026-11-05T18:26:23Z (pago-actor, 18h0m ago)`); with no active actor it names the rare or common action that made the verdict ACTIVE. `ActivityResult.Last` follows the same rule and `ActivityResult.LastActivity` returns the subject. The JSON is unchanged.
+- The `last activity` time of a `jb activity` ACTIVE line now names the subject that holds it, for example `(pago-actor, 18h0m ago)` or `(password-reset, rare action, 2h0m ago)`. The time is still the newest of any active subject, so a rare action's time (another party's password reset) read as "the actor was last seen then"; the table shows each subject's own time. `ActivityResult.Last` and the JSON are unchanged.
 
 ## [0.6.0] - 2026-11-06
 
