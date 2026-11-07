@@ -85,6 +85,9 @@ func main() {
 			return
 		}
 		reqs++
+		if mode == "logrequest" {
+			appendLine("requests", strings.TrimRight(string(line), "\n"))
+		}
 		var req struct {
 			ID     int64             `json:"id"`
 			Config map[string]any    `json:"config"`

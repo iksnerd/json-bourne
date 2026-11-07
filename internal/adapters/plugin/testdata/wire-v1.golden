@@ -1,0 +1,27 @@
+const ProtocolVersion = 1
+const RoleMapper = "mapper"
+limit DefaultMaxDocs = 200
+limit DefaultDeadline = 10s
+limit DefaultMaxResponseBytes = 4194304
+limit DefaultMaxRequestBytes = 8388608
+limit DefaultStderrBytes = 4096
+limit DefaultMaxBreaks = 3
+limit maxConfigBytes = 65536
+limit maxManifestBytes = 16384
+limit shutdownGrace = 2s
+struct Manifest
+  V int json:"v"
+  Role string json:"role"
+  Name string json:"name"
+  Version string json:"version,omitempty"
+  ConfigSchema json.RawMessage json:"config_schema,omitempty"
+struct response
+  ID *int64 json:"id"
+  Events []json.RawMessage json:"events"
+  Unparsable []int json:"unparsable"
+  Error string json:"error"
+struct rawEvent
+  TS string json:"ts"
+  Fields json.RawMessage json:"fields"
+request {"v":1,"id":1,"config":{"k":"v","n":2},"docs":[{"a":"z","x":0},{"bad":true}]}
+request {"v":1,"id":2,"config":{"k":"v","n":2},"docs":[{"x":1}]}
