@@ -4,6 +4,17 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- Watch: a remembered outage is no longer reported as recovered when its component is missing from the hunt result (for example removed from the config). It recovers only when the component finishes OK.
+- Watch: if the `watch-gap` alert is not delivered, the coverage edge no longer advances, so the unexamined time is reported on the next completed cycle.
+- Plugin host: `Close` no longer waits for a request in flight; it ends the child and the request fails ("host closed during the request", not counted as a breaker fault). `Breaks()` and `Manifest()` no longer block behind a request. The open-breaker error now says it stays open for the rest of the run.
+- SDK: a panic in `Plugin.New` is a response error instead of a crash of the plugin process.
+- MCP: a `tools/call` whose id is still in flight is refused with -32600 instead of orphaning the first call's cancellation. `jb mcp` ends and returns the error when its output cannot be written, instead of continuing.
+- `jb estate promote`: if the old baseline was archived but could not be replaced, the error names the archive and says the baseline is unchanged. Promoting again reuses an identical archive instead of failing or writing a duplicate.
+
+### Changed
+- Tests: sequence tests for repeated hunts on the real store, watch cycles and restarts, the plugin host, the MCP session and estate promotion. Internal: the MCP call table is a small type with documented ownership.
+
 ## [0.10.3] - 2026-11-07
 
 ### Fixed
