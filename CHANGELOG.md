@@ -5,6 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Fixed
+- The `newkey` history probe grouped sources by their literal index expression, so two sources on one cluster with overlapping patterns (`logs-*`, `logs-web-*`) counted the same documents twice and a new key could read as known. It now probes each cluster once over the union of its sources' index expressions and sums across clusters.
 - A detector scoped to one source (`sources:`) could read none of the documents an overlapping source on the same cluster had returned first, and the hunt still reported complete. A shared document is still stored once, and every detector whose scope includes any source that returned it now reads it, once.
 
 ## [0.7.0] - 2026-11-07
