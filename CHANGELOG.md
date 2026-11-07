@@ -15,6 +15,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ### Changed
 - Behaviour change: the recovery cycle after an outage longer than the window can now be `INCOMPLETE` with a `gap` and a `watch-gap` alert. An incomplete cycle never carries a gap. The gap text no longer reports time since the last cycle.
+- The `last activity` time of a `jb activity` ACTIVE line now names the subject that holds it, for example `(pago-actor, 18h0m ago)` or `(password-reset, rare action, 2h0m ago)`. The time is still the newest of any active subject, so a rare action's time (another party's password reset) read as "the actor was last seen then"; the table shows each subject's own time. `ActivityResult.Last` and the JSON are unchanged.
 
 ## [0.6.0] - 2026-11-06
 

@@ -12,5 +12,5 @@ detector fingerprint: ok
 SUBJECT  KIND   WINDOW  PRECEDING  LAST GENUINE          NOTE
 actor-a  actor  2       1          2026-10-01T11:30:00Z  
 
-ACTIVE: window 2026-10-01T11:00:00Z to 2026-10-01T12:00:00Z (1h0m0s) [historical, --until 2026-10-01T12:00:00Z]; sources read: kibana:logs-http-* (3 events fetched), events fetched cover the window and the one before it; detectors: fingerprint; judged: fingerprint read 2 events in the window, actor/rare-action events: 2 (window), 1 (preceding); last activity 2026-10-01T11:30:00Z (30m ago).
+ACTIVE: window 2026-10-01T11:00:00Z to 2026-10-01T12:00:00Z (1h0m0s) [historical, --until 2026-10-01T12:00:00Z]; sources read: kibana:logs-http-* (3 events fetched), events fetched cover the window and the one before it; detectors: fingerprint; judged: fingerprint read 2 events in the window, actor/rare-action events: 2 (window), 1 (preceding); last activity 2026-10-01T11:30:00Z (actor-a, 30m ago).
 --- stderr

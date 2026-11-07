@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/iksnerd/json-bourne/internal/app"
+	"github.com/iksnerd/json-bourne/internal/core"
 )
 
 const (
@@ -86,7 +89,7 @@ func TestActivityActiveWhenTheActorIsSeen(t *testing.T) {
 		"ACTIVE: window 2026-11-05T11:00:00Z to 2026-11-05T12:00:00Z (1h0m0s)",
 		"sources read: kibana:logs-http-* (5 events fetched)",
 		"judged: fingerprint read 4 events in the window, actor/rare-action events: 2 (window), 1 (preceding)",
-		"last activity 2026-11-05T11:09:00Z (51m ago)",
+		"last activity 2026-11-05T11:09:00Z (" + s.Subject + ", 51m ago)",
 	} {
 		if !strings.Contains(last, want) {
 			t.Errorf("verdict line lacks %q:\n%s", want, last)
@@ -498,5 +501,31 @@ func TestAgeTextCountsFromTheEndOfTheWindow(t *testing.T) {
 		if got := ageText(end.Add(-c.ago), end); got != c.want {
 			t.Errorf("ageText(%v before end) = %q, want %q", c.ago, got, c.want)
 		}
+	}
+}
+
+// The verdict line says which subject holds the newest time of any active subject, so a
+// rare action's time cannot read as the actor's. The table keeps each subject's own time.
+func TestVerdictLineNamesTheSubjectHoldingTheLastActivity(t *testing.T) {
+	end := time.Date(2026, 11, 6, 12, 0, 0, 0, time.UTC)
+	actor := core.ActivitySubject{Subject: "pago-actor", Kind: "actor", Current: 2, Active: true, Last: end.Add(-18 * time.Hour)}
+	reset := core.ActivitySubject{Subject: "password-reset", Kind: "rare", Current: 1, Active: true, Last: end.Add(-2 * time.Hour)}
+	mk := func(fp, beh []core.ActivitySubject) app.ActivityResult {
+		return app.ActivityResult{
+			Window:  core.Window{From: end.Add(-24 * time.Hour), To: end},
+			Verdict: app.VerdictActive,
+			Detectors: []app.ActivityDetector{
+				{Name: "fingerprint", Status: app.StatusOK, Report: core.ActivityReport{Subjects: fp}},
+				{Name: "behaviour", Status: app.StatusOK, Report: core.ActivityReport{Subjects: beh}},
+			},
+		}
+	}
+	line := verdictLine(mk([]core.ActivitySubject{actor}, nil))
+	if want := "last activity 2026-11-05T18:00:00Z (pago-actor, 18h0m ago)"; !strings.Contains(line, want) {
+		t.Errorf("actor only: line lacks %q:\n%s", want, line)
+	}
+	line = verdictLine(mk([]core.ActivitySubject{actor}, []core.ActivitySubject{reset}))
+	if want := "last activity 2026-11-06T10:00:00Z (password-reset, rare action, 2h0m ago)"; !strings.Contains(line, want) {
+		t.Errorf("a later rare action holds the newest time: line lacks %q:\n%s", want, line)
 	}
 }

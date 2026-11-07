@@ -145,6 +145,34 @@ func ageText(last, end time.Time) string {
 	return fmt.Sprintf("%dh%dm ago", int(d/time.Hour), int(d%time.Hour/time.Minute))
 }
 
+// lastHolder is the active subject that holds the time r.Last reports, so the headline
+// says whose time it is. On equal times the first subject in report order wins.
+func lastHolder(r app.ActivityResult) (core.ActivitySubject, bool) {
+	last, ok := r.Last()
+	if !ok {
+		return core.ActivitySubject{}, false
+	}
+	for _, d := range r.Detectors {
+		for _, s := range d.Report.Subjects {
+			if s.Active && s.Last.Equal(last) {
+				return s, true
+			}
+		}
+	}
+	return core.ActivitySubject{}, false
+}
+
+// lastWho names the subject the headline time belongs to, with its kind unless it is an actor.
+func lastWho(s core.ActivitySubject) string {
+	switch s.Kind {
+	case "actor":
+		return s.Subject + ", "
+	case "common":
+		return s.Subject + ", common action, "
+	}
+	return s.Subject + ", " + s.Kind + " action, "
+}
+
 func subjectNote(s core.ActivitySubject) string {
 	var parts []string
 	if s.Noise > 0 {
@@ -275,8 +303,8 @@ func verdictLine(r app.ActivityResult) string {
 		if len(r.Flagged) > 0 {
 			tail = "; common action(s) flagged by a moved failure share: " + strings.Join(r.Flagged, ", ")
 		}
-		if last, ok := r.Last(); ok {
-			return head + " last activity " + stamp(last) + " (" + ageText(last, r.Window.To) + ")" + tail + "."
+		if s, ok := lastHolder(r); ok {
+			return head + " last activity " + stamp(s.Last) + " (" + lastWho(s) + ageText(s.Last, r.Window.To) + ")" + tail + "."
 		}
 		return head + strings.TrimPrefix(tail, ";") + "."
 	case app.VerdictQuiet:
