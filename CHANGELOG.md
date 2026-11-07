@@ -6,6 +6,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ### Fixed
 - A Kibana search reply with `timed_out: true` or a failed shard (`_shards.failed` > 0) was read as complete, so low counts could hide activity. Fetch pages, the liveness probe, `CountKeys` and `CountAll` now fail with a partial-response error that marks the run incomplete and echoes no body.
+- An estate, snapshot, case or actor file with a self-referencing alias crashed `jb` with an unrecoverable stack overflow, and an alias expansion bomb hung it, in the credential scan before strict validation. The scan now refuses a cyclic alias, nesting deeper than 64 levels and more than 100000 expanded nodes with a load error.
 
 ## [0.7.0] - 2026-11-07
 
