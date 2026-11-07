@@ -965,7 +965,7 @@ What `jb watch` prints and how several watchers share a case.
 | `repeated` | int | Outage alerts held back by `--repeat`. |
 | `recovered` | int | Recovery alerts delivered. |
 | `optional_failed` | int | Alerts the log took and a webhook did not. |
-| `gap` | string | Present when time went unexamined before this cycle. |
+| `gap` | string | Present on a cycle that completed when its window starts after the end of the last window that completed: the text gives the length and bounds of the span no completed cycle covered. Never set on an incomplete cycle (the outage alert covers that), so it appears once, on the cycle that recovers. The cycle that carries it is `incomplete`. Kept in memory: a restart forgets it. |
 | `error` | string | Present when something broke the cycle itself. |
 | `alerts` | list of alert | Everything delivered this cycle, health alerts first. Each has `kind`, `tag`, `severity`, `text`, `at`, and `detector`, `run`, `watcher` when set. |
 | `pruned` | object or null | `runs`, `events`, `findings` removed by retention; null when it did not run or failed. |

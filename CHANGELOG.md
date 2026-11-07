@@ -9,6 +9,12 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - An estate file takes an optional top-level `subject`, `operated` or `adversary` (absent is unclassified). Snapshots copy it and `promote` keeps it, `jb estate diff` refuses two files of different subjects with a usage error, and the Estate page groups maps under "Operated", "Adversary and third-party" and "Unclassified" without merging nodes, edges or corroboration across files (RFC 0015).
 - `jb estate facts import` reads standard input when the file is `-`, and accepts JSON lines (a header object, then one entry object per line) as well as the single document, so a tool's output can be piped in. The library takes `EstateFactsImportOptions.Input`. The 1 MiB and 5000 fact caps apply to the stream, and an entry error names the entry by number.
 
+### Fixed
+- `jb watch` reported `gap=false` through an outage. An incomplete cycle advanced the edge of what counted as examined, so a source down for longer than the window left the span between the last completed window and the first completed window after the outage unexamined, with no gap reported. The edge now moves only on a cycle where nothing failed. A gap is raised once, on the first cycle that completes after the outage, and says how much time was never examined and between which times. An outage shorter than the window still gives no gap. The gap state is in memory, so a restart during an outage forgets it.
+
+### Changed
+- Behaviour change: the recovery cycle after an outage longer than the window can now be `INCOMPLETE` with a `gap` and a `watch-gap` alert. An incomplete cycle never carries a gap. The gap text no longer reports time since the last cycle.
+
 ## [0.6.0] - 2026-11-06
 
 ### Added

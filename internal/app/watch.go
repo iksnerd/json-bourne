@@ -134,7 +134,7 @@ type CycleReport struct {
 	New        int          // delivered finding alerts
 	Suppressed int          // findings held back by the TTL
 	Failed     []string     // components that did not finish
-	Gap        string       // non-empty when time went unexamined before this cycle
+	Gap        string       // non-empty when time went unexamined before this cycle; set only on a cycle that completed
 	Err        error        // the first thing that broke the cycle itself
 
 	OptionalFailed int // alerts the required sink took and an optional sink (a webhook) did not; the cycle is FAILED
@@ -142,6 +142,8 @@ type CycleReport struct {
 	Repeated  int               // outage alerts held back because the same failure was alerted within Repeat
 	Recovered int               // recovery alerts delivered
 	Pruned    *core.PruneResult // set when retention ran and succeeded
+
+	complete bool // the hunt ran to the end and no component failed: the whole window was examined
 
 	repeatEvery, keepFor time.Duration // for the cycle line
 	name                 string        // the watcher's name, for the cycle line
@@ -211,10 +213,15 @@ func (d WatchDeps) check() error {
 // The returned error is non-nil only for a cycle that could not run at all (bad
 // dependencies or options, or ctx ending). Everything else is in the report.
 func WatchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run string) (CycleReport, error) {
-	return watchCycle(ctx, d, o, run, "")
+	return watchCycle(ctx, d, o, run, time.Time{})
 }
 
-func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run, gap string) (CycleReport, error) {
+// watchCycle runs one cycle. lastComplete is the end of the most recent window whose
+// cycle completed, or the zero time when this process has none: a cycle that completes
+// but whose window starts after it has left the time between unexamined, and says so.
+// A cycle that does not complete reports no gap: the outage alert says a source is down,
+// and the gap is reported once, on the cycle that recovers.
+func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run string, lastComplete time.Time) (CycleReport, error) {
 	if err := d.check(); err != nil {
 		return CycleReport{}, err
 	}
@@ -229,7 +236,7 @@ func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run, gap strin
 	}
 	now := d.Now().UTC().Truncate(time.Second)
 	at := now.Format(time.RFC3339)
-	rep := CycleReport{Run: run, Window: core.Window{From: now.Add(-o.Window), To: now}, Gap: gap,
+	rep := CycleReport{Run: run, Window: core.Window{From: now.Add(-o.Window), To: now},
 		repeatEvery: o.repeat(), keepFor: o.keep(), name: d.Name, disabled: d.Disabled}
 	ttl := o.ttl()
 
@@ -254,10 +261,6 @@ func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run, gap strin
 			rep.Err = err
 		}
 	}
-	if gap != "" {
-		addHealth(core.AlertIncomplete, TagGap, "", gap)
-	}
-
 	state, err := d.State.Load(ctx)
 	if err != nil {
 		// Start with no memory rather than not watching: repeats are noise, a stopped
@@ -283,6 +286,12 @@ func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run, gap strin
 		addOutage(core.AlertError, TagCycleError, "hunt", fmt.Sprintf("hunt %s did not run to the end: %v", run, huntErr), fingerprint(huntErr.Error(), run))
 	}
 	rep.Failed = res.Failed()
+	rep.complete = huntErr == nil && len(rep.Failed) == 0
+	if rep.complete && !lastComplete.IsZero() && rep.Window.From.After(lastComplete) {
+		rep.Gap = fmt.Sprintf("%s of events between %s and %s were never examined: no cycle that completed covered them",
+			rep.Window.From.Sub(lastComplete).Round(time.Second), lastComplete.UTC().Format(time.RFC3339), rep.Window.From.UTC().Format(time.RFC3339))
+		health = append([]healthAlert{{a: core.Alert{Kind: core.AlertIncomplete, Tag: TagGap, Severity: "high", Text: rep.Gap, Run: run, At: at}}}, health...)
+	}
 	failing := map[string]bool{} // outage keys that are down this cycle
 	if huntErr != nil {
 		failing[TagCycleError+"|hunt"] = true
@@ -399,7 +408,7 @@ func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run, gap strin
 	switch {
 	case rep.Err != nil:
 		rep.Status = CycleFailed
-	case len(rep.Failed) > 0 || gap != "":
+	case len(rep.Failed) > 0 || rep.Gap != "":
 		rep.Status = CycleIncomplete
 	case rep.New > 0:
 		rep.Status = CycleFindings
@@ -509,23 +518,25 @@ func Watch(ctx context.Context, d WatchDeps, o WatchOptions, runPrefix string) (
 		wait = realWait
 	}
 	var last CycleReport
-	var prevTo time.Time
+	// End of the latest window whose cycle completed. Held in memory only: a restart during
+	// an outage forgets it, so the first cycle after the restart reports no gap even if
+	// time went unexamined before the restart. Not persisted in this change.
+	var lastCompleteTo time.Time
 	d.publish(ctx, o, nil, d.Now().UTC(), d.Now().UTC())
 	for {
 		start := d.Now().UTC().Truncate(time.Second)
 		run := runPrefix + "-" + start.Format("20060102T150405Z")
-		gap := ""
-		if !prevTo.IsZero() && start.Sub(prevTo) > o.Window {
-			gap = fmt.Sprintf("%s passed since the last cycle, longer than the %s window: events in between were never examined", start.Sub(prevTo).Round(time.Second), o.Window)
-		}
-		rep, err := watchCycle(ctx, d, o, run, gap)
+		rep, err := watchCycle(ctx, d, o, run, lastCompleteTo)
 		if err != nil {
 			if ctx.Err() != nil {
 				return last, nil
 			}
 			return rep, err // misconfiguration: retrying cannot help
 		}
-		last, prevTo = rep, rep.Window.To
+		last = rep
+		if rep.complete {
+			lastCompleteTo = rep.Window.To // an incomplete cycle examined nothing it can vouch for
+		}
 		ended, next := d.Now().UTC(), time.Time{}
 		if !o.Once {
 			next = start.Add(o.Every)
