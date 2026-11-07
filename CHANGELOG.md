@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-07
+
 ### Breaking
 - Go API (RFC 0017, step 6): `jb.Config` is opaque and `jb.EstatePorts` is removed. `Config` had been an alias of an internal type, so its fields and its `Build*` methods (which return internal types) were public by accident. It now has no exported field or method; `LoadConfig` and every function that takes a `*Config` keep their signatures. Migration: build a `Config` with `LoadConfig` and pass it on; a program that read a field or called a method of `Config` must read the YAML file itself. `EstateOptions.Ports` and `EstatePorts` are gone: they could only be set by code inside this module, so the zero value, which builds the real adapters, is the only value an outside program could use. The `estate.external` switch is enforced as before. `--output json` and the CLI do not change.
 
