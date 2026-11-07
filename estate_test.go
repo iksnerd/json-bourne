@@ -348,3 +348,39 @@ func TestEstateRefreshRefusesMoreTargetsThanTheCapAndAsksNothing(t *testing.T) {
 		t.Errorf("a missing baseline is an error, not an empty one: %v", err)
 	}
 }
+
+// A baseline edited between refresh and promote is refused as a usage error, and the
+// edit survives. The digest the refresh stored comes from the bytes it read.
+func TestEstatePromoteRefusesABaselineEditedAfterRefresh(t *testing.T) {
+	w := newEstateWorld()
+	dir := copyCase(t)
+	enableEstate(t, dir, "dns")
+	base := w.opts("base.yaml")
+	if _, err := EstateDNS(w.ctx(t), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: base}); err != nil {
+		t.Fatal(err)
+	}
+	w.tick()
+	snap, err := EstateRefresh(w.ctx(t), dir, EstateRefreshOptions{EstateOptions: base})
+	if err != nil || !snap.Complete() {
+		t.Fatalf("%+v %v", snap, err)
+	}
+	file := filepath.Join(dir, "estate", "base.yaml")
+	data, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edited := append(data, []byte("# hand edit\n")...)
+	if err := os.WriteFile(file, edited, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	_, err = EstatePromote(dir, snap.Snapshot, base)
+	if !IsUsage(err) || !strings.Contains(err.Error(), "baseline changed since the snapshot; refresh again") {
+		t.Fatalf("want a usage error naming the change, got %v", err)
+	}
+	if got, _ := os.ReadFile(file); string(got) != string(edited) {
+		t.Error("the edited baseline was overwritten")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "estate", "archive")); err == nil {
+		t.Error("a refused promotion archived the baseline")
+	}
+}

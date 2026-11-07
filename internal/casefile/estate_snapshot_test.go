@@ -197,3 +197,34 @@ func TestArchiveEstateFileKeepsTheBaselineAndNeverOverwrites(t *testing.T) {
 		t.Errorf("the archive must not load as a second map: %v %v", es, err)
 	}
 }
+
+func TestSnapshotDigestFieldIsValidatedAndOptional(t *testing.T) {
+	s := validSnapshot(t)
+	if _, err := MarshalEstateSnapshot(s); err != nil {
+		t.Fatalf("a snapshot without the digest still loads (it only cannot be promoted): %v", err)
+	}
+	s.BasedOnSHA256 = DigestHex([]byte("baseline"))
+	data, err := MarshalEstateSnapshot(s)
+	if err != nil {
+		t.Fatalf("a 64-hex digest must not trip the credential scan: %v", err)
+	}
+	got, err := ParseEstateSnapshot(data)
+	if err != nil || got.BasedOnSHA256 != s.BasedOnSHA256 {
+		t.Fatalf("round trip: %v %+v", err, got)
+	}
+	for _, bad := range []string{"none", strings.ToUpper(s.BasedOnSHA256), s.BasedOnSHA256[:63], s.BasedOnSHA256 + "0"} {
+		s.BasedOnSHA256 = bad
+		if _, err := MarshalEstateSnapshot(s); err == nil {
+			t.Errorf("digest %q must be refused", bad)
+		}
+	}
+}
+
+// The exemption is for the one key. The same 64 hex digits elsewhere is still refused.
+func TestDigestExemptionDoesNotCoverOtherFields(t *testing.T) {
+	s := validSnapshot(t)
+	s.Note = DigestHex([]byte("x"))
+	if _, err := MarshalEstateSnapshot(s); err == nil {
+		t.Error("a long hex note must still be refused as credential-shaped")
+	}
+}

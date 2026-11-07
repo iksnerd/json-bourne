@@ -395,7 +395,7 @@ func mustTime(s string) time.Time {
 
 func TestRefreshSkipsDisabledServicesAndListsThem(t *testing.T) {
 	f, b := &fakeFwd{ns: map[string][]string{"example.com": {"ns1.example.com"}}}, &fakeBGP{}
-	snap, err := RefreshEstate(context.Background(), refreshDeps(f, b, "dns"), RefreshRequest{Base: refreshBase(), BasedOn: "estate/estate.yaml", MaxTargets: 10})
+	snap, err := RefreshEstate(context.Background(), refreshDeps(f, b, "dns"), RefreshRequest{BasedOnSHA256: testDigest, Base: refreshBase(), BasedOn: "estate/estate.yaml", MaxTargets: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -427,7 +427,7 @@ func TestRefreshSkipsDisabledServicesAndListsThem(t *testing.T) {
 
 func TestRefreshFailedLookupMakesTheSnapshotIncomplete(t *testing.T) {
 	f, b := &fakeFwd{ns: map[string][]string{"example.com": {"ns1.example.com"}}, failMX: true}, &fakeBGP{}
-	snap, err := RefreshEstate(context.Background(), refreshDeps(f, b, "dns", "bgp"), RefreshRequest{Base: refreshBase(), MaxTargets: 10})
+	snap, err := RefreshEstate(context.Background(), refreshDeps(f, b, "dns", "bgp"), RefreshRequest{BasedOnSHA256: testDigest, Base: refreshBase(), MaxTargets: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -446,11 +446,11 @@ func TestRefreshFailedLookupMakesTheSnapshotIncomplete(t *testing.T) {
 
 func TestRefreshRefusesTooManyTargetsAndNoTargets(t *testing.T) {
 	f, b := &fakeFwd{}, &fakeBGP{}
-	_, err := RefreshEstate(context.Background(), refreshDeps(f, b, "dns", "bgp"), RefreshRequest{Base: refreshBase(), MaxTargets: 1})
+	_, err := RefreshEstate(context.Background(), refreshDeps(f, b, "dns", "bgp"), RefreshRequest{BasedOnSHA256: testDigest, Base: refreshBase(), MaxTargets: 1})
 	if !errors.Is(err, ErrTooManyTargets) || len(f.asked)+len(b.asked) != 0 {
 		t.Errorf("a longer list is refused before anything is asked: %v asked %v %v", err, f.asked, b.asked)
 	}
-	_, err = RefreshEstate(context.Background(), refreshDeps(f, b), RefreshRequest{Base: newEst([]casefile.Node{dn("host:x.example.com", "host", "dns", "m", t1)}, nil, nil), MaxTargets: 5})
+	_, err = RefreshEstate(context.Background(), refreshDeps(f, b), RefreshRequest{BasedOnSHA256: testDigest, Base: newEst([]casefile.Node{dn("host:x.example.com", "host", "dns", "m", t1)}, nil, nil), MaxTargets: 5})
 	if !errors.Is(err, ErrNoTargets) {
 		t.Errorf("an estate with nothing to ask again: %v", err)
 	}

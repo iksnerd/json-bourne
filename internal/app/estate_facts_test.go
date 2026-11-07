@@ -133,7 +133,7 @@ func TestRefreshCarriesBaselineFactsAndResolvableAssessments(t *testing.T) {
 		{ID: "a1", Subject: "domain:example.com", Label: "watch", By: "analyst", Decided: t1, Basis: []string{"domain:example.com#tech"}},
 	}
 	f, b := &fakeFwd{ns: map[string][]string{"example.com": {"ns2.example.com"}}}, &fakeBGP{} // ns1 is gone from the answer
-	snap, err := RefreshEstate(context.Background(), refreshDeps(f, b, "dns"), RefreshRequest{Base: base, MaxTargets: 10})
+	snap, err := RefreshEstate(context.Background(), refreshDeps(f, b, "dns"), RefreshRequest{BasedOnSHA256: testDigest, Base: base, MaxTargets: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestRefreshCarriesBaselineFactsAndResolvableAssessments(t *testing.T) {
 	}
 	// An assessment whose subject is gone from the snapshot is dropped (the archive keeps it).
 	base.Assessments = append(base.Assessments, casefile.Assessment{ID: "a2", Subject: "host:ns1.example.com", Label: "watch", By: "analyst", Decided: t1, Basis: []string{"host:ns1.example.com#os"}})
-	snap, err = RefreshEstate(context.Background(), refreshDeps(f, b, "dns"), RefreshRequest{Base: base, MaxTargets: 10})
+	snap, err = RefreshEstate(context.Background(), refreshDeps(f, b, "dns"), RefreshRequest{BasedOnSHA256: testDigest, Base: base, MaxTargets: 10})
 	if err != nil {
 		t.Fatal(err)
 	}

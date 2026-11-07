@@ -1,6 +1,8 @@
 package app
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -57,7 +59,7 @@ func newPromoteWorld(t *testing.T, services []casefile.SnapshotService, complete
 	s := &casefile.EstateSnapshot{
 		APIVersion: casefile.EstateSnapshotAPIVersion, ID: casefile.SnapshotID(taken), Taken: taken.Format(time.RFC3339),
 		Complete: complete, Targets: casefile.SnapshotTargets{Addresses: []string{"192.0.2.10"}},
-		Services: services, Estate: *body,
+		Services: services, Estate: *body, BasedOnSHA256: sha256Hex(promoteBaselineYAML),
 	}
 	if !complete {
 		s.Failures = []casefile.SnapshotFailure{{Target: "192.0.2.10", Lookup: "rdap", Reason: "timeout"}}
@@ -268,3 +270,93 @@ func TestPromoteArchiveDirReadOnly(t *testing.T) {
 	}
 	noTemp(t, w.estate, dir)
 }
+
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
+
+// rewriteSnapshot replaces the world's snapshot with edit applied, so a test can vary the digest.
+func (w *promoteWorld) rewriteSnapshot(t *testing.T, edit func(*casefile.EstateSnapshot)) {
+	t.Helper()
+	s, err := casefile.LoadEstateSnapshot(w.c, w.snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(w.estate, casefile.EstateSnapshotDir, w.snap+".yaml")); err != nil {
+		t.Fatal(err)
+	}
+	edit(s)
+	if _, err := casefile.WriteEstateSnapshot(w.c, s); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (w *promoteWorld) assertUntouched(t *testing.T, want string) {
+	t.Helper()
+	if got := w.read(t, w.baseline); got != want {
+		t.Errorf("baseline changed:\n%s", got)
+	}
+	if a := w.archives(t); len(a) != 0 {
+		t.Errorf("an archive was written: %v", a)
+	}
+	noTemp(t, w.estate)
+}
+
+// The compare-and-swap: a baseline edited after the refresh is refused, and nothing is
+// archived or replaced.
+func TestPromoteRefusesAChangedBaseline(t *testing.T) {
+	w := newPromoteWorld(t, okServices(), true)
+	edited := promoteBaselineYAML + "# edited by hand after the refresh\n"
+	if err := os.WriteFile(w.baseline, []byte(edited), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	_, err := PromoteSnapshot(w.c, w.snap, "estate.yaml", time.Now())
+	if !errors.Is(err, ErrBaselineChanged) {
+		t.Fatalf("want ErrBaselineChanged, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "baseline changed since the snapshot; refresh again") {
+		t.Errorf("message: %v", err)
+	}
+	w.assertUntouched(t, edited)
+}
+
+// A refresh needs a baseline file, so a missing one at promote time is a change.
+func TestPromoteRefusesAMissingBaseline(t *testing.T) {
+	w := newPromoteWorld(t, okServices(), true)
+	if err := os.Remove(w.baseline); err != nil {
+		t.Fatal(err)
+	}
+	_, err := PromoteSnapshot(w.c, w.snap, "estate.yaml", time.Now())
+	if !errors.Is(err, ErrBaselineChanged) {
+		t.Fatalf("want ErrBaselineChanged, got %v", err)
+	}
+	if _, serr := os.Stat(w.baseline); !os.IsNotExist(serr) || len(w.archives(t)) != 0 {
+		t.Error("a refused promotion touched files")
+	}
+}
+
+func TestPromoteUneditedBaselinePromotes(t *testing.T) {
+	w := newPromoteWorld(t, okServices(), true)
+	archived, err := PromoteSnapshot(w.c, w.snap, "estate.yaml", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if archived == "" || w.read(t, w.baseline) == promoteBaselineYAML {
+		t.Error("baseline was not replaced")
+	}
+}
+
+// A snapshot from before the field existed cannot prove its baseline, so it is refused.
+func TestPromoteRefusesASnapshotWithoutADigest(t *testing.T) {
+	w := newPromoteWorld(t, okServices(), true)
+	w.rewriteSnapshot(t, func(s *casefile.EstateSnapshot) { s.BasedOnSHA256 = "" })
+	_, err := PromoteSnapshot(w.c, w.snap, "estate.yaml", time.Now())
+	if !errors.Is(err, ErrNotPromotable) || !strings.Contains(err.Error(), "snapshot has no baseline digest; refresh again") {
+		t.Fatalf("want ErrNotPromotable with the refresh hint, got %v", err)
+	}
+	w.assertUntouched(t, promoteBaselineYAML)
+}
+
+// testDigest stands in for a baseline digest where a test does not promote.
+var testDigest = strings.Repeat("a", 64)

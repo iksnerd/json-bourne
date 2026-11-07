@@ -45,7 +45,7 @@ func TestDiffAcceptsSameSubjectAndBothUnclassified(t *testing.T) {
 func TestRefreshSnapshotCopiesTheBaselineSubject(t *testing.T) {
 	for _, s := range []string{"", "operated", "adversary"} {
 		f, b := &fakeFwd{ns: map[string][]string{"example.com": {"ns1.example.com"}}}, &fakeBGP{}
-		snap, err := RefreshEstate(context.Background(), refreshDeps(f, b, "dns"), RefreshRequest{Base: withSubj(refreshBase(), s), MaxTargets: 10})
+		snap, err := RefreshEstate(context.Background(), refreshDeps(f, b, "dns"), RefreshRequest{BasedOnSHA256: testDigest, Base: withSubj(refreshBase(), s), MaxTargets: 10})
 		if err != nil {
 			t.Fatal(err)
 		}
