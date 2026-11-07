@@ -144,6 +144,30 @@ func TestPluginHostIsOnePerSourceAndClosedWithTheRuntime(t *testing.T) {
 	}
 }
 
+// A build that fails after a plugin source was built returns no runtime and an error;
+// the host built first is closed inside Build (a host launches its child lazily, so no
+// process exists yet either way).
+func TestPartialBuildFailureReturnsNoRuntime(t *testing.T) {
+	withAllowlist(t, map[string]string{"example.regexlines": regexlinesBinary(t)})
+	y := strings.Replace(valid, "    index: logs-auth-*\n", "    index: logs-auth-*\n"+nginxPluginMapper, 1)
+	y = strings.Replace(y, "detectors:", `  - type: kibana
+    url: https://kibana.example.com
+    api_key_env: JB_MISSING_KEY
+    index: logs-other-*
+detectors:`, 1)
+	f, err := Parse([]byte(y))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt, err := f.Build(envOf(map[string]string{"JB_KIBANA_API_KEY": secret}))
+	if err == nil || rt != nil {
+		t.Fatalf("rt=%v err=%v: a partly built runtime must not be handed out", rt, err)
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Errorf("error leaks a credential: %v", err)
+	}
+}
+
 func TestPluginLeavesLineNamesThePlugin(t *testing.T) {
 	withAllowlist(t, map[string]string{"example.regexlines": regexlinesBinary(t)})
 	y := strings.Replace(valid, "    index: logs-auth-*\n", "    index: logs-auth-*\n"+nginxPluginMapper, 1)
