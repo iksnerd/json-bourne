@@ -119,6 +119,9 @@ func ParseAllowlist(data []byte) (*Allowlist, error) {
 }
 
 func (a *Allowlist) parse(data []byte) error {
+	if err := checkYAMLShape(data); err != nil {
+		return err
+	}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	var ff fileFormat

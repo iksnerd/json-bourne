@@ -8,7 +8,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - Go API (RFC 0017, step 6): `jb.Config` is opaque and `jb.EstatePorts` is removed. `Config` had been an alias of an internal type, so its fields and its `Build*` methods (which return internal types) were public by accident. It now has no exported field or method; `LoadConfig` and every function that takes a `*Config` keep their signatures. Migration: build a `Config` with `LoadConfig` and pass it on; a program that read a field or called a method of `Config` must read the YAML file itself. `EstateOptions.Ports` and `EstatePorts` are gone: they could only be set by code inside this module, so the zero value, which builds the real adapters, is the only value an outside program could use. The `estate.external` switch is enforced as before. `--output json` and the CLI do not change.
 
 ### Fixed
-- A YAML file with one mapping of many keys stalled the loader (yaml.v3 decodes a mapping in time quadratic in its key count: about 45 s for 100,000 keys, a 1 MiB file). Case, actor, estate, snapshot and config files with a mapping of more than 1000 keys are now refused at load, before the decode.
+- A YAML file with one mapping of many keys stalled the loader (yaml.v3 decodes a mapping in time quadratic in its key count: about 45 s for 100,000 keys, a 1 MiB file). Case, actor, estate, snapshot, config and plugin allowlist files with a mapping of more than 1000 keys are now refused at load, before the decode.
 
 ## [0.8.0] - 2026-11-07
 
