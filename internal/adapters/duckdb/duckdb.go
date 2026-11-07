@@ -360,6 +360,7 @@ type eventDoc struct {
 	Fields    json.RawMessage `json:"fields,omitempty"`
 	Raw       []byte          `json:"raw,omitempty"` // base64 in JSON
 	Returners []string        `json:"returners,omitempty"`
+	Ident     string          `json:"ident,omitempty"`
 	SHA       string          `json:"sha"`
 }
 
@@ -402,9 +403,10 @@ func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.E
 			return fmt.Errorf("encode events: %w", err)
 		}
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO events (run_id, seq, ts, source, kind, fields, raw, doc_sha256, returners)
+			INSERT INTO events (run_id, seq, ts, source, kind, fields, raw, doc_sha256, returners, doc_ident)
 			SELECT ?, CAST(j->>'seq' AS BIGINT), CAST(j->>'ts' AS TIMESTAMPTZ),
-			       j->>'source', j->>'kind', j->'fields', from_base64(j->>'raw'), j->>'sha', CAST(j->'returners' AS VARCHAR[])
+			       j->>'source', j->>'kind', j->'fields', from_base64(j->>'raw'), j->>'sha', CAST(j->'returners' AS VARCHAR[]),
+			       j->>'ident'
 			FROM (SELECT unnest(CAST(? AS JSON[])) AS j)`, run, string(payload))
 		if err != nil {
 			return fmt.Errorf("insert events: %w", err)
@@ -427,7 +429,7 @@ func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.E
 		if err != nil {
 			return fmt.Errorf("event %d of run %q: %w", total, run, err)
 		}
-		d := eventDoc{Seq: total, TS: ts(ev.Time), Source: ev.Source, Kind: ev.Kind, Raw: ev.Raw, Returners: returners}
+		d := eventDoc{Seq: total, TS: ts(ev.Time), Source: ev.Source, Kind: ev.Kind, Raw: ev.Raw, Returners: returners, Ident: ev.DocKey}
 		if ev.Fields != nil {
 			if d.Fields, err = json.Marshal(ev.Fields); err != nil {
 				return fmt.Errorf("event %d of run %q: fields: %w", total, run, err)
@@ -701,8 +703,17 @@ const pageSize = 2000
 
 // Events streams the events with Time in [w.From, w.To), each distinct event once,
 // ordered by time, then run, then position in the run. It reads in keyset-paginated
-// pages and releases the connection between them, so a consumer may run other
-// queries while iterating. JSON numbers in Fields come back as float64.
+// pages. JSON numbers in Fields come back as float64.
+//
+// Consistency. The store has one connection that a consumer may share with its own
+// queries while iterating, so a snapshot held for the whole iteration is not possible.
+// Instead the iterator fingerprints the window (row count and an xor of a hash of each
+// stored row's identity columns) when the first page is full, and again after every
+// later page. If the window changed in between (a save, prune, rename or compaction
+// committed), it yields core.ErrEvidenceChanged and stops, and the consumer must read
+// again; it never silently skips or repeats a row. A read that fits one page cannot
+// span writes and is not fingerprinted. A write that commits between the first page's
+// query and its fingerprint (microseconds) is not seen.
 //
 // Identity. Two stored rows are the same event when they agree on
 // (source, ts, kind, doc_sha256) and on their occurrence number within their own run.
@@ -730,6 +741,7 @@ func (s *Store) Events(ctx context.Context, w core.Window) iter.Seq2[core.Event,
 		if !w.From.Before(w.To) {
 			return
 		}
+		var base windowPrint
 		var (
 			afterTS  string
 			afterRun string
@@ -741,6 +753,19 @@ func (s *Store) Events(ctx context.Context, w core.Window) iter.Seq2[core.Event,
 			if err != nil {
 				yield(core.Event{}, err)
 				return
+			}
+			if len(evs) == pageSize || !first {
+				// More than one page: prove the window is the one the first page read.
+				fp, err := s.fingerprint(ctx, w)
+				if err == nil && first {
+					base = fp
+				} else if err == nil && fp != base {
+					err = core.ErrEvidenceChanged
+				}
+				if err != nil {
+					yield(core.Event{}, err)
+					return
+				}
 			}
 			for _, ev := range evs {
 				if !yield(ev.Event, nil) {
@@ -756,6 +781,25 @@ func (s *Store) Events(ctx context.Context, w core.Window) iter.Seq2[core.Event,
 	}
 }
 
+// windowPrint identifies the stored rows of a window: how many, and an xor of a hash
+// of each row's run, position, time and digest.
+type windowPrint struct {
+	n   int64
+	xor uint64
+}
+
+func (s *Store) fingerprint(ctx context.Context, w core.Window) (windowPrint, error) {
+	var p windowPrint
+	err := s.db.QueryRowContext(ctx, `
+		SELECT count(*), coalesce(bit_xor(hash(run_id, seq, ts, doc_sha256)), 0)
+		FROM events WHERE ts >= CAST(? AS TIMESTAMPTZ) AND ts < CAST(? AS TIMESTAMPTZ)`,
+		ts(w.From), ts(w.To)).Scan(&p.n, &p.xor)
+	if err != nil {
+		return p, fmt.Errorf("%w: %v", core.ErrSourceUnavailable, err)
+	}
+	return p, nil
+}
+
 type pagedEvent struct {
 	core.Event
 	run string
@@ -767,19 +811,20 @@ type pagedEvent struct {
 // first page passes a cursor below every row.
 const eventsQuery = `
 WITH base AS (
-	SELECT e.rowid AS rid, e.run_id, e.seq, e.ts, e.source, e.kind, e.doc_sha256, r.created_at, e.returners,
-	       row_number() OVER (PARTITION BY e.run_id, e.source, e.ts, e.kind, e.doc_sha256
+	SELECT e.rowid AS rid, e.run_id, e.seq, e.ts, e.doc_sha256, r.created_at, e.returners,
+	       coalesce('d:' || e.doc_ident, 's:' || e.source || chr(0) || e.kind) AS ident,
+	       row_number() OVER (PARTITION BY e.run_id, coalesce('d:' || e.doc_ident, 's:' || e.source || chr(0) || e.kind), e.ts, e.doc_sha256
 	                          ORDER BY e.seq) AS ord
 	FROM events e LEFT JOIN runs r ON r.run_id = e.run_id
 	WHERE e.ts >= CAST(? AS TIMESTAMPTZ) AND e.ts < CAST(? AS TIMESTAMPTZ)
 ), cand AS (
 	-- who returned the document in any stored run, not only the newest one kept below
 	SELECT *, list_distinct(flatten(list(coalesce(returners, []::VARCHAR[]))
-	                                OVER (PARTITION BY source, ts, kind, doc_sha256, ord))) AS ret
+	                                OVER (PARTITION BY ident, ts, doc_sha256, ord))) AS ret
 	FROM base
 ), winners AS (
 	SELECT * FROM cand
-	QUALIFY row_number() OVER (PARTITION BY source, ts, kind, doc_sha256, ord
+	QUALIFY row_number() OVER (PARTITION BY ident, ts, doc_sha256, ord
 	                           ORDER BY created_at DESC NULLS LAST, run_id DESC) = 1
 ), page AS (
 	SELECT rid, run_id, seq, ret FROM winners

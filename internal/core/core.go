@@ -36,6 +36,11 @@ func (e *EmptySaveError) Unwrap() error { return ErrNoRecords }
 // ErrSourceUnavailable means the backend could not be reached or refused the query.
 var ErrSourceUnavailable = errors.New("source unavailable")
 
+// ErrEvidenceChanged means a read of the evidence that spans several pages found the
+// stored events changed between two pages (a save, prune, rename or compaction). The
+// rows already read are not a coherent set; read again.
+var ErrEvidenceChanged = errors.New("evidence changed while it was being read; read again")
+
 // Severity orders findings by how urgently a human should look.
 type Severity int
 
@@ -69,9 +74,12 @@ type Event struct {
 	Fields map[string]any
 	Raw    []byte
 	// DocKey identifies the underlying document within its DocScope when the source can
-	// say (for Elasticsearch, concrete index and _id). It is never stored. Hunt uses it
-	// to count a document once when two sources of one scope both return it. Empty means
-	// the source cannot say, and the event is never treated as a duplicate.
+	// say (for Elasticsearch, concrete index and _id). A source sets its own key; Hunt
+	// uses it to count a document once when two sources of one scope both return it,
+	// and replaces it with a digest of scope and key before the event reaches the Sink.
+	// The Sink stores that value as the document's durable identity and the reader counts
+	// stored events with equal DocKeys as one event, whichever source stored them. Empty
+	// means the source cannot say, and the event is never treated as a duplicate.
 	DocKey string
 	// Returners names the sources that returned this document, when more than one source of
 	// a scope did and Hunt stored it once (under Source, which is one of them). The store
