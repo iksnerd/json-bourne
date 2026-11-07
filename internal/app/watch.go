@@ -144,6 +144,7 @@ type CycleReport struct {
 	Pruned    *core.PruneResult // set when retention ran and succeeded
 
 	complete bool // the hunt ran to the end and no component failed: the whole window was examined
+	examined bool // complete, and any gap before the window was reported: the coverage edge may advance
 
 	repeatEvery, keepFor time.Duration // for the cycle line
 	name                 string        // the watcher's name, for the cycle line
@@ -245,6 +246,7 @@ func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run string, la
 	type healthAlert struct {
 		a       core.Alert
 		key, fp string
+		gap     bool // the unexamined-time alert: if it is not delivered the gap must stay open
 	}
 	var health []healthAlert
 	addHealth := func(kind, tag, detector, text string) {
@@ -287,12 +289,14 @@ func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run string, la
 	}
 	rep.Failed = res.Failed()
 	rep.complete = huntErr == nil && len(rep.Failed) == 0
+	rep.examined = rep.complete
 	if rep.complete && !lastComplete.IsZero() && rep.Window.From.After(lastComplete) {
 		rep.Gap = fmt.Sprintf("%s of events between %s and %s were never examined: no cycle that completed covered them",
 			rep.Window.From.Sub(lastComplete).Round(time.Second), lastComplete.UTC().Format(time.RFC3339), rep.Window.From.UTC().Format(time.RFC3339))
-		health = append([]healthAlert{{a: core.Alert{Kind: core.AlertIncomplete, Tag: TagGap, Severity: "high", Text: rep.Gap, Run: run, At: at}}}, health...)
+		health = append([]healthAlert{{a: core.Alert{Kind: core.AlertIncomplete, Tag: TagGap, Severity: "high", Text: rep.Gap, Run: run, At: at}, gap: true}}, health...)
 	}
 	failing := map[string]bool{} // outage keys that are down this cycle
+	finished := outageKeysFinished(res, huntErr)
 	if huntErr != nil {
 		failing[TagCycleError+"|hunt"] = true
 	}
@@ -347,8 +351,14 @@ func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run string, la
 				continue
 			}
 		}
-		if deliver(h.a) && h.key != "" {
+		ok := deliver(h.a)
+		if ok && h.key != "" {
 			state.Health[h.key] = core.HealthSeen{At: now, Fingerprint: h.fp}
+		}
+		if h.gap && !ok {
+			// The only report of this gap was lost. Do not let the watermark advance
+			// over it: the next completed cycle reports the (larger) gap again.
+			rep.examined = false
 		}
 	}
 	// A recovery alerts at once. A component whose status is unknown this cycle (the hunt
@@ -360,7 +370,7 @@ func watchCycle(ctx context.Context, d WatchDeps, o WatchOptions, run string, la
 	sort.Strings(keys)
 	for _, key := range keys {
 		_, name, _ := strings.Cut(key, "|")
-		if failing[key] || (huntErr != nil && key != TagCycleError+"|hunt") {
+		if failing[key] || !finished[key] {
 			continue
 		}
 		prev := state.Health[key]
@@ -436,6 +446,29 @@ type namedSink struct {
 func (n namedSink) Deliver(ctx context.Context, a core.Alert) error {
 	a.Watcher = n.name
 	return n.inner.Deliver(ctx, a)
+}
+
+// outageKeysFinished is the set of remembered-outage keys that this hunt proves are up:
+// a component that reported StatusOK, and the hunt itself when it returned no error. A
+// component the hunt did not report at all (removed from the config, or the hunt broke
+// before it ran) is unknown, not recovered.
+func outageKeysFinished(res Result, huntErr error) map[string]bool {
+	up := map[string]bool{}
+	if huntErr != nil {
+		return up
+	}
+	up[TagCycleError+"|hunt"] = true
+	for _, s := range res.Sources {
+		if s.Status == StatusOK {
+			up[TagIncomplete+"|source "+s.Name] = true
+		}
+	}
+	for _, d := range res.Detectors {
+		if d.Status == StatusOK {
+			up[TagIncomplete+"|detector "+d.Name] = true
+		}
+	}
+	return up
 }
 
 func inTTL(at, now time.Time, ttl time.Duration) bool {
@@ -534,7 +567,7 @@ func Watch(ctx context.Context, d WatchDeps, o WatchOptions, runPrefix string) (
 			return rep, err // misconfiguration: retrying cannot help
 		}
 		last = rep
-		if rep.complete {
+		if rep.examined {
 			lastCompleteTo = rep.Window.To // an incomplete cycle examined nothing it can vouch for
 		}
 		ended, next := d.Now().UTC(), time.Time{}
