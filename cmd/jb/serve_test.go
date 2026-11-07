@@ -84,7 +84,7 @@ func fetch(t *testing.T, url string) (int, string) {
 
 const hostilePath = `/x"onmouseover="alert(1)<script>alert(1)</script>?token=1`
 
-var ownScriptTag = regexp.MustCompile(`<script src="/static/(htmx\.min|d3\.min|estate|sheet)\.js" defer></script>`)
+var ownScriptTag = regexp.MustCompile(`<script src="/static/(htmx\.min|d3\.min|estate|estate-search|estate-export|sheet)\.js" defer></script>`)
 
 func seedStore(t *testing.T, dir string) {
 	t.Helper()
