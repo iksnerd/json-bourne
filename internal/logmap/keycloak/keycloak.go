@@ -102,7 +102,17 @@ func Map(doc []byte) (core.Event, error) {
 	if len(msg) > MaxMessageBytes {
 		return core.Event{}, unparsable("message is %d bytes, limit %d", len(msg), MaxMessageBytes)
 	}
-	pairs, err := parsePairs(strings.TrimRight(msg, " \t\r\n"))
+	msg = strings.TrimRight(msg, " 	\r\n")
+	if isClientRegReject(msg) {
+		// A policy rejection is a real event with no key="value" pairs; emit it typed instead of
+		// counting it unparsable. The type is a constant: nothing from the text reaches a field,
+		// and the line carries no address, so client_ip is absent rather than invented.
+		return core.Event{Time: t, Fields: map[string]any{
+			"event_type": "CLIENT_REGISTRATION_REJECTED",
+			"outcome":    "error",
+		}, Raw: bytes.Clone(doc)}, nil
+	}
+	pairs, err := parsePairs(msg)
 	if err != nil {
 		return core.Event{}, err
 	}
@@ -145,6 +155,18 @@ func Map(doc []byte) (core.Event, error) {
 }
 
 func present(v string) bool { return v != "" && v != "-" && v != "null" }
+
+// isClientRegReject reports Keycloak's dynamic-client-registration policy rejection:
+//
+//	KC-SERVICES0099: Operation 'before register client' rejected. Policy 'Trusted Hosts'
+//	rejected request to client-registration service. Details: Host not trusted.
+//
+// It is Keycloak's own single-line service message, not a key="value" event line. The prefix and
+// the service name are both required so an unrelated KC-SERVICES0099 line stays unparsable.
+func isClientRegReject(msg string) bool {
+	return strings.HasPrefix(msg, "KC-SERVICES0099:") &&
+		strings.Contains(msg, "client-registration service")
+}
 
 func validType(s string) bool {
 	if len(s) == 0 || len(s) > 64 || s[0] < 'A' || s[0] > 'Z' {

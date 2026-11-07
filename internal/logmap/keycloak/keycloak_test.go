@@ -158,3 +158,33 @@ func TestCredentialBearingKeysAreNeverEmitted(t *testing.T) {
 		t.Errorf("only %d corpus documents plant a SYNTH- marker; the test would pass for the wrong reason", planted)
 	}
 }
+
+// A dynamic-client-registration rejection is Keycloak's own single-line service message with no
+// key="value" pairs. It used to be counted unparsable; it is now a typed error event so a detector
+// can count it. The type is a constant: no part of the text reaches a field, and it has no address.
+func TestClientRegistrationRejected(t *testing.T) {
+	doc := []byte(`{"@timestamp":"2026-11-07T09:06:55.000Z","message":"KC-SERVICES0099: Operation 'before register client' rejected. Policy 'Trusted Hosts' rejected request to client-registration service. Details: Host not trusted."}`)
+	ev, err := Map(doc)
+	if err != nil {
+		t.Fatalf("Map: %v", err)
+	}
+	if got := ev.Fields["event_type"]; got != "CLIENT_REGISTRATION_REJECTED" {
+		t.Errorf("event_type = %v, want CLIENT_REGISTRATION_REJECTED", got)
+	}
+	if got := ev.Fields["outcome"]; got != "error" {
+		t.Errorf("outcome = %v, want error", got)
+	}
+	if _, ok := ev.Fields["client_ip"]; ok {
+		t.Errorf("client_ip invented on a line that carries no address: %v", ev.Fields)
+	}
+	if !ev.Time.Equal(time.Date(2026, 11, 7, 9, 6, 55, 0, time.UTC)) {
+		t.Errorf("time = %v", ev.Time)
+	}
+}
+
+func TestClientRegistrationRejectNeedsTheServiceName(t *testing.T) {
+	doc := []byte(`{"@timestamp":"2026-11-07T09:06:55Z","message":"KC-SERVICES0099: something else"}`)
+	if _, err := Map(doc); !errors.Is(err, ErrUnparsable) {
+		t.Fatalf("err = %v, want ErrUnparsable", err)
+	}
+}
