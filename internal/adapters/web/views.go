@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -351,8 +350,6 @@ func (s *server) reputation(w http.ResponseWriter, r *http.Request) {
 	s.send(w, r, http.StatusOK, reputationView(p))
 }
 
-var cycleRE = regexp.MustCompile(`CYCLE (QUIET|FINDINGS|INCOMPLETE|FAILED)\b`)
-
 type seenRow struct{ Tag, Severity, At string }
 type outageRow struct{ Component, At string }
 
@@ -387,12 +384,12 @@ func (s *server) watch(w http.ResponseWriter, r *http.Request) {
 			p.Lines = append(p.Lines, clip(l, 400))
 		}
 		for i := len(lines) - 1; i >= 0 && err == nil; i-- {
-			if m := cycleRE.FindStringSubmatch(lines[i]); m != nil {
-				p.Cycle, p.CycleLine = m[1], clip(lines[i], 400)
-				p.Healthy = m[1] == "QUIET" || m[1] == "FINDINGS"
-				if at, perr := time.Parse(time.RFC3339, strings.Fields(lines[i])[0]); perr == nil {
-					p.CycleAge = s.d.Now().Sub(at).Round(time.Second).String() + " ago"
-				}
+			// Only an end-of-cycle line counts, read by the parser the timeline uses: an
+			// alert line can hold the words CYCLE QUIET in finding text.
+			if l := core.ParseWatchLogLine(lines[i]); l.Kind == core.WatchLineCycle {
+				p.Cycle, p.CycleLine = l.Verdict, clip(lines[i], 400)
+				p.Healthy = l.Verdict == "QUIET" || l.Verdict == "FINDINGS"
+				p.CycleAge = s.d.Now().Sub(l.At).Round(time.Second).String() + " ago"
 				break
 			}
 		}

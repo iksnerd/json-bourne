@@ -66,8 +66,11 @@ type Deps struct {
 	Estate core.EstateReader
 	Log    core.LogTailer
 	State  core.WatchStatePeeker
-	Fields core.DashboardFields
-	Now    func() time.Time
+	// History reads the cycles of every watcher for the timeline page; nil means the
+	// page says it is not available.
+	History core.WatchHistoryReader
+	Fields  core.DashboardFields
+	Now     func() time.Time
 }
 
 // Options are the serving decisions the composition root takes.
@@ -223,6 +226,7 @@ func New(d Deps, o Options) http.Handler {
 	mux.HandleFunc("/findings", s.findings)
 	mux.HandleFunc("/reputation", s.reputation)
 	mux.HandleFunc("/watch", s.watch)
+	mux.HandleFunc("/timeline", s.timeline)
 	mux.HandleFunc("/estate", s.estate)
 	mux.HandleFunc("/estate/node", s.estateNode)
 	mux.HandleFunc("/estate/edge", s.estateEdge)

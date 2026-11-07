@@ -55,3 +55,24 @@ func TestTailMissingIsAbsentEmptyIsNotAnError(t *testing.T) {
 		t.Errorf("empty file: %v, %v", got, err)
 	}
 }
+
+func TestReadTailSaysWhenItCutAndDropsTheHalfLine(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "watch.log")
+	if err := os.WriteFile(p, []byte("line one\nline two\nline three\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	lines, cut, err := ReadTail(context.Background(), p, 1000)
+	if err != nil || cut || len(lines) != 3 {
+		t.Fatalf("whole file = %v cut %v err %v", lines, cut, err)
+	}
+	lines, cut, err = ReadTail(context.Background(), p, 15) // the half line is dropped
+	if err != nil || !cut || len(lines) != 1 || lines[0] != "line three" {
+		t.Fatalf("bounded = %q cut %v err %v", lines, cut, err)
+	}
+	if _, _, err := ReadTail(context.Background(), filepath.Join(t.TempDir(), "none.log"), 10); !errors.Is(err, core.ErrAbsent) {
+		t.Errorf("missing file err = %v", err)
+	}
+	if _, _, err := ReadTail(context.Background(), t.TempDir(), 10); err == nil {
+		t.Error("a directory was read as a log")
+	}
+}

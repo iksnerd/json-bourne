@@ -169,7 +169,7 @@ func TestServeCaseEndToEnd(t *testing.T) {
 
 	// 2. Seed it while the server runs: the handle is per request, so a writer is never locked out.
 	seedStore(t, dir)
-	pages := []string{"/", "/run?id=watch-1", "/findings", "/reputation", "/watch", "/estate",
+	pages := []string{"/", "/run?id=watch-1", "/findings", "/reputation", "/watch", "/timeline", "/estate",
 		"/estate/node?g=example-estate&id=ip:192.0.2.10", "/estate/edge?g=example-estate&i=0"}
 	bodies := map[string]string{}
 	for _, p := range pages {

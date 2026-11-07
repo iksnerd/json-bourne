@@ -1,0 +1,126 @@
+package web
+
+// ---- timeline: findings and watch cycles on one axis (RFC 0019). No script of its own;
+// htmx only refreshes the results fragment when a filter changes, as on the Findings page.
+// Nothing here is coloured by verdict or severity: the words and the shapes carry it. ----
+
+templ timelineView(p timelinePage) {
+	@layout(p.Title, p.Nav) {
+		<h1>Timeline</h1>
+		<p class="note ctx">The saved findings and the watch cycles of every watcher, newest first. A finding is placed at the time its run was saved, not at the time of its events. A "no cycle recorded" row states that the log has no cycle line in a span; it does not say why.</p>
+		<form class="filters" role="search" action="/timeline" method="get" hx-get="/timeline" hx-trigger="change" hx-target="#timeline-results" hx-swap="innerHTML" hx-push-url="false">
+			<label class="label">window (ending now)
+				<select class="input" name="w">
+					for _, o := range p.Windows {
+						<option value={ o.Value } selected?={ o.Checked }>{ o.Label }</option>
+					}
+				</select>
+			</label>
+			if len(p.Watchers) > 0 {
+				<fieldset>
+					<legend class="label">watcher (none chosen shows all)</legend>
+					for _, o := range p.Watchers {
+						<label class="label"><input type="checkbox" name="watcher" value={ o.Value } checked?={ o.Checked }/> { o.Label }</label>
+					}
+				</fieldset>
+			}
+			<fieldset>
+				<legend class="label">finding severity (none chosen shows all)</legend>
+				for _, o := range p.Sevs {
+					<label class="label"><input type="checkbox" name="sev" value={ o.Value } checked?={ o.Checked }/> { o.Label }</label>
+				}
+			</fieldset>
+			<noscript><button class="btn btn-primary" type="submit">filter</button></noscript>
+		</form>
+		<div id="timeline-results">
+			@timelineResults(p)
+		</div>
+	}
+}
+
+templ timelineResults(p timelinePage) {
+	<p class="note">Window { p.From } to { p.To } (UTC). The end is the current time rounded down to the minute.</p>
+	for _, n := range p.Notices {
+		@alert("muted") {
+			{ n }
+		}
+	}
+	if p.FindNote != "" {
+		@alert("muted") {
+			{ p.FindNote }
+		}
+	}
+	if len(p.Horizons) > 0 {
+		<h2>Retention</h2>
+		<ul class="note">
+			for _, h := range p.Horizons {
+				<li>{ h }</li>
+			}
+		</ul>
+	}
+	if len(p.Lanes) > 0 {
+		<h2>Lanes</h2>
+		<p class="note">One lane per watcher. A tall tick is a cycle (F: findings, I: incomplete, X: failed; a short tick is quiet). A square is a finding of high or critical severity, a ring a lower one. A dashed box is a span with no cycle line. The table below is the record.</p>
+		<figure class="static-graph">
+			<svg viewBox={ "0 0 " + str(p.SVGW) + " " + str(p.SVGH) } aria-hidden="true">
+				<text x={ str(p.LaneLeft) } y="12">{ p.AxisL }</text>
+				<text x={ str(p.LaneRight) } y="12" text-anchor="end">{ p.AxisR }</text>
+				for _, l := range p.Lanes {
+					<text x={ str(l.LabelX) } y={ str(l.Base) }>{ l.Name }</text>
+					<line x1={ str(p.LaneLeft) } y1={ str(l.Base) } x2={ str(p.LaneRight) } y2={ str(l.Base) }></line>
+					for _, s := range l.Spans {
+						<rect x={ str(s.X) } y={ str(s.Y) } width={ str(s.W) } height={ str(s.H) } fill="none" stroke="currentColor" stroke-dasharray="3 2"><title>{ s.Title }</title></rect>
+					}
+					for _, t := range l.Ticks {
+						if t.Href != "" {
+							<a href={ templ.URL(t.Href) }>
+								<line x1={ str(t.X) } y1={ str(t.Y) } x2={ str(t.X) } y2={ str(t.Y2) }><title>{ t.Title }</title></line>
+								if t.Letter != "" {
+									<text x={ str(t.X) } y={ str(t.Y - 2) } text-anchor="middle">{ t.Letter }</text>
+								}
+							</a>
+						} else {
+							<line x1={ str(t.X) } y1={ str(t.Y) } x2={ str(t.X) } y2={ str(t.Y2) }><title>{ t.Title }</title></line>
+							if t.Letter != "" {
+								<text x={ str(t.X) } y={ str(t.Y - 2) } text-anchor="middle">{ t.Letter }</text>
+							}
+						}
+					}
+					for _, d := range l.Dots {
+						<a href={ templ.URL(d.Href) }>
+							if d.Filled {
+								<rect x={ str(d.X - d.R) } y={ str(d.Y - d.R) } width={ str(2 * d.R) } height={ str(2 * d.R) } fill="currentColor"><title>{ d.Title }</title></rect>
+							} else {
+								<circle cx={ str(d.X) } cy={ str(d.Y) } r={ str(d.R) }><title>{ d.Title }</title></circle>
+							}
+						</a>
+					}
+				}
+			</svg>
+		</figure>
+	}
+	if len(p.Rows) > 0 {
+		<h2>Record</h2>
+		<table>
+			if p.Cut {
+				<caption>INCOMPLETE: the list is cut, see the notices above it.</caption>
+			}
+			<tr><th>time (UTC)</th><th>kind</th><th>watcher</th><th>detail</th><th>run</th></tr>
+			for _, r := range p.Rows {
+				<tr>
+					<td class="mono">{ r.Time }</td>
+					<td>{ r.Kind }</td>
+					<td class="mono">{ r.Watcher }</td>
+					<td>{ r.Detail }</td>
+					<td class="mono">
+						if r.RunHref != "" {
+							<a href={ templ.URL(r.RunHref) }>{ r.Run }</a>
+						} else {
+							{ r.Run }
+						}
+					</td>
+				</tr>
+			}
+		</table>
+	}
+}

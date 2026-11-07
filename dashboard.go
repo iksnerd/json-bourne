@@ -136,8 +136,10 @@ func DashboardHandler(opts DashboardOptions) (http.Handler, *DashboardInfo, erro
 		Estate: estate,
 		Log:    alertlog.Tailer{Path: filepath.Join(info.Evidence, watchrun.LogFile)},
 		State:  watchstate.Store{Path: filepath.Join(info.Evidence, watchrun.StateFile)},
-		Fields: fields,
-		Now:    opts.Now,
+		// The cycles of every watcher, named or not, for the timeline page.
+		History: watchrun.History{Evidence: info.Evidence},
+		Fields:  fields,
+		Now:     opts.Now,
 	}, wopts)
 	return h, info, nil
 }
