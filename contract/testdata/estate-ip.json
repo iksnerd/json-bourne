@@ -1,0 +1,23 @@
+{
+  "added": {
+    "absences": "number",
+    "edges": "number",
+    "nodes": "number"
+  },
+  "addresses": "number",
+  "complete": "bool",
+  "conflicts": [
+    "string"
+  ],
+  "failures": [
+    {
+      "error": "string",
+      "ip": "string",
+      "lookup": "string"
+    }
+  ],
+  "file": "string",
+  "note": "string",
+  "unchanged": "number",
+  "wrote": "bool"
+}

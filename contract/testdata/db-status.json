@@ -1,0 +1,11 @@
+{
+  "build_schema_version": "number",
+  "events": "number",
+  "findings": "number",
+  "first_seen": "string",
+  "last_seen": "string",
+  "path": "string",
+  "reputation": "number",
+  "runs": "number",
+  "schema_version": "number"
+}

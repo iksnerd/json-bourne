@@ -1,0 +1,37 @@
+{
+  "applied": "bool",
+  "by_run_id": "bool",
+  "deleted": {
+    "events": "number",
+    "fields_bytes": "number",
+    "findings": "number",
+    "raw_bytes": "number",
+    "run_records": "number",
+    "runs": "number"
+  },
+  "drop_findings": "bool",
+  "keep_latest": "number",
+  "older_than_cutoff": "string",
+  "plan": {
+    "events": "number",
+    "fields_bytes": "number",
+    "findings": "number",
+    "raw_bytes": "number",
+    "run_records": "number",
+    "runs": "number"
+  },
+  "run_records_marked_pruned": "number",
+  "runs": [
+    {
+      "action": "string",
+      "created_at": "string",
+      "events": "number",
+      "fields_bytes": "number",
+      "findings": "number",
+      "id": "string",
+      "kind": "string",
+      "raw_bytes": "number"
+    }
+  ],
+  "store": "string"
+}

@@ -1,0 +1,30 @@
+{
+  "added": {
+    "absences": "number",
+    "edges": "number",
+    "nodes": "number"
+  },
+  "asked": "string",
+  "complete": "bool",
+  "conflicts": [
+    "string"
+  ],
+  "failures": [
+    {
+      "error": "string",
+      "lookup": "string",
+      "target": "string"
+    }
+  ],
+  "file": "string",
+  "note": "string",
+  "notes": [
+    "string"
+  ],
+  "service": "string",
+  "targets": [
+    "string"
+  ],
+  "unchanged": "number",
+  "wrote": "bool"
+}

@@ -1,0 +1,25 @@
+{
+  "absences": "number",
+  "based_on": "string",
+  "complete": "bool",
+  "edges": "number",
+  "failures": [
+    {
+      "Lookup": "string",
+      "Reason": "string",
+      "Target": "string"
+    }
+  ],
+  "file": "string",
+  "nodes": "number",
+  "note": "string",
+  "services": [
+    {
+      "Name": "string",
+      "Reason": "string",
+      "State": "string",
+      "Targets": "number"
+    }
+  ],
+  "snapshot": "string"
+}

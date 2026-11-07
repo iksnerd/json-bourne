@@ -1,0 +1,18 @@
+{
+  "actors": [
+    {
+      "actor": "string",
+      "examined": "number",
+      "ignored": "number",
+      "label": "string",
+      "last_genuine": "string",
+      "noise": "number",
+      "unparsable": "number",
+      "user_agent": "string"
+    }
+  ],
+  "store": "string",
+  "store_events": "number",
+  "store_from": "string",
+  "store_to": "string"
+}

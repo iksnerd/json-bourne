@@ -1,0 +1,13 @@
+{
+  "applied": "bool",
+  "dropped": "number",
+  "events": "number",
+  "new": "string",
+  "new_events": "number",
+  "no_raw": "number",
+  "old": "string",
+  "overlap": "number",
+  "relabelled": "number",
+  "runs": "number",
+  "store": "string"
+}
