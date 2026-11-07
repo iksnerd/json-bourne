@@ -188,8 +188,10 @@ func TestArchiveEstateFileKeepsTheBaselineAndNeverOverwrites(t *testing.T) {
 	if err != nil || rel != "estate/archive/estate-20261106T100000Z.yaml" {
 		t.Fatalf("%q %v", rel, err)
 	}
-	if _, err := ArchiveEstateFile(c, "estate.yaml", "20261106T100000Z"); err == nil {
-		t.Error("an archive was overwritten")
+	// The same bytes under the same name are the same archive, reused (see
+	// TestArchiveEstateFileReusesIdenticalCopyAndRefusesDifferentBytes for the refusal).
+	if again, err := ArchiveEstateFile(c, "estate.yaml", "20261106T100000Z"); err != nil || again != rel {
+		t.Errorf("%q %v", again, err)
 	}
 	if es, err := LoadEstates(c); err != nil || len(es) != 1 {
 		t.Errorf("the archive must not load as a second map: %v %v", es, err)

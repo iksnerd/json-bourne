@@ -452,6 +452,11 @@ const EstateArchiveDir = "archive"
 // <paths.estate>/archive/<stem>-<id>.yaml without overwriting anything, and returns the
 // case-relative path. The file is re-read through the strict loader first, so a file
 // that does not load is never archived as if it were a good baseline.
+//
+// Archiving is idempotent for an unchanged baseline: when an archive of the same stem
+// already holds exactly these bytes (a promotion that archived and then failed to
+// replace the baseline), that archive is returned and no second copy is written. A name
+// that exists with different bytes is an error and is left alone.
 func ArchiveEstateFile(c *Case, name, id string) (string, error) {
 	e, err := LoadEstateFile(c, name)
 	if err != nil {
@@ -481,10 +486,37 @@ func ArchiveEstateFile(c *Case, name, id string) (string, error) {
 	if !within(dir, file) {
 		return "", errors.New("archive path resolves outside the archive directory")
 	}
+	if existing := findArchiveCopy(dir, stem, data); existing != "" {
+		return path.Join(c.Paths.Estate, EstateArchiveDir, existing), nil
+	}
 	if err := writeNoOverwrite(dir, file, data); err != nil {
 		return "", err
 	}
 	return rel, nil
+}
+
+// findArchiveCopy returns the name of a regular file <stem>-<id>.yaml in dir whose bytes
+// equal data, or "". The newest id wins. Symlinks and unreadable entries are ignored.
+func findArchiveCopy(dir, stem string, data []byte) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	best := ""
+	for _, en := range entries {
+		id, ok := strings.CutSuffix(strings.TrimPrefix(en.Name(), stem+"-"), ".yaml")
+		if !ok || !strings.HasPrefix(en.Name(), stem+"-") || !ValidSnapshotID(id) || !en.Type().IsRegular() {
+			continue
+		}
+		got, err := os.ReadFile(filepath.Join(dir, en.Name()))
+		if err != nil || !bytes.Equal(got, data) {
+			continue
+		}
+		if en.Name() > best {
+			best = en.Name()
+		}
+	}
+	return best
 }
 
 // EstateState is one side of a comparison: an estate file or a snapshot, loaded

@@ -339,7 +339,21 @@ func PromoteSnapshot(c *casefile.Case, id, file string, now time.Time) (archived
 	}
 	body := s.Estate
 	if err := casefile.SaveEstateFile(c, file, &body); err != nil {
-		return archived, err
+		return archived, &PromotionError{Archived: archived, Err: err}
 	}
 	return archived, nil
 }
+
+// PromotionError is the in-between outcome of a promotion: the old baseline was copied
+// to Archived, but replacing the baseline failed, so the baseline is unchanged. Promoting
+// again is safe: an archive of the same bytes is reused, never duplicated or overwritten.
+type PromotionError struct {
+	Archived string // case-relative path of the archive that now exists
+	Err      error  // why the baseline was not replaced
+}
+
+func (e *PromotionError) Error() string {
+	return fmt.Sprintf("the baseline was archived to %s but not replaced, so it is unchanged; promote again to retry: %v", e.Archived, e.Err)
+}
+
+func (e *PromotionError) Unwrap() error { return e.Err }
