@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-11-07
+
 ### Fixed
 - Watch: a remembered outage is no longer reported as recovered when its component is missing from the hunt result (for example removed from the config). It recovers only when the component finishes OK.
 - Watch: if the `watch-gap` alert is not delivered, the coverage edge no longer advances, so the unexamined time is reported on the next completed cycle.
