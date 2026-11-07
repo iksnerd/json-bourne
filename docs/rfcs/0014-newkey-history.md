@@ -208,6 +208,6 @@ Points the build had to settle where the text was silent. None changes the desig
 - `internal/app` groups sources by `DocScope` plus an `IndexName()` method on the Kibana source. A source that is not `DocScoped` or names no index is its own group. Two different patterns that overlap are two groups and would add up.
 - A history is built for every `HistoryDetector` and fails only when `Counts` is called, so a `newkey` without a `history` block is not refused for the sources it reads.
 - When `Counts` fails, no candidate is judged and the error says how many candidates (all of them) were not judged. A candidate cut at `max_candidates`, or missing from the answer, is counted in the same sentence beside the findings already proven.
-- One candidate key outside the character set makes the whole `CountKeys` call fail before any request, so that cycle is incomplete.
+- A candidate key outside the character set is refused alone, by the detector, before the `max_candidates` cut: it is counted as not judged (the error names the count, never the key) and every other candidate is probed. Otherwise one hostile key from traffic could blind the detector, or push real candidates out of the cut. The source still refuses such keys as a second line.
 - On `Detect` with `history` configured, the missing-history error comes before the lookback check; `DetectWithHistory` does the lookback check (a usage error).
 - `CountKeys` names buckets `k0`, `k1`, and so on, so a key is only ever a value. It sets `track_total_hits: false`; `CountAll` sets it true.

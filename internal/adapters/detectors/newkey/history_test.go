@@ -301,6 +301,47 @@ func TestWithoutAHistoryBlockDetectWithHistoryIsDetect(t *testing.T) {
 	}
 }
 
+func unsafeKeys(n int) []hit {
+	var hs []hit
+	for i := 0; i < n; i++ {
+		hs = append(hs, sens(fmt.Sprintf("192.0.2.%d, 10.0.0.%d", i, i), 9))
+	}
+	return hs
+}
+
+func TestHistoryAnUnsafeKeyIsRefusedAloneAndTheOthersAreJudged(t *testing.T) {
+	bad := "198.51.100.1, 203.0.113.9"
+	long := strings.Repeat("a", 257)
+	for name, k := range map[string]string{"space and comma": bad, "over 256 bytes": long} {
+		h := &fakeHistory{}
+		cur := evs(sens(k, 20), sens(newcomer, 3), sens(other, 4))
+		fs, err := detectH(t, histCfg(), cur, nil, h)
+		if len(fs) != 2 {
+			t.Errorf("%s: findings %d, want the two real unknown keys", name, len(fs))
+		}
+		if !slices.Equal(h.askedKeys(), []string{other, newcomer}) {
+			t.Errorf("%s: asked %v, want only the safe keys", name, h.askedKeys())
+		}
+		if err == nil || !strings.Contains(err.Error(), "1 candidate(s) not judged") || strings.Contains(err.Error(), k) || strings.Contains(err.Error(), "198.51.100.1") {
+			t.Errorf("%s: err = %v", name, err)
+		}
+	}
+}
+
+func TestHistoryUnsafeKeysCannotPushRealCandidatesOutOfMaxCandidates(t *testing.T) {
+	c := histCfg()
+	c.History.MaxCandidates = 3
+	h := &fakeHistory{}
+	cur := append(evs(unsafeKeys(60)...), evs(sens(newcomer, 3), sens(other, 3), sens(regular, 3))...)
+	fs, err := detectH(t, c, cur, nil, h)
+	if len(fs) != 3 || len(h.askedKeys()) != 3 {
+		t.Fatalf("findings %d asked %v, want the 3 real candidates judged", len(fs), h.askedKeys())
+	}
+	if err == nil || !strings.Contains(err.Error(), "60 candidate(s) not judged") || strings.Contains(err.Error(), "10.0.0") {
+		t.Errorf("err = %v", err)
+	}
+}
+
 func TestHistoryConfigIsValidated(t *testing.T) {
 	cases := map[string]*HistoryConfig{
 		"no lookback":        {MinEvents: 5},

@@ -49,6 +49,27 @@ func (h *HistoryConfig) validated() (*HistoryConfig, error) {
 	return &c, nil
 }
 
+const maxProbeKeyBytes = 256
+
+// safeProbeKey mirrors the character set the Kibana source accepts (letters, digits and
+// . : @ _ -, 1 to 256 bytes). The source refuses the same keys as a second line; the
+// detector filters first so one hostile key cannot fail the request for the rest.
+func safeProbeKey(k string) bool {
+	if k == "" || len(k) > maxProbeKeyBytes {
+		return false
+	}
+	for i := 0; i < len(k); i++ {
+		c := k[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case c == '.', c == ':', c == '@', c == '_', c == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // modeReporter is implemented by a KeyHistory that knows how its sources match a key
 // ("term" or "phrase"). The finding records it, because a phrase can over-count.
 type modeReporter interface{ MatchMode() string }
@@ -105,7 +126,17 @@ func (d *Detector) DetectWithHistory(ctx context.Context, cur, prev core.EventRe
 		}
 		return cands[i] < cands[j]
 	})
-	judged := cands
+	// A key comes from traffic the attacker controls. An unsafe key is refused alone and
+	// before the cut, so it can neither fail the request for the others nor push a real
+	// candidate out of max_candidates. It is counted as not judged.
+	safe := cands[:0:0]
+	for _, k := range cands {
+		if safeProbeKey(k) {
+			safe = append(safe, k)
+		}
+	}
+	refused := len(cands) - len(safe)
+	judged := safe
 	cut := 0
 	if len(judged) > hc.MaxCandidates {
 		cut = len(judged) - hc.MaxCandidates
@@ -178,9 +209,12 @@ func (d *Detector) DetectWithHistory(ctx context.Context, cur, prev core.EventRe
 			Detail: detail,
 		})
 	}
-	if notJudged := cut + missing; notJudged > 0 {
+	if notJudged := cut + missing + refused; notJudged > 0 {
 		cause := fmt.Sprintf("only the %d highest-hit candidates are judged (history.max_candidates)", hc.MaxCandidates)
-		if missing > 0 {
+		switch {
+		case refused > 0:
+			cause = fmt.Sprintf("%d candidate key(s) are over %d bytes or use characters outside letters, digits and . : @ _ - and were not sent", refused, maxProbeKeyBytes)
+		case missing > 0:
 			cause = "the history answer lacked a count for a candidate"
 		}
 		return out, fmt.Errorf("%s: history incomplete, %d candidate(s) not judged: %s", d.name, notJudged, cause)

@@ -520,7 +520,7 @@ Where it works. Every source the detector reads (its `sources`, else all of them
 
 Limits to know.
 - `phrase` can over-count: an IPv6 address splits into several tokens, and an address can appear as a hop in a forwarded-for chain or in the body of the text. Over-counting makes a key look known, so it errs toward quiet and never creates a false alarm. The finding records the mode. Use `term` on a keyword field when the index has one.
-- A key may use only letters, digits and `. : @ _ -`, at most 256 bytes. Any other candidate key (a forwarded-for chain with spaces, for example) is refused before a request is sent and makes the run incomplete for that cycle, naming the count and never the key.
+- A key may use only letters, digits and `. : @ _ -`, at most 256 bytes. Any other candidate key (a forwarded-for chain with spaces, for example) is refused on its own before a request is sent: it counts as not judged and makes the run incomplete, naming the count and never the key, while the other candidates are judged normally.
 - The key is sent in the body of a request to the index the detector already reads, never in a URL, and it appears in no finding (with `hash_keys` the finding shows the hash and the probe uses the plain value), log line or error.
 - The previous cycle's attack events count as history, so a persistent attacker becomes known after enough cycles. `watch` suppresses repeat alerts by tag, which hides this, but a `hunt --until` replay can differ from live behaviour.
 - The cost is one count request per distinct index per run, plus one liveness count. On one measured production index (about 14 million documents a day) 8 to 10 phrase buckets over 7 days took under a second. A heavy-hitter address has not been measured.
