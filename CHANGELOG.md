@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- A YAML file with one mapping of many keys stalled the loader (yaml.v3 decodes a mapping in time quadratic in its key count: about 45 s for 100,000 keys, a 1 MiB file). Case, actor, estate, snapshot and config files with a mapping of more than 1000 keys are now refused at load, before the decode.
+
 ### Added
 - `jb serve`, render-only (no new route, store query or data source): a node's record shows the assessments (opinion) that cite each fact group next to it, and every basis entry `node#key` as an in-page or cross-node link, or as "unresolved" when it names nothing in the map; which estate files (by estate `id`) and which layer hold the node, so a node id in two files shows both; the node's edges grouped by relation with direction, other node, source, method, confidence and time; a fixed order for facts (key, time, value), assessments (decided time, id), edges and absences, so two loads of unchanged data are byte-identical; and a "copy this record as plain text" button, built in the browser from what the page shows by one new script file (`sheet-copy.js`) served from the binary. Not covered by tests: the copy, the anchor scroll and the button reveal in a real browser. An edge's index in its `/estate/edge` link still follows file order.
 

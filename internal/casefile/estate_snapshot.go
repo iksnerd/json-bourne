@@ -103,6 +103,9 @@ func ParseEstateSnapshot(data []byte) (*EstateSnapshot, error) {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return nil, errors.New("file is empty")
 	}
+	if err := CheckYAMLShape("estate snapshot", data); err != nil {
+		return nil, err
+	}
 	var probe struct {
 		APIVersion string `yaml:"apiVersion"`
 		Complete   *bool  `yaml:"complete"`

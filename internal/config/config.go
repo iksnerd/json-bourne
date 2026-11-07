@@ -441,6 +441,9 @@ func errIntelOnly(path, command string) error {
 
 // Parse validates YAML bytes. Unknown keys and unknown types are errors.
 func Parse(data []byte) (*File, error) {
+	if err := casefile.CheckYAMLShape("config", data); err != nil {
+		return nil, err
+	}
 	var f File
 	if err := strictDecode(data, &f); err != nil {
 		if errors.Is(err, io.EOF) {

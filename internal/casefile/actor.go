@@ -115,6 +115,9 @@ func ParseActor(data []byte) (*Actor, error) {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return nil, errors.New("file is empty")
 	}
+	if err := CheckYAMLShape("actor file", data); err != nil {
+		return nil, err
+	}
 	var probe struct {
 		APIVersion string `yaml:"apiVersion"`
 	}

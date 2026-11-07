@@ -315,7 +315,7 @@ Each rule is checked by the loader and has a corpus case in `internal/casefile/t
 
    `Guard` asks git (`git check-ignore -q` on a probe path inside the directory, so a directory-only pattern such as `evidence/` and a missing directory both work), so global excludes and nested ignore files count. `Load` does not run git, so loading a case never starts a subprocess. A caller that is about to write evidence MUST call `Guard(c.EvidenceDir())` first. The one `os/exec` use in the package is `guard.go`.
 
-Also: `case.yaml` MUST be a single YAML document and at most 1 MiB; `Load` refuses an empty file.
+Also: `case.yaml` MUST be a single YAML document and at most 1 MiB; `Load` refuses an empty file. In every case, actor, estate, snapshot and config file no single mapping may hold more than 1000 keys (lists are not counted); a larger one is refused at load, because the YAML decoder is quadratic in the key count.
 
 ## 7. Versioning
 
