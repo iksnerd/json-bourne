@@ -444,9 +444,14 @@ type factRow struct{ Key, Value, Source, Method, Observed string }
 // factGroup is every fact of one key. Values are listed in value order, so a key with
 // several values (two open ports, say) shows each one under the key once.
 type factGroup struct {
+	ID    string // anchor on the sheet: fact-0, fact-1, ... in key order
 	Key   string
 	Facts []factRow
+	Cited []citeRow // assessments (opinion) whose basis names this node#key
 }
+
+// citeRow is an assessment shown next to the fact group its basis cites.
+type citeRow struct{ Label, By, Decided string }
 
 // groupFacts groups facts by key, any key. Groups are in key order and the facts of a
 // group in value order, then source, method and time, so the same file always renders
@@ -463,7 +468,7 @@ func groupFacts(fs []core.EstateFact) []factGroup {
 	var out []factGroup
 	for _, r := range rows {
 		if n := len(out); n == 0 || out[n-1].Key != r.Key {
-			out = append(out, factGroup{Key: r.Key})
+			out = append(out, factGroup{ID: "fact-" + strconv.Itoa(len(out)), Key: r.Key})
 		}
 		out[len(out)-1].Facts = append(out[len(out)-1].Facts, r)
 	}
@@ -472,7 +477,49 @@ func groupFacts(fs []core.EstateFact) []factGroup {
 
 // assessRow is one assessment as shown. It is opinion: the page prints assessmentNotice
 // with every list of them, whatever the file's caveat says.
-type assessRow struct{ ID, Subject, Label, By, Decided, Basis, Note string }
+type assessRow struct {
+	ID, Subject, Label, By, Decided, Basis, Note string
+	Refs                                         []basisRef
+}
+
+// basisRef is one basis entry. Href is set only when the entry resolves against the map:
+// a node id that exists, or node#key where that node has a fact with that key. An entry
+// that does not resolve keeps its text and is shown as unresolved, never dropped.
+type basisRef struct {
+	Text, Href string
+	Resolved   bool
+}
+
+// resolveBasis resolves one basis entry against the map g. cur is the node whose sheet is
+// shown ("" on a page with no sheet): a fact of that node links in-page.
+func resolveBasis(g core.EstateGraph, cur, b string) basisRef {
+	ref := basisRef{Text: c(b)}
+	id, key, hasKey := strings.Cut(b, "#")
+	for _, n := range g.Nodes {
+		if n.ID != id {
+			continue
+		}
+		href := nodeHref(g.ID, n.ID)
+		if id == cur {
+			href = ""
+		}
+		if !hasKey {
+			if href == "" {
+				href = nodeHref(g.ID, n.ID)
+			}
+			ref.Href, ref.Resolved = href, true
+			return ref
+		}
+		for _, grp := range groupFacts(n.Facts) {
+			if grp.Key == c(key) {
+				ref.Href, ref.Resolved = href+"#"+grp.ID, true
+				return ref
+			}
+		}
+		return ref
+	}
+	return ref
+}
 
 // assessmentNotice is the fixed text printed with every assessment section. It is not
 // taken from the file.
@@ -482,24 +529,41 @@ func factRowOf(f core.EstateFact) factRow {
 	return factRow{c(f.Key), c(f.Value), c(f.Source), c(f.Method), c(f.Observed)}
 }
 
-func assessRowOf(a core.EstateAssessment) assessRow {
+func assessRowOf(g core.EstateGraph, cur string, a core.EstateAssessment) assessRow {
 	basis := make([]string, 0, len(a.Basis))
+	refs := make([]basisRef, 0, len(a.Basis))
 	for _, b := range a.Basis {
 		basis = append(basis, c(b))
+		refs = append(refs, resolveBasis(g, cur, b))
 	}
-	return assessRow{c(a.ID), c(a.Subject), c(a.Label), c(a.By), c(a.Decided), strings.Join(basis, ", "), c(a.Note)}
+	return assessRow{c(a.ID), c(a.Subject), c(a.Label), c(a.By), c(a.Decided), strings.Join(basis, ", "), c(a.Note), refs}
 }
 
 // assessmentsOf returns the rows of the assessments about one node ("" means all of
 // them), at most tableCap.
 func assessmentsOf(g core.EstateGraph, subject string) []assessRow {
+	cur := subject
 	var out []assessRow
 	for _, a := range g.Assessments {
 		if (subject == "" || a.Subject == subject) && len(out) < tableCap {
-			out = append(out, assessRowOf(a))
+			out = append(out, assessRowOf(g, cur, a))
 		}
 	}
 	return out
+}
+
+// citedBy returns, for each fact group of node id, the assessments whose basis is id#key.
+func citedBy(g core.EstateGraph, id string, groups []factGroup) {
+	for i := range groups {
+		for _, a := range g.Assessments {
+			for _, b := range a.Basis {
+				if b == id+"#"+groups[i].Key {
+					groups[i].Cited = append(groups[i].Cited, citeRow{c(a.Label), c(a.By), c(a.Decided)})
+					break
+				}
+			}
+		}
+	}
 }
 
 // citingOf returns the assessments about other nodes that cite this node in their basis,
@@ -513,7 +577,7 @@ func citingOf(g core.EstateGraph, id string) []assessRow {
 		}
 		for _, b := range a.Basis {
 			if b == id || strings.HasPrefix(b, id+"#") {
-				out = append(out, assessRowOf(a))
+				out = append(out, assessRowOf(g, id, a))
 				break
 			}
 		}
@@ -823,6 +887,7 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 			p.OverlayHref = overlayHref(g.ID, x.ID)
 		}
 		p.Facts = groupFacts(x.Facts)
+		citedBy(g, id, p.Facts)
 		for i, e := range g.Edges {
 			if e.From == id && len(p.Out) < tableCap {
 				p.Out = append(p.Out, edgeRowOf(g.ID, i, e))

@@ -191,7 +191,19 @@ templ assessmentTable(rows []assessRow, withSubject bool, empty string) {
 					if withSubject {
 						<td class="mono">{ a.Subject }</td>
 					}
-					<td>{ a.Label }</td><td>{ a.By }</td><td>{ a.Decided }</td><td class="mono">{ a.Basis }</td><td>{ a.Note }</td>
+					<td>{ a.Label }</td><td>{ a.By }</td><td>{ a.Decided }</td>
+					<td class="mono">
+						for i, r := range a.Refs {
+							if i > 0 {
+								{ ", " }
+							}
+							if r.Resolved {
+								<a href={ templ.URL(r.Href) }>{ r.Text }</a>
+							} else {
+								{ r.Text } <span class="note">(unresolved)</span>
+							}
+						}
+					</td><td>{ a.Note }</td>
 				</tr>
 			}
 		</table>
@@ -243,7 +255,10 @@ templ nodeRecord(p nodePage, panel bool) {
 	<h2>Facts</h2>
 	if len(p.Facts) > 0 {
 		for _, grp := range p.Facts {
-			<h3 class="mono">{ grp.Key }</h3>
+			<h3 class="mono" id={ grp.ID }>{ grp.Key }</h3>
+			for _, ct := range grp.Cited {
+				<p class="note">Cited by an assessment (opinion): { ct.Label } by { ct.By }, decided { ct.Decided }.</p>
+			}
 			<table>
 				<tr><th>value</th><th>source</th><th>method</th><th>observed</th></tr>
 				for _, f := range grp.Facts {
