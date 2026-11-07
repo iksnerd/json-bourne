@@ -52,6 +52,22 @@ func (s *Source) KeyMode() string {
 	return s.KeyMatch.Mode
 }
 
+// ProbeKey names everything about a history request except the index list: the key
+// field, the match mode and the time field. Two sources of one cluster with the same
+// ProbeKey can share one request over the union of their indices; any other pair needs
+// separate requests. It holds no key and no credential.
+func (s *Source) ProbeKey() string {
+	tf := s.TimeField
+	if tf == "" {
+		tf = "@timestamp"
+	}
+	field, mode := "", ""
+	if s.KeyMatch != nil {
+		field, mode = s.KeyMatch.Field, s.KeyMatch.Mode
+	}
+	return field + "\x00" + mode + "\x00" + tf
+}
+
 // IndexName is the index this source reads. With the cluster (DocScope) it identifies
 // the store a history count is taken from.
 func (s *Source) IndexName() string { return s.Index }

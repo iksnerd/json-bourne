@@ -22,11 +22,19 @@ type indexUnioner interface {
 	CountingIndices(indices []string) (core.KeyCounter, error)
 }
 
-// historyGroup is one cluster. Several sources can read it, with different filters and
-// index patterns that may overlap; the probe drops the filters, so counting each source
-// or pattern would count a shared document again. The cluster is probed once, over the
-// union of its sources' index expressions.
+// probeKeyer is implemented by a source that can say which settings shape its history
+// request apart from the index list (key field, match mode, time field). Sources of one
+// cluster with the same ProbeKey share a request; with different ones they cannot.
+type probeKeyer interface{ ProbeKey() string }
+
+// historyGroup is one cluster with one set of probe settings. Several sources can read
+// it, with different filters and index patterns that may overlap; the probe drops the
+// filters, so counting each source or pattern would count a shared document again. The
+// group is probed once, over the union of its sources' index expressions. Sources on the
+// same cluster with different settings are other groups, each with its own request, and
+// their counts add.
 type historyGroup struct {
+	order   string // deterministic sort key: cluster, then settings, then index or source when needed
 	label   string // for errors: the source that speaks for the group, and its indices
 	kc      core.KeyCounter
 	rep     indexUnioner // the source that speaks for the group, when it can count a union
@@ -49,6 +57,9 @@ var _ core.KeyHistory = (*keyHistory)(nil)
 func newKeyHistory(srcs []core.Source) *keyHistory {
 	h := &keyHistory{}
 	groupAt := map[string]int{}
+	// Source order must not change the result: walk the sources by name, sort the groups.
+	srcs = slices.Clone(srcs)
+	slices.SortStableFunc(srcs, func(a, b core.Source) int { return strings.Compare(a.Name(), b.Name()) })
 	for _, s := range srcs {
 		kc, ok := s.(core.KeyCounter)
 		if !ok {
@@ -66,7 +77,16 @@ func newKeyHistory(srcs []core.Source) *keyHistory {
 			scope = ds.DocScope()
 		}
 		iu, canUnion := s.(indexUnioner)
-		key := scope
+		if mn, ok := s.(modeNamer); ok {
+			if m := mn.KeyMode(); m != "" && !slices.Contains(h.modes, m) {
+				h.modes = append(h.modes, m)
+			}
+		}
+		probe := ""
+		if pk, ok := s.(probeKeyer); ok {
+			probe = pk.ProbeKey()
+		}
+		key := scope + "\x01" + probe
 		if scope == "" || index == "" {
 			key = "\x00source\x00" + s.Name() // cannot prove two sources share a cluster
 		} else if !canUnion {
@@ -79,7 +99,7 @@ func newKeyHistory(srcs []core.Source) *keyHistory {
 			continue
 		}
 		groupAt[key] = len(h.groups)
-		g := historyGroup{label: fmt.Sprintf("source %q", s.Name()), kc: kc}
+		g := historyGroup{order: key, label: fmt.Sprintf("source %q", s.Name()), kc: kc}
 		if index != "" {
 			g.indices = []string{index}
 		}
@@ -87,14 +107,11 @@ func newKeyHistory(srcs []core.Source) *keyHistory {
 			g.rep = iu
 		}
 		h.groups = append(h.groups, g)
-		if mn, ok := s.(modeNamer); ok {
-			if m := mn.KeyMode(); m != "" && !slices.Contains(h.modes, m) {
-				h.modes = append(h.modes, m)
-			}
-		}
 	}
+	slices.SortFunc(h.groups, func(a, b historyGroup) int { return strings.Compare(a.order, b.order) })
 	for i := range h.groups {
 		g := &h.groups[i]
+		slices.Sort(g.indices)
 		if len(g.indices) > 0 {
 			g.label += fmt.Sprintf(" (index %q)", strings.Join(g.indices, ","))
 		}

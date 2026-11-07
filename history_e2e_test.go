@@ -193,3 +193,61 @@ func TestHuntHistoryIsIncompleteNotQuietWhenKibanaFailsTheProbe(t *testing.T) {
 		t.Errorf("detector error = %q", msg)
 	}
 }
+
+// Two sources on one cluster with different key_match settings and time fields are two
+// history requests, each carrying its own field, mode and time field (not the first
+// source's).
+func TestHuntHistorySendsEachGroupItsOwnSettings(t *testing.T) {
+	k := newHistoryKibana(t, historyDocs("192.0.2.50", 10))
+	y := fmt.Sprintf(`sources:
+  - type: kibana
+    url: %[1]s
+    api_key_env: JB_HISTORY_KEY
+    index: logs-web
+    key_match: {field: message, mode: phrase}
+  - type: kibana
+    url: %[1]s
+    api_key_env: JB_HISTORY_KEY
+    index: logs-app
+    time_field: event.created
+    key_match: {field: client_ip, mode: term}
+detectors:
+  - type: newkey
+    key_field: client_ip
+    path_field: path
+    sensitive_paths: [/admin/]
+    min_hits: 3
+    history:
+      lookback: 168h
+      min_events: 50
+      max_candidates: 50
+`, k.srv.URL)
+	p := filepath.Join(t.TempDir(), "two.yaml")
+	if err := os.WriteFile(p, []byte(y), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Hunt(t.Context(), cfg, HuntOptions{
+		Window: time.Hour, NoStore: true,
+		Env: func(string) (string, bool) { return "k", true },
+		Now: func() time.Time { return searchNow },
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var phrase, term bool
+	for _, a := range k.aggs {
+		s := fmt.Sprint(a)
+		switch {
+		case strings.Contains(s, "match_phrase:map[message:") && strings.Contains(s, "@timestamp"):
+			phrase = true
+		case strings.Contains(s, "term:map[client_ip:") && strings.Contains(s, "event.created") && !strings.Contains(s, "@timestamp"):
+			term = true
+		}
+	}
+	if len(k.aggs) != 2 || !phrase || !term {
+		t.Errorf("%d aggregation requests (phrase on message %v, term on client_ip %v): %v", len(k.aggs), phrase, term, k.aggs)
+	}
+}
