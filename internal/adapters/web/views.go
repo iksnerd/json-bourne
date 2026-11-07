@@ -1,12 +1,14 @@
 package web
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -439,6 +441,35 @@ type nodeRow struct {
 
 type factRow struct{ Key, Value, Source, Method, Observed string }
 
+// factGroup is every fact of one key. Values are listed in value order, so a key with
+// several values (two open ports, say) shows each one under the key once.
+type factGroup struct {
+	Key   string
+	Facts []factRow
+}
+
+// groupFacts groups facts by key, any key. Groups are in key order and the facts of a
+// group in value order, then source, method and time, so the same file always renders
+// the same page.
+func groupFacts(fs []core.EstateFact) []factGroup {
+	rows := make([]factRow, 0, len(fs))
+	for _, f := range fs {
+		rows = append(rows, factRowOf(f))
+	}
+	slices.SortStableFunc(rows, func(a, b factRow) int {
+		return cmp.Or(cmp.Compare(a.Key, b.Key), cmp.Compare(a.Value, b.Value), cmp.Compare(a.Source, b.Source),
+			cmp.Compare(a.Method, b.Method), cmp.Compare(a.Observed, b.Observed))
+	})
+	var out []factGroup
+	for _, r := range rows {
+		if n := len(out); n == 0 || out[n-1].Key != r.Key {
+			out = append(out, factGroup{Key: r.Key})
+		}
+		out[len(out)-1].Facts = append(out[len(out)-1].Facts, r)
+	}
+	return out
+}
+
 // assessRow is one assessment as shown. It is opinion: the page prints assessmentNotice
 // with every list of them, whatever the file's caveat says.
 type assessRow struct{ ID, Subject, Label, By, Decided, Basis, Note string }
@@ -471,6 +502,25 @@ func assessmentsOf(g core.EstateGraph, subject string) []assessRow {
 	return out
 }
 
+// citingOf returns the assessments about other nodes that cite this node in their basis,
+// at most tableCap. A basis entry cites a node when it is the node's id or the id followed
+// by "#" and a fact key; an entry that only starts with the same characters does not.
+func citingOf(g core.EstateGraph, id string) []assessRow {
+	var out []assessRow
+	for _, a := range g.Assessments {
+		if a.Subject == id || len(out) >= tableCap {
+			continue
+		}
+		for _, b := range a.Basis {
+			if b == id || strings.HasPrefix(b, id+"#") {
+				out = append(out, assessRowOf(a))
+				break
+			}
+		}
+	}
+	return out
+}
+
 type edgeRow struct {
 	G                                  string
 	I                                  int
@@ -493,6 +543,9 @@ type graphView struct {
 	ID, Caveat           string
 	Src                  string // where the browser fetches the graph data
 	Filtered             bool
+	ConfFiltered         bool // an edge confidence filter is on
+	Legend               []relCount
+	LegendCut            bool
 	NodeShown, EdgeShown int
 	Nodes                []nodeRow
 	Edges                []edgeRow
@@ -514,10 +567,34 @@ func edgeRowOf(g string, i int, e core.EstateEdge) edgeRow {
 	return edgeRow{c(g), i, c(e.From), c(e.To), c(e.Relation), c(e.Source), c(e.Method), c(e.Observed), c(e.Confidence), c(e.InferredFrom)}
 }
 
-func buildGraph(g core.EstateGraph, kinds []string, now time.Time) graphView {
+// relCount is how many drawn edges carry one relation.
+type relCount struct {
+	Relation string
+	N        int
+}
+
+// legendOf counts the edges of the interactive drawing by relation, in relation order.
+// It builds the layout the graph data route builds, so a count is the number of lines of
+// that relation the person sees. cut says the drawing holds only the most connected nodes.
+func legendOf(g core.EstateGraph, kinds, confs []string, now time.Time) ([]relCount, bool) {
+	l := estategraph.Build(g, estategraph.Options{Limit: graphJSONNodes, Now: now, Kinds: kinds, Confidences: confs})
+	n := map[string]int{}
+	for _, e := range l.Edges {
+		n[c(e.Relation)]++
+	}
+	out := make([]relCount, 0, len(n))
+	for r, k := range n {
+		out = append(out, relCount{r, k})
+	}
+	slices.SortFunc(out, func(a, b relCount) int { return cmp.Compare(a.Relation, b.Relation) })
+	return out, l.Cut
+}
+
+func buildGraph(g core.EstateGraph, kinds, confs []string, now time.Time) graphView {
 	v := graphView{ID: c(g.ID), Caveat: c(g.Caveat), NodeTotal: len(g.Nodes), EdgeTotal: len(g.Edges),
-		Assessments: assessmentsOf(g, ""), AssessmentTotal: len(g.Assessments), Filtered: len(kinds) > 0}
-	v.Src = graphHref(v.ID, kinds)
+		Assessments: assessmentsOf(g, ""), AssessmentTotal: len(g.Assessments), Filtered: len(kinds) > 0, ConfFiltered: len(confs) > 0}
+	v.Src = graphHref(v.ID, kinds, confs)
+	wantConf := kindSet(confs)
 	chosen := kindSet(kinds)
 	shown := map[string]bool{} // node ids that pass the filter
 	for _, n := range g.Nodes {
@@ -530,7 +607,7 @@ func buildGraph(g core.EstateGraph, kinds []string, now time.Time) graphView {
 		}
 	}
 	for i, e := range g.Edges {
-		if !v.Filtered || shown[e.From] && shown[e.To] {
+		if (!v.Filtered || shown[e.From] && shown[e.To]) && (!v.ConfFiltered || wantConf[e.Confidence]) {
 			v.EdgeShown++
 			if len(v.Edges) < tableCap {
 				v.Edges = append(v.Edges, edgeRowOf(g.ID, i, e))
@@ -544,7 +621,8 @@ func buildGraph(g core.EstateGraph, kinds []string, now time.Time) graphView {
 		v.Absences = append(v.Absences, absenceRow{c(a.Subject), c(a.Source), c(a.Method), c(a.Observed), c(a.Answer)})
 	}
 	// The drawing that needs no script: the most connected nodes in columns by kind.
-	l := estategraph.Build(g, estategraph.Options{Limit: graphNodes, Now: now, Kinds: kinds})
+	l := estategraph.Build(g, estategraph.Options{Limit: graphNodes, Now: now, Kinds: kinds, Confidences: confs})
+	v.Legend, v.LegendCut = legendOf(g, kinds, confs, now)
 	if len(l.Nodes) > 0 {
 		v.SVG, v.SVGCut, v.SVGW, v.SVGH = true, l.Cut, l.Width, l.Height
 		for _, n := range l.Nodes {
@@ -578,7 +656,7 @@ type graphLayer struct {
 
 // layersOf groups the graphs by subject. A graph is never merged with another: each keeps
 // its own nodes, edges and corroboration. A layer with no graph is left out.
-func layersOf(gs []core.EstateGraph, kinds []string, now time.Time) []graphLayer {
+func layersOf(gs []core.EstateGraph, kinds, confs []string, now time.Time) []graphLayer {
 	layers := []graphLayer{{Heading: headingOperated}, {Heading: headingAdversary}, {Heading: headingUnclassified}}
 	for _, g := range gs {
 		i := 2
@@ -588,7 +666,7 @@ func layersOf(gs []core.EstateGraph, kinds []string, now time.Time) []graphLayer
 		case "adversary":
 			i = 1
 		}
-		layers[i].Graphs = append(layers[i].Graphs, buildGraph(g, kinds, now))
+		layers[i].Graphs = append(layers[i].Graphs, buildGraph(g, kinds, confs, now))
 	}
 	out := layers[:0]
 	for _, l := range layers {
@@ -606,6 +684,7 @@ type estatePage struct {
 	Layers     []graphLayer
 	Cap        int
 	Kinds      []string // the kinds the filter keeps; empty means all
+	Confs      []string // the edge confidences the filter keeps; empty means all
 }
 
 // kindOptions are the node kinds the filter offers, each with whether it is chosen.
@@ -648,6 +727,37 @@ func kindsOf(r *http.Request) []string {
 	return out
 }
 
+// confOption is an edge confidence the filter offers, with whether it is chosen.
+type confOption struct {
+	Confidence string
+	Checked    bool
+}
+
+func (p estatePage) ConfOptions() []confOption {
+	chosen := kindSet(p.Confs)
+	out := make([]confOption, 0, len(estategraph.Confidences))
+	for _, k := range estategraph.Confidences {
+		out = append(out, confOption{k, chosen[k]})
+	}
+	return out
+}
+
+// confidencesOf reads the repeatable confidence parameter the way kindsOf reads kind:
+// an unknown value is dropped, never reflected, never an error.
+func confidencesOf(r *http.Request) []string {
+	asked := map[string]bool{}
+	for _, k := range r.URL.Query()["confidence"] {
+		asked[k] = true
+	}
+	var out []string
+	for _, k := range estategraph.Confidences {
+		if asked[k] {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
 func (s *server) loadEstates(ctx context.Context) ([]core.EstateGraph, note, bool) {
 	if s.d.Estate == nil {
 		return nil, note{}, true
@@ -664,7 +774,8 @@ func (s *server) estate(w http.ResponseWriter, r *http.Request) {
 		p.Note = note{Absent: "estate dir absent or empty: no estate file has been collected for this case (see `jb estate`)"}
 	}
 	p.Kinds = kindsOf(r)
-	p.Layers = layersOf(gs, p.Kinds, s.d.Now())
+	p.Confs = confidencesOf(r)
+	p.Layers = layersOf(gs, p.Kinds, p.Confs, s.d.Now())
 	if isHX(r) {
 		s.send(w, r, http.StatusOK, estateGraphs(p))
 		return
@@ -688,8 +799,9 @@ type nodePage struct {
 	Node       nodeRow
 	Out, In    []edgeRow
 	Absences   []absenceRow
-	Facts      []factRow
+	Facts      []factGroup
 	Assess     []assessRow
+	Citing     []assessRow // assessments about other nodes that cite this one in their basis
 	// OverlayHref is set for an ip node: where its reputation and last-seen overlay is read.
 	OverlayHref string
 }
@@ -706,13 +818,11 @@ func (s *server) estateNode(w http.ResponseWriter, r *http.Request) {
 		if x.ID != id {
 			continue
 		}
-		p := nodePage{Nav: "estate", Title: "Node " + c(x.Label), Caveat: c(g.Caveat), GraphID: c(g.ID), Node: nodeRowOf(g.ID, x), Assess: assessmentsOf(g, id)}
+		p := nodePage{Nav: "estate", Title: "Node " + c(x.Label), Caveat: c(g.Caveat), GraphID: c(g.ID), Node: nodeRowOf(g.ID, x), Assess: assessmentsOf(g, id), Citing: citingOf(g, id)}
 		if x.Kind == "ip" {
 			p.OverlayHref = overlayHref(g.ID, x.ID)
 		}
-		for _, f := range x.Facts {
-			p.Facts = append(p.Facts, factRowOf(f))
-		}
+		p.Facts = groupFacts(x.Facts)
 		for i, e := range g.Edges {
 			if e.From == id && len(p.Out) < tableCap {
 				p.Out = append(p.Out, edgeRowOf(g.ID, i, e))
@@ -880,7 +990,7 @@ func (s *server) estateGraphJSON(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no such estate map", http.StatusNotFound)
 		return
 	}
-	l := estategraph.Build(g, estategraph.Options{Limit: graphJSONNodes, Now: s.d.Now(), Kinds: kindsOf(r)})
+	l := estategraph.Build(g, estategraph.Options{Limit: graphJSONNodes, Now: s.d.Now(), Kinds: kindsOf(r), Confidences: confidencesOf(r)})
 	out := jsonGraph{ID: c(g.ID), NodeTotal: l.NodeTotal, EdgeTotal: len(g.Edges), Components: l.Components, Cut: l.Cut, Filtered: l.Filtered,
 		Nodes: []jsonNode{}, Edges: []jsonEdge{}}
 	for _, x := range l.Nodes {

@@ -19,8 +19,24 @@ templ estateView(p estatePage) {
 						<label class="label"><input type="checkbox" name="kind" value={ o.Kind } checked?={ o.Checked }/> { o.Kind }</label>
 					}
 				</fieldset>
+				<fieldset>
+					<legend class="label">edge confidence (none chosen shows all)</legend>
+					for _, o := range p.ConfOptions() {
+						<label class="label"><input type="checkbox" name="confidence" value={ o.Confidence } checked?={ o.Checked }/> { o.Confidence }</label>
+					}
+				</fieldset>
 				<noscript><button class="btn btn-primary" type="submit">filter</button></noscript>
 			</form>
+			<p>
+				<label class="label" for="estate-search">find a node (/ to focus, Escape to clear, arrow keys to move between matches)</label>
+				<input class="input" type="search" id="estate-search" autocomplete="off" placeholder="id or label" aria-controls="estate-graphs" hidden/>
+				<span class="note" id="estate-search-status" aria-live="polite"></span>
+			</p>
+			<p>
+				<button class="btn" type="button" id="estate-export-svg" hidden>export drawn graph as SVG</button>
+				<button class="btn" type="button" id="estate-export-json" hidden>export drawn graph as JSON</button>
+				<span class="note" id="estate-export-status" aria-live="polite"></span>
+			</p>
 			<div id="estate-graphs">
 				@estateGraphs(p)
 			</div>
@@ -33,6 +49,8 @@ templ estateView(p estatePage) {
 			<script src="/static/sheet.js" defer></script>
 			<script src="/static/d3.min.js" defer></script>
 			<script src="/static/estate.js" defer></script>
+			<script src="/static/estate-search.js" defer></script>
+			<script src="/static/estate-export.js" defer></script>
 		}
 	}
 }
@@ -95,8 +113,8 @@ templ graphBlock(g graphView) {
 			</tr>
 		}
 	</table>
-	if g.Filtered {
-		<h3>Edges ({ str(g.EdgeShown) } of { str(g.EdgeTotal) }, between the nodes shown)</h3>
+	if g.Filtered || g.ConfFiltered {
+		<h3>Edges ({ str(g.EdgeShown) } of { str(g.EdgeTotal) }, matching the filters)</h3>
 	} else {
 		<h3>Edges ({ str(g.EdgeTotal) })</h3>
 	}
@@ -120,6 +138,21 @@ templ graphBlock(g graphView) {
 	} else {
 		@alert("muted") {
 			no edges in this map
+		}
+	}
+	<h3>Edge kinds drawn</h3>
+	if len(g.Legend) > 0 {
+		<ul id={ "legend-" + g.ID }>
+			for _, r := range g.Legend {
+				<li>{ r.Relation }: { str(r.N) }</li>
+			}
+		</ul>
+		if g.LegendCut {
+			<p class="note">the interactive drawing holds the most connected nodes only, so these counts are of the lines drawn, not of every edge in the file.</p>
+		}
+	} else {
+		@alert("muted") {
+			no edge drawn
 		}
 	}
 	<h3>Absences</h3>
@@ -209,12 +242,15 @@ templ nodeRecord(p nodePage, panel bool) {
 	</table>
 	<h2>Facts</h2>
 	if len(p.Facts) > 0 {
-		<table>
-			<tr><th>key</th><th>value</th><th>source</th><th>method</th><th>observed</th></tr>
-			for _, f := range p.Facts {
-				<tr><td class="mono">{ f.Key }</td><td class="mono">{ f.Value }</td><td>{ f.Source }</td><td class="mono">{ f.Method }</td><td>{ f.Observed }</td></tr>
-			}
-		</table>
+		for _, grp := range p.Facts {
+			<h3 class="mono">{ grp.Key }</h3>
+			<table>
+				<tr><th>value</th><th>source</th><th>method</th><th>observed</th></tr>
+				for _, f := range grp.Facts {
+					<tr><td class="mono">{ f.Value }</td><td>{ f.Source }</td><td class="mono">{ f.Method }</td><td>{ f.Observed }</td></tr>
+				}
+			</table>
+		}
 	} else {
 		@alert("muted") {
 			no recorded fact about this node
@@ -280,6 +316,9 @@ templ nodeRecord(p nodePage, panel bool) {
 	<h2>Assessments (opinion)</h2>
 	<p class="note">{ assessmentNotice }</p>
 	@assessmentTable(p.Assess, false, "no assessment about this node")
+	<h2>Assessments citing this node (opinion)</h2>
+	<p class="note">{ assessmentNotice }</p>
+	@assessmentTable(p.Citing, true, "no assessment cites this node in its basis")
 	if p.OverlayHref != "" {
 		if panel {
 			<div hx-get={ p.OverlayHref } hx-trigger="load" hx-swap="innerHTML">

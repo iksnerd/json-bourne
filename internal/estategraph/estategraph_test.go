@@ -74,6 +74,21 @@ func TestDanglingAndSelfEdgesAreIgnoredNotFatal(t *testing.T) {
 	}
 }
 
+func TestConfidenceFilterDropsEdgesNotNodesAndKeepsFileIndexes(t *testing.T) {
+	g := twoIslands()
+	g.Edges[1].Confidence = "inferred"
+	l := Build(g, Options{Limit: 100, Confidences: []string{"inferred"}})
+	if len(l.Edges) != 1 || l.Edges[0].Relation != "within" || l.Edges[0].Index != 1 {
+		t.Errorf("edges = %+v, want only the inferred one at file index 1", l.Edges)
+	}
+	if len(l.Nodes) != 5 || byID(l)["ip:a"].Degree != 2 {
+		t.Errorf("a confidence filter must not remove nodes or change degree: %d nodes", len(l.Nodes))
+	}
+	if all := Build(g, Options{Limit: 100, Confidences: Confidences}); len(all.Edges) != 3 {
+		t.Errorf("both confidences keep every edge, got %d", len(all.Edges))
+	}
+}
+
 func TestEmptyGraph(t *testing.T) {
 	l := Build(core.EstateGraph{}, Options{Limit: 10})
 	if len(l.Nodes) != 0 || len(l.Edges) != 0 || l.Cut || l.NodeTotal != 0 {
