@@ -26,6 +26,7 @@ import (
 	"github.com/iksnerd/json-bourne/internal/casefile"
 	"github.com/iksnerd/json-bourne/internal/config"
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/estateseam"
 )
 
 // The estate functions record who holds and runs infrastructure into the case's estate
@@ -75,21 +76,6 @@ const (
 	driftLogFile   = "estate-drift.log"
 )
 
-// EstatePorts replace the network adapters of the estate functions. Their types come
-// from internal packages, so a program outside this module cannot name an
-// implementation: the zero value, which builds the real adapters from the options, is
-// the only value it can use. The module's own tests set them to answer from memory.
-// The enable switch of `estate.external` is checked whether or not a port is set.
-type EstatePorts struct {
-	PTR  core.PTRResolver
-	RDAP core.RDAPRegistry
-	BGP  core.BGPSource
-	CT   core.CTSource
-	DNS  core.DNSForward
-	// Sleep replaces the wait between two requests to a service.
-	Sleep func(ctx context.Context, d time.Duration) error
-}
-
 // EstateOptions are the options every estate function shares.
 type EstateOptions struct {
 	// File is the estate file inside the case's estate directory. Empty means
@@ -102,8 +88,6 @@ type EstateOptions struct {
 	Env Env
 	// Now is the clock. Nil means time.Now.
 	Now func() time.Time
-	// Ports replace the network adapters; see [EstatePorts].
-	Ports EstatePorts
 }
 
 func (o EstateOptions) file() string {
@@ -393,13 +377,14 @@ func EstateIP(ctx context.Context, caseDir string, ips []string, opts EstateIPOp
 	if err != nil {
 		return nil, usagef("resolver: %v", err)
 	}
+	ports := estateseam.From(ctx)
 	var reg core.RDAPRegistry = rc
 	ptr := pr
-	if opts.Ports.RDAP != nil {
-		reg = opts.Ports.RDAP
+	if ports.RDAP != nil {
+		reg = ports.RDAP
 	}
-	if opts.Ports.PTR != nil {
-		ptr = opts.Ports.PTR
+	if ports.PTR != nil {
+		ptr = ports.PTR
 	}
 
 	c, err := loadEstateCase(caseDir)
@@ -449,14 +434,14 @@ type extService struct {
 	interval time.Duration // default spacing between requests
 	timeout  time.Duration // default timeout of each request
 	// build returns the collector and the place the question goes, after the gate.
-	build func(cfg *config.File, p EstatePorts, now func() time.Time, o extBuild) (extCollect, app.ExternalDeps, string, error)
+	build func(cfg *config.File, p estateseam.Ports, now func() time.Time, o extBuild) (extCollect, app.ExternalDeps, string, error)
 }
 
 var extServices = []extService{
 	{
 		name: config.EstateBGP, what: "the AS numbers and addresses asked about",
 		interval: time.Second, timeout: 10 * time.Second,
-		build: func(cfg *config.File, p EstatePorts, now func() time.Time, o extBuild) (extCollect, app.ExternalDeps, string, error) {
+		build: func(cfg *config.File, p estateseam.Ports, now func() time.Time, o extBuild) (extCollect, app.ExternalDeps, string, error) {
 			base := cfg.Estate.BGPURL
 			if base == "" {
 				base = bgp.DefaultBaseURL
@@ -476,7 +461,7 @@ var extServices = []extService{
 	{
 		name: config.EstateDNS, what: "the domain names asked about",
 		interval: 250 * time.Millisecond, timeout: 5 * time.Second,
-		build: func(_ *config.File, p EstatePorts, now func() time.Time, o extBuild) (extCollect, app.ExternalDeps, string, error) {
+		build: func(_ *config.File, p estateseam.Ports, now func() time.Time, o extBuild) (extCollect, app.ExternalDeps, string, error) {
 			r, dest, err := forwardResolver(o.resolver, o.timeout, o.targets)
 			if err != nil {
 				return nil, app.ExternalDeps{}, "", fmt.Errorf("resolver: %w", err)
@@ -491,7 +476,7 @@ var extServices = []extService{
 	{
 		name: config.EstateCrtsh, what: "the domain names asked about",
 		interval: time.Second, timeout: 30 * time.Second,
-		build: func(cfg *config.File, p EstatePorts, now func() time.Time, o extBuild) (extCollect, app.ExternalDeps, string, error) {
+		build: func(cfg *config.File, p estateseam.Ports, now func() time.Time, o extBuild) (extCollect, app.ExternalDeps, string, error) {
 			base := cfg.Estate.CrtshURL
 			if base == "" {
 				base = crtsh.DefaultBaseURL
@@ -690,11 +675,12 @@ func estateExternal(ctx context.Context, service, caseDir string, targets []stri
 		return nil, usagef("the %q service is not enabled, so nothing was sent. It is off by default because %s would leave this machine. "+
 			"List it under `estate: {external: [%s]}` in the case's config to allow it (docs/CONFIG.md)", service, svc.what, service)
 	}
-	collect, deps, dest, err := svc.build(cfg, opts.Ports, opts.now(), extBuild{timeout: timeout, resolver: opts.Resolver, maxNames: maxNames, targets: targets})
+	ports := estateseam.From(ctx)
+	collect, deps, dest, err := svc.build(cfg, ports, opts.now(), extBuild{timeout: timeout, resolver: opts.Resolver, maxNames: maxNames, targets: targets})
 	if err != nil {
 		return nil, usagef("%v", err)
 	}
-	deps.Sleep = opts.Ports.Sleep
+	deps.Sleep = ports.Sleep
 
 	base, err := loadEstateBase(c, file)
 	if err != nil {
@@ -828,7 +814,8 @@ func EstateRefresh(ctx context.Context, caseDir string, opts EstateRefreshOption
 	now := opts.now()
 	rd := app.RefreshDeps{Enabled: enabled, Now: now}
 	rd.Estate.Now = now
-	rd.Ext.Now, rd.Ext.Sleep = now, opts.Ports.Sleep
+	ports := estateseam.From(ctx)
+	rd.Ext.Now, rd.Ext.Sleep = now, ports.Sleep
 	// Address lookups (rdns, rdap).
 	var addrs []netip.Addr
 	for _, a := range targets.Addresses {
@@ -853,11 +840,11 @@ func EstateRefresh(ctx context.Context, caseDir string, opts EstateRefreshOption
 			return nil, usagef("resolver: %v", err)
 		}
 		rd.Estate.PTR, rd.Estate.RDAP = pr, rc
-		if opts.Ports.PTR != nil {
-			rd.Estate.PTR = opts.Ports.PTR
+		if ports.PTR != nil {
+			rd.Estate.PTR = ports.PTR
 		}
-		if opts.Ports.RDAP != nil {
-			rd.Estate.RDAP = opts.Ports.RDAP
+		if ports.RDAP != nil {
+			rd.Estate.RDAP = ports.RDAP
 		}
 	}
 	// External collectors: built only when enabled and there is something to ask.
@@ -879,7 +866,7 @@ func EstateRefresh(ctx context.Context, caseDir string, opts EstateRefreshOption
 		if len(list) == 0 {
 			continue
 		}
-		_, ed, _, berr := s.build(cfg, opts.Ports, now, extBuild{timeout: timeout, resolver: opts.Resolver, maxNames: crtsh.DefaultMaxNames, targets: list})
+		_, ed, _, berr := s.build(cfg, ports, now, extBuild{timeout: timeout, resolver: opts.Resolver, maxNames: crtsh.DefaultMaxNames, targets: list})
 		if berr != nil {
 			return nil, usagef("%v", berr)
 		}

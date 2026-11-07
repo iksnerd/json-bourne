@@ -109,7 +109,7 @@ func newExtCmd(d deps, s extSpec) *cobra.Command {
 			opts := jb.EstateExternalOptions{EstateOptions: d.estateOptions(file), Config: cfgPath,
 				Timeout: timeout, MinInterval: interval, NoMinInterval: interval == 0, MaxTargets: maxTargets,
 				Resolver: resolver, MaxNames: maxNames}
-			res, err := s.call(cmd.Context(), caseDir, args, opts)
+			res, err := s.call(d.estateCtx(cmd.Context()), caseDir, args, opts)
 			if err != nil {
 				return err
 			}

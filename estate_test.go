@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/estateseam"
 )
 
 // estateWorld is a synthetic estate the stubs answer for. Every question is recorded,
@@ -66,8 +67,13 @@ func (w *estateWorld) LookupIP(context.Context, netip.Addr) (core.BGPOrigin, err
 }
 
 func (w *estateWorld) opts(file string) EstateOptions {
-	return EstateOptions{File: file, Now: func() time.Time { return w.clock }, Ports: EstatePorts{
-		PTR: w, BGP: w, CT: w, DNS: w, Sleep: func(context.Context, time.Duration) error { return nil }}}
+	return EstateOptions{File: file, Now: func() time.Time { return w.clock }}
+}
+
+// ctx carries the world's adapters into a library call (the unexported seam of RFC 0017).
+func (w *estateWorld) ctx(t *testing.T) context.Context {
+	return estateseam.With(t.Context(), estateseam.Ports{
+		PTR: w, BGP: w, CT: w, DNS: w, Sleep: func(context.Context, time.Duration) error { return nil }})
 }
 
 func (w *estateWorld) tick() { w.clock = w.clock.Add(5 * 24 * time.Hour) }
@@ -122,7 +128,7 @@ func TestEstateIPReportsAnIncompleteLookupAndStoresNothingForIt(t *testing.T) {
 	dir := copyCase(t)
 	opts := EstateIPOptions{EstateOptions: world.opts(""), RDAPURL: srv.URL}
 
-	res, err := EstateIP(t.Context(), dir, []string{"192.0.2.10"}, opts)
+	res, err := EstateIP(world.ctx(t), dir, []string{"192.0.2.10"}, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +169,7 @@ func TestEstateIPRefusesTooManyAddressesAndMistakesBeforeAsking(t *testing.T) {
 		"bad rdap url":    {[]string{"192.0.2.1"}, EstateIPOptions{EstateOptions: world.opts(""), RDAPURL: "ftp://x"}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			res, err := EstateIP(t.Context(), dir, c.ips, c.opts)
+			res, err := EstateIP(world.ctx(t), dir, c.ips, c.opts)
 			if !IsUsage(err) || res != nil {
 				t.Errorf("want a usage error and no result, got %v, %v", res, err)
 			}
@@ -180,13 +186,13 @@ func TestEstateIPRefusesTooManyAddressesAndMistakesBeforeAsking(t *testing.T) {
 func TestEstateExternalServicesAreOffUntilTheCaseListsThem(t *testing.T) {
 	calls := map[string]func(dir string, w *estateWorld) (*EstateExternalResult, error){
 		"bgp": func(dir string, w *estateWorld) (*EstateExternalResult, error) {
-			return EstateASN(t.Context(), dir, []string{"AS64500"}, EstateExternalOptions{EstateOptions: w.opts("")})
+			return EstateASN(w.ctx(t), dir, []string{"AS64500"}, EstateExternalOptions{EstateOptions: w.opts("")})
 		},
 		"dns": func(dir string, w *estateWorld) (*EstateExternalResult, error) {
-			return EstateDNS(t.Context(), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: w.opts("")})
+			return EstateDNS(w.ctx(t), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: w.opts("")})
 		},
 		"crt.sh": func(dir string, w *estateWorld) (*EstateExternalResult, error) {
-			return EstateCT(t.Context(), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: w.opts("")})
+			return EstateCT(w.ctx(t), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: w.opts("")})
 		},
 	}
 	for service, call := range calls {
@@ -239,7 +245,7 @@ func TestEstateCTTruncationIsIncompleteAndTooManyTargetsAreRefused(t *testing.T)
 	w := newEstateWorld()
 	dir := copyCase(t)
 	enableEstate(t, dir, "crt.sh")
-	res, err := EstateCT(t.Context(), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: w.opts("")})
+	res, err := EstateCT(w.ctx(t), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: w.opts("")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +255,7 @@ func TestEstateCTTruncationIsIncompleteAndTooManyTargetsAreRefused(t *testing.T)
 	hasKeys(t, "EstateExternalResult", keysOf(t, res), "note", "notes", "service", "asked", "file", "complete", "wrote", "targets", "added", "unchanged", "failures", "conflicts")
 
 	w.asked = nil
-	_, err = EstateCT(t.Context(), dir, []string{"a.example.com", "b.example.com", "c.example.com"}, EstateExternalOptions{EstateOptions: w.opts(""), MaxTargets: 2})
+	_, err = EstateCT(w.ctx(t), dir, []string{"a.example.com", "b.example.com", "c.example.com"}, EstateExternalOptions{EstateOptions: w.opts(""), MaxTargets: 2})
 	if !IsUsage(err) || len(w.asked) != 0 || !strings.Contains(err.Error(), "the cap is 2") {
 		t.Errorf("a longer list is refused whole, before anything is asked: %v %v", err, w.asked)
 	}
@@ -260,14 +266,14 @@ func TestEstateRefreshDiffPromoteRoundTrip(t *testing.T) {
 	dir := copyCase(t)
 	enableEstate(t, dir, "dns")
 	base := w.opts("base.yaml")
-	if _, err := EstateDNS(t.Context(), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: base}); err != nil {
+	if _, err := EstateDNS(w.ctx(t), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: base}); err != nil {
 		t.Fatal(err)
 	}
 
 	// A failed MX lookup makes the snapshot incomplete, and an incomplete one is never a baseline.
 	w.tick()
 	w.failMX = true
-	snap, err := EstateRefresh(t.Context(), dir, EstateRefreshOptions{EstateOptions: base})
+	snap, err := EstateRefresh(w.ctx(t), dir, EstateRefreshOptions{EstateOptions: base})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +295,7 @@ func TestEstateRefreshDiffPromoteRoundTrip(t *testing.T) {
 	w.tick()
 	w.failMX = false
 	w.ns = []string{"ns1.example.com", "ns7.example.com"}
-	snap, err = EstateRefresh(t.Context(), dir, EstateRefreshOptions{EstateOptions: base})
+	snap, err = EstateRefresh(w.ctx(t), dir, EstateRefreshOptions{EstateOptions: base})
 	if err != nil || !snap.Complete() {
 		t.Fatalf("%+v %v", snap, err)
 	}
@@ -325,20 +331,20 @@ func TestEstateRefreshRefusesMoreTargetsThanTheCapAndAsksNothing(t *testing.T) {
 	dir := copyCase(t)
 	enableEstate(t, dir, "dns", "bgp")
 	base := w.opts("base.yaml")
-	if _, err := EstateDNS(t.Context(), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: base}); err != nil {
+	if _, err := EstateDNS(w.ctx(t), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: base}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := EstateASN(t.Context(), dir, []string{"AS64500"}, EstateExternalOptions{EstateOptions: base}); err != nil {
+	if _, err := EstateASN(w.ctx(t), dir, []string{"AS64500"}, EstateExternalOptions{EstateOptions: base}); err != nil {
 		t.Fatal(err)
 	}
 	w.asked = nil
-	if _, err := EstateRefresh(t.Context(), dir, EstateRefreshOptions{EstateOptions: base, MaxTargets: 1}); !IsUsage(err) || len(w.asked) != 0 {
+	if _, err := EstateRefresh(w.ctx(t), dir, EstateRefreshOptions{EstateOptions: base, MaxTargets: 1}); !IsUsage(err) || len(w.asked) != 0 {
 		t.Errorf("a longer list is refused whole: %v %v", err, w.asked)
 	}
-	if _, err := EstateRefresh(t.Context(), dir, EstateRefreshOptions{EstateOptions: base, MaxTargets: 2}); err != nil {
+	if _, err := EstateRefresh(w.ctx(t), dir, EstateRefreshOptions{EstateOptions: base, MaxTargets: 2}); err != nil {
 		t.Errorf("two targets fit a cap of two: %v", err)
 	}
-	if _, err := EstateRefresh(t.Context(), dir, EstateRefreshOptions{EstateOptions: w.opts("none.yaml")}); err == nil || IsUsage(err) {
+	if _, err := EstateRefresh(w.ctx(t), dir, EstateRefreshOptions{EstateOptions: w.opts("none.yaml")}); err == nil || IsUsage(err) {
 		t.Errorf("a missing baseline is an error, not an empty one: %v", err)
 	}
 }

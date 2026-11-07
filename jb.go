@@ -26,8 +26,6 @@ import (
 // Types re-exported from the internal packages. They are aliases, so values flow
 // between this package and the CLI without conversion.
 type (
-	// Config is a parsed, validated config file. Credentials are not resolved yet.
-	Config = config.File
 	// Result is the outcome of one hunt: per-source and per-detector status, and the
 	// findings, most severe first.
 	Result = app.Result
@@ -83,9 +81,19 @@ const (
 // MaxHistoricalWindow is the longest window a hunt ending in the past accepts.
 const MaxHistoricalWindow = 31 * 24 * time.Hour
 
+// Config is a parsed, validated config file. Credentials are not resolved yet. It is
+// opaque: build it with [LoadConfig] and pass it to [Hunt].
+type Config struct{ f *config.File }
+
 // LoadConfig reads and validates the YAML config at path. The file holds the names of
 // environment variables, never credentials.
-func LoadConfig(path string) (*Config, error) { return config.Load(path) }
+func LoadConfig(path string) (*Config, error) {
+	f, err := config.Load(path)
+	if err != nil {
+		return nil, err
+	}
+	return &Config{f: f}, nil
+}
 
 // HuntOptions says which window to hunt and where credentials come from.
 type HuntOptions struct {
@@ -152,19 +160,20 @@ func (n *notes) add(s string) {
 // A nil error means the hunt ran, not that it is clean: check [Result.Complete] and
 // [Result.Failed] before telling anyone nothing was found.
 func Hunt(ctx context.Context, cfg *Config, opts HuntOptions) (*Result, error) {
-	if cfg == nil {
+	if cfg == nil || cfg.f == nil {
 		return nil, usagef("nil config")
 	}
+	f := cfg.f
 	if len(opts.Search) > 0 || opts.SearchField != "" {
 		// Narrow a copy: the caller's Config is theirs and may be reused for a plain
 		// hunt. The terms are checked here, before an adapter is built or a request sent.
-		narrowed := *cfg
+		narrowed := *f
 		if err := narrowed.UseSearch(opts.Search, opts.SearchField); err != nil {
 			return nil, usagef("%v", err)
 		}
-		cfg = &narrowed
+		f = &narrowed
 	}
-	return hunt(ctx, cfg, opts, &notes{notice: opts.Notice}, app.RenameScope("", opts.ConfigPath))
+	return hunt(ctx, f, opts, &notes{notice: opts.Notice}, app.RenameScope("", opts.ConfigPath))
 }
 
 // CaseHuntOptions are the options of [HuntCase].
@@ -220,7 +229,7 @@ func searchFieldName(override string) string {
 
 // hunt runs a hunt over a config that is already narrowed by opts.Search. It raises the
 // advice lines of the run in the order the CLI has always printed them.
-func hunt(ctx context.Context, cfg *Config, opts HuntOptions, n *notes, scope string, keepOut ...string) (*Result, error) {
+func hunt(ctx context.Context, cfg *config.File, opts HuntOptions, n *notes, scope string, keepOut ...string) (*Result, error) {
 	if opts.Window < 0 {
 		return nil, usagef("window must be positive, got %s", opts.Window)
 	}

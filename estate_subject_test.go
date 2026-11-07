@@ -44,13 +44,13 @@ func TestEstateRefreshAndPromoteKeepTheSubject(t *testing.T) {
 	dir := copyCase(t)
 	enableEstate(t, dir, "dns")
 	base := w.opts("base.yaml")
-	if _, err := EstateDNS(t.Context(), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: base}); err != nil {
+	if _, err := EstateDNS(w.ctx(t), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: base}); err != nil {
 		t.Fatal(err)
 	}
 	setSubject(t, dir, "base.yaml", "operated")
 	w.tick()
 	w.ns = []string{"ns1.example.com", "ns7.example.com"}
-	snap, err := EstateRefresh(t.Context(), dir, EstateRefreshOptions{EstateOptions: base})
+	snap, err := EstateRefresh(w.ctx(t), dir, EstateRefreshOptions{EstateOptions: base})
 	if err != nil || !snap.Complete() {
 		t.Fatalf("%+v %v", snap, err)
 	}
@@ -75,13 +75,13 @@ func TestEstateDiffRefusesFilesOfDifferentSubjects(t *testing.T) {
 	dir := copyCase(t)
 	enableEstate(t, dir, "dns")
 	for _, f := range []string{"a.yaml", "b.yaml"} {
-		if _, err := EstateDNS(t.Context(), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: w.opts(f)}); err != nil {
+		if _, err := EstateDNS(w.ctx(t), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: w.opts(f)}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	setSubject(t, dir, "a.yaml", "operated")
 	setSubject(t, dir, "b.yaml", "adversary")
-	_, err := EstateDiff(t.Context(), dir, EstateDiffOptions{EstateOptions: w.opts("a.yaml"), From: "a.yaml", To: "b.yaml"})
+	_, err := EstateDiff(w.ctx(t), dir, EstateDiffOptions{EstateOptions: w.opts("a.yaml"), From: "a.yaml", To: "b.yaml"})
 	if !IsUsage(err) || !strings.Contains(err.Error(), "operated") || !strings.Contains(err.Error(), "adversary") {
 		t.Errorf("want a usage error naming both subjects, got %v", err)
 	}
@@ -92,7 +92,7 @@ func TestCaseWithMixedSubjectsChecksAndLoads(t *testing.T) {
 	dir := copyCase(t)
 	enableEstate(t, dir, "dns")
 	for _, f := range []string{"ours.yaml", "theirs.yaml", "unsorted.yaml"} {
-		if _, err := EstateDNS(t.Context(), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: w.opts(f)}); err != nil {
+		if _, err := EstateDNS(w.ctx(t), dir, []string{"example.com"}, EstateExternalOptions{EstateOptions: w.opts(f)}); err != nil {
 			t.Fatal(err)
 		}
 	}
