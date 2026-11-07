@@ -35,6 +35,10 @@ go test -count=1 ./internal/archtest
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+### The API surface golden
+
+`TestAPISurface` walks the exported Go API of package `jb` and of `sdk` (types, fields, tags and methods, following aliases into `internal/`) and compares it with `testdata/api/jb.txt` and `testdata/api/sdk.txt`. A change to the surface, or to an internal type that the surface reaches, fails the test. If the change is deliberate, run `go test -count=1 -run TestAPISurface -update-api .`, read the diff and commit it with the change. The same test fails on a new `/internal/` type reachable from the API and on a stale line in `testdata/api/known-leaks.txt`, which only shrinks. See [RFC 0017](docs/rfcs/0017-public-api-owns-its-types.md).
+
 ## Feature freeze (the stable core)
 
 Decided 2026-11-06. The accepted RFCs that are not built yet are the last feature work before 1.0: the `newkey` severity floor (RFC 0011 amendment), the `newkey` history probe (RFC 0014, after its cost measurement), the estate `subject` key (RFC 0015), and the watch-gap fix. After they are built and released, `jb` takes no new command, port, file format or config key before 1.0. What goes in: bug fixes, hardening, tests and docs. A request for anything else goes on a later list and needs the maintainer to lift the freeze. RFC 0016 (own-cloud inventory) is parked behind it.
