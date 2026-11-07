@@ -315,6 +315,8 @@ Each rule is checked by the loader and has a corpus case in `internal/casefile/t
 
    `Guard` asks git (`git check-ignore -q` on a probe path inside the directory, so a directory-only pattern such as `evidence/` and a missing directory both work), so global excludes and nested ignore files count. `Load` does not run git, so loading a case never starts a subprocess. A caller that is about to write evidence MUST call `Guard(c.EvidenceDir())` first. The one `os/exec` use in the package is `guard.go`.
 
+**Trust model.** Rule 2 validates a path at load, and the path is used later. Between the two, nothing stops another process from replacing a directory or file in the case with a symlink that points out of it. The case directory is assumed to belong to the operator and not to be written by a hostile local process while `jb` runs. A path the code opens is checked as the file it opened where that is cheap (the watch state, watch status and alert log readers refuse anything that is not a regular file and read at most a fixed size), but the confinement of rule 2 is not re-proved at every use. The plugin pin check has its own limits, stated in `docs/PLUGINS.md`.
+
 Also: `case.yaml` MUST be a single YAML document and at most 1 MiB; `Load` refuses an empty file. In every case, actor, estate, snapshot and config file no single mapping may hold more than 1000 keys (lists are not counted); a larger one is refused at load, because the YAML decoder is quadratic in the key count.
 
 ## 7. Versioning

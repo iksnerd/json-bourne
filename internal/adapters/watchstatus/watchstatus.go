@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/safefile"
 )
 
 // APIVersion is the only version Read accepts. It changes when the format changes
@@ -117,11 +118,14 @@ func (w Writer) Save(_ context.Context, s core.WatchStatus) error {
 	return nil
 }
 
+// maxRecordBytes bounds what Read takes; a record is a few hundred bytes.
+const maxRecordBytes = 1 << 20
+
 // Read parses a record strictly: an unknown field, trailing data, another apiVersion,
 // no PID or no start time is an error. A missing file is an error that wraps
 // os.ErrNotExist. Read never changes the file.
 func Read(path string) (Record, error) {
-	b, err := os.ReadFile(path) // #nosec G304 -- the path is built from the case's evidence directory
+	b, err := safefile.ReadAll(path, maxRecordBytes)
 	if err != nil {
 		return Record{}, fmt.Errorf("read watch status: %w", err)
 	}

@@ -26,6 +26,10 @@ Say this plainly, because the controls below are real but small:
 - **On platforms without process groups** (not Unix) only the plugin itself is killed on a deadline; a plugin that forks can outlive it.
 - **The plugin's output is data, but it is the data your findings rest on.** A malicious plugin can emit any events it likes. The host checks that the answer is well formed and complete; it cannot check that it is true.
 
+### Trust model
+
+`jb` assumes the machine and the plugin directory are not under concurrent attack by another local user. Every check above (path, symlink resolution, modes, digest) is made on the file as it is at that moment, and the launch happens a moment later. A process that can already write inside the plugin directory, or replace the directory itself through a writable ancestor, can win that race. What `jb` checks is the mode of the file and of its immediate directory (neither writable by group or others). It does not check the owner UID of either, and it does not check the modes or owners of the directories above. Treat the plugin directory and everything above it as writable by you alone.
+
 ## Trust: only you allow a plugin
 
 The operator's allowlist is a file that is **jb's own, not the case's**: `$JB_PLUGINS_FILE`, else `~/.jb/plugins.yaml`. A missing file is an empty allowlist, so no plugin is allowed.

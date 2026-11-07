@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/safefile"
 )
 
 // version stays 1: "health" is an optional section, absent from files written before it
@@ -49,14 +50,23 @@ type entry struct {
 // wrong stays inspectable, and the error wraps core.ErrStateCorrupt.
 func (s Store) Load(context.Context) (core.WatchState, error) {
 	empty := core.WatchState{Seen: map[string]core.SeenTag{}}
-	b, err := os.ReadFile(s.Path)
-	if errors.Is(err, fs.ErrNotExist) {
+	b, err := safefile.ReadAll(s.Path, maxPeekBytes)
+	var perr error
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
 		return empty, nil
-	}
-	if err != nil {
+	case errors.Is(err, safefile.ErrNotRegular):
+		// Not ours to move aside: a directory or FIFO at the path is the operator's.
+		return empty, fmt.Errorf("%w: %v", core.ErrStateCorrupt, err)
+	case errors.Is(err, safefile.ErrTooLarge):
+		perr = err
+	case err != nil:
 		return empty, fmt.Errorf("read watch state: %w", err)
 	}
-	st, perr := parse(b)
+	var st core.WatchState
+	if perr == nil {
+		st, perr = parse(b)
+	}
 	if perr != nil {
 		moved := ""
 		if rerr := os.Rename(s.Path, s.Path+".corrupt"); rerr == nil {
