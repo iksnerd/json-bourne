@@ -366,7 +366,8 @@ type eventDoc struct {
 
 // SaveEvents replaces the events of run with evs in one transaction. If the
 // iterator yields an error, ctx ends, or nothing was yielded, the previous contents
-// of the run are kept and an error is returned. An empty save is core.ErrNoRecords:
+// of the run are kept and an error is returned. An event whose DocKey (the stored document
+// identity) is empty is refused with core.ErrNoDocIdentity. An empty save is core.ErrNoRecords:
 // replacing evidence with nothing must never look like a success.
 func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.Event, error]) error {
 	if err := checkRun(run); err != nil {
@@ -424,6 +425,11 @@ func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.E
 		}
 		if ev.Time.IsZero() {
 			return fmt.Errorf("event %d of run %q has no time", total, run)
+		}
+		// The one place identity is enforced. The reader still falls back to the source label
+		// for rows written before schema 4; no new row may rely on it.
+		if ev.DocKey == "" {
+			return &core.NoDocIdentityError{Run: run, Index: total}
 		}
 		returners, err := lawfulReturners(ev)
 		if err != nil {
@@ -812,6 +818,8 @@ type pagedEvent struct {
 const eventsQuery = `
 WITH base AS (
 	SELECT e.rowid AS rid, e.run_id, e.seq, e.ts, e.doc_sha256, r.created_at, e.returners,
+	       -- the 's:' branch is for legacy rows only (written before schema 4, doc_ident NULL):
+	       -- SaveEvents refuses an event without an identity, so no new row reaches it
 	       coalesce('d:' || e.doc_ident, 's:' || e.source || chr(0) || e.kind) AS ident,
 	       row_number() OVER (PARTITION BY e.run_id, coalesce('d:' || e.doc_ident, 's:' || e.source || chr(0) || e.kind), e.ts, e.doc_sha256
 	                          ORDER BY e.seq) AS ord

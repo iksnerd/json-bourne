@@ -28,11 +28,15 @@ func docsAs(source string, from, n int) []core.Event {
 	return out
 }
 
+// save stores legacy rows (no doc_ident): source labels, double counting by label and the
+// rename that repairs it only exist for rows written before schema 4. Replacing a run
+// clears it first, as SaveEvents does.
 func save(t *testing.T, s *Store, run string, evs []core.Event) {
 	t.Helper()
-	if err := s.SaveEvents(context.Background(), run, seq(evs...)); err != nil {
-		t.Fatalf("save %s: %v", run, err)
+	if _, err := s.db.Exec(`DELETE FROM events WHERE run_id = ?`, run); err != nil {
+		t.Fatal(err)
 	}
+	insertLegacy(t, s, run, evs...)
 }
 
 var wide = core.Window{From: base.Add(-time.Hour), To: base.Add(time.Hour)}

@@ -103,13 +103,7 @@ func seedStore(t *testing.T, dir string) {
 	}
 	ctx := context.Background()
 	evs := []core.Event{ev(0, hostilePath), ev(1, "/token?a=1"), ev(2, "/token?a=2")}
-	if err := st.SaveEvents(ctx, "watch-1/kibana:logs-auth-*", func(y func(core.Event, error) bool) {
-		for _, e := range evs {
-			if !y(e, nil) {
-				return
-			}
-		}
-	}); err != nil {
+	if err := st.SaveEvents(ctx, "watch-1/kibana:logs-auth-*", seqOf(evs)); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.SaveFindings(ctx, "watch-1", []core.Finding{{Detector: "authspike", Tag: "spray:192.0.2.7", Severity: core.SevHigh,

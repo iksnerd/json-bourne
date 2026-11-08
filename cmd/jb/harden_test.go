@@ -136,8 +136,7 @@ func seedWatchRun(t *testing.T, st *duckdb.Store, id string, age time.Duration) 
 	t.Helper()
 	ctx := context.Background()
 	ev := core.Event{Time: fixedNow.Add(-age), Source: "s", Kind: "k", Fields: map[string]any{"n": float64(1)}}
-	seq := func(yield func(core.Event, error) bool) { yield(ev, nil) }
-	if err := st.SaveEvents(ctx, id+"/s", seq); err != nil {
+	if err := st.SaveEvents(ctx, id+"/s", seqOf([]core.Event{ev})); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.SaveFindings(ctx, id, []core.Finding{{Detector: "d", Tag: "t", Summary: "s"}}); err != nil {

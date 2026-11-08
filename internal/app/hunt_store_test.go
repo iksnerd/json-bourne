@@ -11,6 +11,7 @@ import (
 	"iter"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -77,10 +78,19 @@ type seqSource struct {
 	age       time.Duration
 	live      bool
 	zeroTime  bool
+	noKey     bool // the source names a scope but its events carry no document key
 }
 
-func (s *seqSource) Name() string     { return s.name }
-func (s *seqSource) DocScope() string { return s.scope }
+func (s *seqSource) Name() string { return s.name }
+
+// DocScope is the scope the test names, or one private to the source: every real source
+// names a scope, and a private one never makes two sources share documents.
+func (s *seqSource) DocScope() string {
+	if s.scope == "" {
+		return "private-scope/" + s.name
+	}
+	return s.scope
+}
 func (s *seqSource) Liveness() core.Liveness {
 	return core.Liveness{Probed: s.live, IndexTotal: 10}
 }
@@ -96,7 +106,7 @@ func (s *seqSource) fetch(now time.Time) iter.Seq2[core.Event, error] {
 			if s.zeroTime {
 				ev.Time = time.Time{}
 			}
-			if s.scope != "" {
+			if !s.noKey {
 				ev.DocKey = id
 			}
 			if !yield(ev, nil) {
@@ -424,6 +434,48 @@ func TestSeqZeroTimeEventFailsOnlyItsSource(t *testing.T) {
 	}
 	if !slices.Equal(res.Failed(), []string{"source b"}) {
 		t.Fatalf("failed = %v", res.Failed())
+	}
+	eq(t, "all", all.cur, []string{"d1"})
+}
+
+// An event with no document identity is refused by the store: the source that produced it
+// ends INCOMPLETE with the store's message, nothing of its run is stored, and the other
+// sources are unaffected.
+func TestSeqKeylessEventEndsItsSourceIncompleteAndStoresNothing(t *testing.T) {
+	e := newSeqEnv(t)
+	all := &seqDet{name: "all"}
+	bad := src("b", "", "d9")
+	bad.noKey = true
+	res, err := e.hunt("hunt-1", nil, []*seqSource{src("a", "", "d1"), bad}, []core.Detector{all}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Complete() || !slices.Equal(res.Failed(), []string{"source b"}) || res.Sources[1].Status != app.StatusError {
+		t.Fatalf("failed = %v, %+v", res.Failed(), res.Sources)
+	}
+	if !errors.Is(res.Sources[1].Err, core.ErrNoDocIdentity) {
+		t.Fatalf("err = %v, want core.ErrNoDocIdentity", res.Sources[1].Err)
+	}
+	want := fmt.Sprintf("event 0 of run %q has no document identity: its source named no document scope or no document key", app.SourceRun("hunt-1", "b"))
+	if !strings.Contains(res.Sources[1].Err.Error(), want) {
+		t.Fatalf("err = %q, want it to contain %q", res.Sources[1].Err, want)
+	}
+	eq(t, "all", all.cur, []string{"d1"})
+}
+
+// The same for a source that shares a scope with another (its events are collected before
+// they are stored): a keyless event of a shared-scope source is refused too.
+func TestSeqKeylessEventOfSharedScopeSourceEndsIncomplete(t *testing.T) {
+	e := newSeqEnv(t)
+	all := &seqDet{name: "all"}
+	bad := src("b", es, "d9")
+	bad.noKey = true
+	res, err := e.hunt("hunt-1", nil, []*seqSource{src("a", es, "d1"), bad}, []core.Detector{all}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(res.Failed(), []string{"source b"}) || !errors.Is(res.Sources[1].Err, core.ErrNoDocIdentity) {
+		t.Fatalf("failed = %v, %+v", res.Failed(), res.Sources)
 	}
 	eq(t, "all", all.cur, []string{"d1"})
 }

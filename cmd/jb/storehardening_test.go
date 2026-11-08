@@ -32,10 +32,21 @@ func labelled(source string, from, n int) []core.Event {
 	return out
 }
 
+// identified gives a test event the document identity the store requires, when it has none:
+// "test-doc/<source>/<kind>", so the same line under two source labels stays two documents,
+// as it was before the store required an identity. An event that sets its own DocKey keeps it.
+func identified(e core.Event) core.Event {
+	if e.DocKey == "" {
+		e.DocKey = "test-doc/" + e.Source + "/" + e.Kind
+	}
+	return e
+}
+
+// seqOf is the stream the tests hand to Store.SaveEvents; it applies identified to each event.
 func seqOf(evs []core.Event) func(func(core.Event, error) bool) {
 	return func(yield func(core.Event, error) bool) {
 		for _, e := range evs {
-			if !yield(e, nil) {
+			if !yield(identified(e), nil) {
 				return
 			}
 		}

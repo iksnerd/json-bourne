@@ -31,14 +31,7 @@ func seedStore(t *testing.T, dir string, evs ...core.Event) {
 	if len(evs) == 0 {
 		return
 	}
-	seq := iter.Seq2[core.Event, error](func(yield func(core.Event, error) bool) {
-		for _, e := range evs {
-			if !yield(e, nil) {
-				return
-			}
-		}
-	})
-	if err := st.SaveEvents(context.Background(), "seed", seq); err != nil {
+	if err := st.SaveEvents(context.Background(), "seed", iter.Seq2[core.Event, error](dbSeq(evs))); err != nil {
 		t.Fatal(err)
 	}
 }
