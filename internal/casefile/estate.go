@@ -537,25 +537,51 @@ func (a Absence) validate() []error {
 // MarshalEstate validates e and renders it as YAML. A file that would not load is
 // never produced. Comments in a hand-edited file are not preserved.
 func MarshalEstate(e *Estate) ([]byte, error) {
-	if err := e.validate(); err != nil {
-		return nil, fmt.Errorf("refusing to write an invalid estate: %w", err)
+	return marshalChecked(e, marshalRules{
+		invalid:  "refusing to write an invalid estate",
+		validate: e.validate,
+		limit:    maxEstateSize,
+		tooBig: func(n int) error {
+			return fmt.Errorf("estate would be %d bytes, over the %d byte limit: start a second estate file", n, maxEstateSize)
+		},
+		// What is written must be what the loader reads back, including the credential scan,
+		// which works on the YAML and not on the struct.
+		reparse: func(b []byte) error { _, err := ParseEstate(b); return err },
+		reject:  "refusing to write an estate the loader would reject",
+	})
+}
+
+// marshalRules is what differs between the files that are written: the checks and the
+// error texts around one shared sequence.
+type marshalRules struct {
+	invalid  string       // prefix when validate fails
+	validate func() error // the value's own checks, before encoding
+	limit    int          // largest file the loader accepts
+	tooBig   func(n int) error
+	reparse  func([]byte) error // the loader's parse of what was encoded
+	reject   string             // prefix when reparse fails
+}
+
+// marshalChecked validates v, encodes it as YAML with indent 2, enforces the size limit,
+// and parses the result with the loader. A file the loader would refuse is never produced.
+func marshalChecked(v any, r marshalRules) ([]byte, error) {
+	if err := r.validate(); err != nil {
+		return nil, fmt.Errorf("%s: %w", r.invalid, err)
 	}
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
-	if err := enc.Encode(e); err != nil {
+	if err := enc.Encode(v); err != nil {
 		return nil, err
 	}
 	if err := enc.Close(); err != nil {
 		return nil, err
 	}
-	if buf.Len() > maxEstateSize {
-		return nil, fmt.Errorf("estate would be %d bytes, over the %d byte limit: start a second estate file", buf.Len(), maxEstateSize)
+	if buf.Len() > r.limit {
+		return nil, r.tooBig(buf.Len())
 	}
-	// What is written must be what the loader reads back, including the credential scan,
-	// which works on the YAML and not on the struct.
-	if _, err := ParseEstate(buf.Bytes()); err != nil {
-		return nil, fmt.Errorf("refusing to write an estate the loader would reject: %w", err)
+	if err := r.reparse(buf.Bytes()); err != nil {
+		return nil, fmt.Errorf("%s: %w", r.reject, err)
 	}
 	return buf.Bytes(), nil
 }

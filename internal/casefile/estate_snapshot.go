@@ -241,26 +241,16 @@ func (s *EstateSnapshot) validate() error {
 
 // MarshalEstateSnapshot validates s and renders it as YAML.
 func MarshalEstateSnapshot(s *EstateSnapshot) ([]byte, error) {
-	if err := s.validate(); err != nil {
-		return nil, fmt.Errorf("refusing to write an invalid snapshot: %w", err)
-	}
-	var buf bytes.Buffer
-	enc := yaml.NewEncoder(&buf)
-	enc.SetIndent(2)
-	if err := enc.Encode(s); err != nil {
-		return nil, err
-	}
-	if err := enc.Close(); err != nil {
-		return nil, err
-	}
-	if buf.Len() > maxSnapshotSize {
-		return nil, fmt.Errorf("snapshot would be %d bytes, over the %d byte limit", buf.Len(), maxSnapshotSize)
-	}
-	// What is written must be what the loader reads back.
-	if _, err := ParseEstateSnapshot(buf.Bytes()); err != nil {
-		return nil, fmt.Errorf("refusing to write a snapshot the loader would reject: %w", err)
-	}
-	return buf.Bytes(), nil
+	return marshalChecked(s, marshalRules{
+		invalid:  "refusing to write an invalid snapshot",
+		validate: s.validate,
+		limit:    maxSnapshotSize,
+		tooBig: func(n int) error {
+			return fmt.Errorf("snapshot would be %d bytes, over the %d byte limit", n, maxSnapshotSize)
+		},
+		reparse: func(b []byte) error { _, err := ParseEstateSnapshot(b); return err },
+		reject:  "refusing to write a snapshot the loader would reject",
+	})
 }
 
 func snapshotPaths(c *Case, id string) (dir, file string, err error) {
