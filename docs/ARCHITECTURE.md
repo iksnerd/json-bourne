@@ -50,6 +50,9 @@ The operations (RFC 0010) are the third way in. `jb.Operations()` and `jb.Call` 
 | `internal/mcp` | The Model Context Protocol server: newline-delimited JSON-RPC over two streams, serving the tools of a registry it is given. Strips control characters and cuts strings in results. | The standard library and `internal/ops`. No `jb` package, adapter, file, network or process. |
 | `internal/severityfloor` | The one parse and apply of a detector's `min_severity` and `note` (a floor only raises a finding), shared by `behaviour` and `newkey`. | `core` and the standard library. |
 | `internal/estateseam` | Test doubles for the network adapters of the estate functions, carried on the call's context. Not public API; `jb.EstatePorts` no longer exists. | Used by tests and `cmd/jb`. |
+| `internal/httpstatus` | The one parse of an HTTP status out of a mapped field, used by four detectors. Standard library only. |
+| `internal/feedloop` | The one per-indicator lookup loop of the `greynoise` and `sansisc` feeds. `core` and the standard library only. |
+| `internal/guardedhttp` | The one HTTP client with the passive-only guards (dial guard, redirect rules) used by `bgp`, `rdap` and `crtsh`. Standard library only. |
 | `jb` (`jb/`) | The public Go API: one function per command (`Hunt`, `Activity`, `Watch`, `Doctor`, `DB*`, `Estate*`, `Intel`, `DashboardHandler` and the rest; README has the table). | Like `cmd/jb`: it wires config, watchrun, app and the store. |
 | `sdk` | The plugin side of the mapper protocol, public. | Standard library only. |
 | `cmd/jb` | The cobra CLI. Wires config, the store, the watch adapters, the web dashboard and `app.Hunt` / `app.Watch`. | Everything. |

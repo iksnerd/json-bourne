@@ -25,6 +25,9 @@ Evidence-first incident response for when you are being attacked. Go, DuckDB, co
 - `internal/watchrun`: builds the ports of `app.Watch`/`app.Hunt` from a case config; shared by `cmd/jb` and `jb`. Also reads the watcher history that the Timeline page shows.
 - `internal/severityfloor`: the one parse-and-apply of a detector's `min_severity` and `note` (`behaviour`, `newkey`).
 - `internal/estateseam`: test doubles for the estate network adapters, on the call's context. Not public API (`jb.EstatePorts` is gone).
+- `internal/httpstatus`: the one parse of an HTTP status out of a mapped field (`authspike`, `behaviour`, `fingerprint`, `signup`). Standard library only.
+- `internal/feedloop`: the one per-indicator lookup loop (address check, rate-limit stop, per-run cap, context, interval) of the `greynoise` and `sansisc` feeds. `internal/core` and the standard library only.
+- `internal/guardedhttp`: the one HTTP client with the passive-only guards (dial guard, redirect rules) used by `bgp`, `rdap` and `crtsh`. Standard library only.
 - `contract/`: a separate Go module of consumer tests that import only `jb` and `sdk`. It parses the command-to-function table of `docs/LIBRARY.md`, so keep that table's format. `go test` at the root does not run it; CI runs it on tags (`cd contract && go test -race -count=1 ./...`).
 - `docs/schemas/`: JSON Schemas for the case, actor and estate files, kept equal to the loaders by tests in `internal/casefile`.
 - `jb/testdata/api/`: the API surface golden for `jb` and `sdk` (`TestAPISurface`; update with `-update-api` and read the diff). Other goldens pin flags, exit codes, config keys, the plugin wire, the MCP tool list and the store schema.
