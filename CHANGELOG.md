@@ -4,8 +4,14 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-08
+
 ### Breaking
 - The evidence store has one identity rule. A store that holds an event with no document identity (every event written by jb before 0.11) is refused at open with `ErrLegacyStore` ("delete the file and hunt again"); there is no migration and no fallback read. `jb db usage` no longer reports `events_without_doc_ident` (added in 0.11.0, removed here: nothing is left to count).
+
+### Changed
+- Internal only: one parse of an HTTP status (`internal/httpstatus`), one per-indicator lookup loop for the `greynoise` and `sansisc` feeds (`internal/feedloop`), one guarded HTTP client for `bgp`, `rdap` and `crtsh` (`internal/guardedhttp`), and one checked marshal sequence for the estate and its snapshot. The three packages have archtest rules. No behaviour change is intended.
+- Docs: RFC statuses match what shipped; long paragraphs in the config and command pages are lists; the README has a "Set it up with your agent" section.
 
 ## [0.11.0] - 2026-11-08
 
