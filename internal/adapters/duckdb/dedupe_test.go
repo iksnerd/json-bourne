@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -157,8 +158,8 @@ func TestPagingAcrossDuplicatesIsStable(t *testing.T) {
 	}
 }
 
-// A file written by the v1 build: schema from 0001 only, digests of raw alone.
-func TestV1FileUpgradesInPlaceAndStillReads(t *testing.T) {
+// A file written by the v1 build holds events with no document identity: it is refused at open.
+func TestV1FileWithEventsIsRefused(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "v1.duckdb")
 	raw, err := sql.Open("duckdb", path)
 	if err != nil {
@@ -191,28 +192,35 @@ func TestV1FileUpgradesInPlaceAndStillReads(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	for _, ro := range []bool{false, true} {
+		s, err := Open(path, ro)
+		if err == nil {
+			s.Close()
+		}
+		if !errors.Is(err, ErrLegacyStore) {
+			t.Fatalf("Open(readOnly=%v) of a v1 file with events: err = %v, want ErrLegacyStore", ro, err)
+		}
+	}
+}
+
+// A current-schema file holding a row with no identity (put there by hand) is refused too.
+func TestFileWithAnEventWithoutIdentityIsRefused(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bare.duckdb")
 	s, err := Open(path, false)
 	if err != nil {
-		t.Fatalf("open v1 file: %v", err)
+		t.Fatal(err)
 	}
-	defer s.Close()
 	if _, err := s.Migrate(); err != nil {
-		t.Fatalf("migrate: %v", err)
+		t.Fatal(err)
 	}
-	if v, err := s.SchemaVersion(); err != nil || v != Version {
-		t.Fatalf("schema version = %d, %v; want %d", v, err, Version)
-	}
-	if n := len(readAll(t, s, base, base.Add(time.Hour))); n != 2 {
-		t.Fatalf("legacy rows: got %d, want 2 (old-2 repeats old-1 at base; base+1s is a different time)", n)
-	}
+	at := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+	insertNoIdent(t, s, "old-1/a", identEvent("a", "", "o", at))
 	s.Close()
-	ro, err := Open(path, true)
-	if err != nil {
-		t.Fatalf("read-only open after upgrade: %v", err)
+	if s, err = Open(path, true); err == nil {
+		s.Close()
 	}
-	defer ro.Close()
-	if n := len(readAll(t, ro, base, base.Add(time.Hour))); n != 2 {
-		t.Fatalf("read-only: got %d, want 2", n)
+	if !errors.Is(err, ErrLegacyStore) {
+		t.Fatalf("err = %v, want ErrLegacyStore", err)
 	}
 }
 

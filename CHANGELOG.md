@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Breaking
+- The evidence store has one identity rule. A store that holds an event with no document identity (every event written by jb before 0.11) is refused at open with `ErrLegacyStore` ("delete the file and hunt again"); there is no migration and no fallback read. `jb db usage` no longer reports `events_without_doc_ident` (added in 0.11.0, removed here: nothing is left to count).
+
 ## [0.11.0] - 2026-11-08
 
 ### Breaking

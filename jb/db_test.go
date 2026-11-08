@@ -212,7 +212,6 @@ func TestDBUsageSeesDocumentsUnderTwoLabelsAndKeys(t *testing.T) {
 .engine_free_bytes
 .engine_used_bytes
 .events
-.events_without_doc_ident
 .file_bytes
 .findings
 .kinds[]

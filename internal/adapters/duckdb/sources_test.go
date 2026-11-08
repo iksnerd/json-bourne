@@ -28,15 +28,15 @@ func docsAs(source string, from, n int) []core.Event {
 	return out
 }
 
-// save stores legacy rows (no doc_ident): source labels, double counting by label and the
-// rename that repairs it only exist for rows written before schema 4. Replacing a run
+// save stores rows identified by their label: source labels, double counting by label and the
+// rename that repairs it need two identities for one document. Replacing a run
 // clears it first, as SaveEvents does.
 func save(t *testing.T, s *Store, run string, evs []core.Event) {
 	t.Helper()
 	if _, err := s.db.Exec(`DELETE FROM events WHERE run_id = ?`, run); err != nil {
 		t.Fatal(err)
 	}
-	insertLegacy(t, s, run, evs...)
+	insertRows(t, s, run, evs...)
 }
 
 var wide = core.Window{From: base.Add(-time.Hour), To: base.Add(time.Hour)}
@@ -244,6 +244,10 @@ func TestRenameMergeKeepsRepeatedLinesBeyondTheTargetsCount(t *testing.T) {
 	other.Source = "new"
 	save(t, s, "h2/new", []core.Event{other})
 	before := len(collect(t, s.Events(context.Background(), wide)))
+	// a real identity does not depend on the label: both rows are one document
+	if _, err := s.db.Exec(`UPDATE events SET doc_ident = sha256(kind)`); err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := s.RenameSource(context.Background(), core.RenameSourceRequest{Old: "old", New: "new", Merge: true})
 	if err != nil {

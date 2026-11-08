@@ -135,3 +135,24 @@ func (s *Store) checkIntegrity(have int) error {
 	}
 	return fmt.Errorf("%w: file is schema %d but %s", ErrSchemaCorrupt, have, strings.Join(parts, "; "))
 }
+
+// refuseLegacy fails the open of a file that holds an event with no document identity:
+// every event of a file written before schema 4, or a row put there by hand. The reader
+// has one identity rule and no fallback, so such a file is not read at all.
+func (s *Store) refuseLegacy(have int) error {
+	if have == 0 {
+		return nil
+	}
+	q := `SELECT count(*) FROM events WHERE doc_ident IS NULL`
+	if have < 4 { // the column does not exist yet: every event lacks it
+		q = `SELECT count(*) FROM events`
+	}
+	var n int64
+	if err := s.db.QueryRow(q).Scan(&n); err != nil {
+		return fmt.Errorf("check document identities: %w", err)
+	}
+	if n > 0 {
+		return fmt.Errorf("%w: %d events; delete the file and hunt again", ErrLegacyStore, n)
+	}
+	return nil
+}

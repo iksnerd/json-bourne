@@ -7,7 +7,6 @@
   "engine_free_bytes": "number",
   "engine_used_bytes": "number",
   "events": "number",
-  "events_without_doc_ident": "number",
   "file_bytes": "number",
   "findings": "number",
   "kinds": [

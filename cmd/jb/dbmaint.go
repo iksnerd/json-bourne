@@ -106,7 +106,6 @@ func writeUsage(w io.Writer, r *jb.DBUsageResult) error {
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "run records %d, events %d, findings %d, reputation rows %d\n\n", r.Runs, r.Events, r.Findings, r.Reputation)
-	fmt.Fprintf(w, "events without a document identity %d (rows written before schema 4; the reader tells them apart by source label)\n", r.LegacyEvents)
 
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(tw, "RUN KIND\tRUNS\tEVENTS PRUNED\tEVENTS\tRAW\tFIELDS\tOLDEST\tNEWEST")

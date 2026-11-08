@@ -31,7 +31,7 @@ func openTest(t *testing.T) *Store {
 // document identity, as the Kibana source never produces one, so seq gives a bare event the
 // identity "test-doc/<kind>": the same document under any source label, which is what a real
 // identity is. An event that sets its own DocKey keeps it. A test of a keyless event uses
-// bareSeq; a test of a row written before schema 4 uses insertLegacy.
+// bareSeq; a test of a stored row with no identity uses insertNoIdent.
 func seq(evs ...core.Event) iter.Seq2[core.Event, error] {
 	stamped := make([]core.Event, len(evs))
 	for i, e := range evs {

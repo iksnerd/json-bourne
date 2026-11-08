@@ -49,6 +49,9 @@ var (
 	ErrSchemaAhead = errors.New("database schema is newer than this build")
 	// ErrSchemaBehind means a read-only handle found a file that needs migrating.
 	ErrSchemaBehind = errors.New("database schema is older than this build: open it writable and Migrate")
+	// ErrLegacyStore means the file holds events written before every event had a document
+	// identity (schema 4). This build does not read them: delete the file and hunt again.
+	ErrLegacyStore = errors.New("database holds events without a document identity (written by jb before 0.11)")
 )
 
 var (
@@ -164,6 +167,10 @@ func OpenContext(ctx context.Context, path string, readOnly bool, opt OpenOption
 		return nil, fmt.Errorf("%w: file is schema %d, build is %d: upgrade jb", ErrSchemaAhead, have, Version)
 	}
 	if err := s.checkIntegrity(have); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	if err := s.refuseLegacy(have); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -426,8 +433,7 @@ func (s *Store) SaveEvents(ctx context.Context, run string, evs iter.Seq2[core.E
 		if ev.Time.IsZero() {
 			return fmt.Errorf("event %d of run %q has no time", total, run)
 		}
-		// The one place identity is enforced. The reader still falls back to the source label
-		// for rows written before schema 4; no new row may rely on it.
+		// The one place identity is enforced; the reader has no fallback for a row without one.
 		if ev.DocKey == "" {
 			return &core.NoDocIdentityError{Run: run, Index: total}
 		}
@@ -818,10 +824,8 @@ type pagedEvent struct {
 const eventsQuery = `
 WITH base AS (
 	SELECT e.rowid AS rid, e.run_id, e.seq, e.ts, e.doc_sha256, r.created_at, e.returners,
-	       -- the 's:' branch is for legacy rows only (written before schema 4, doc_ident NULL):
-	       -- SaveEvents refuses an event without an identity, so no new row reaches it
-	       coalesce('d:' || e.doc_ident, 's:' || e.source || chr(0) || e.kind) AS ident,
-	       row_number() OVER (PARTITION BY e.run_id, coalesce('d:' || e.doc_ident, 's:' || e.source || chr(0) || e.kind), e.ts, e.doc_sha256
+	       e.doc_ident AS ident,
+	       row_number() OVER (PARTITION BY e.run_id, e.doc_ident, e.ts, e.doc_sha256
 	                          ORDER BY e.seq) AS ord
 	FROM events e LEFT JOIN runs r ON r.run_id = e.run_id
 	WHERE e.ts >= CAST(? AS TIMESTAMPTZ) AND e.ts < CAST(? AS TIMESTAMPTZ)

@@ -47,28 +47,27 @@ func TestEventsCountSharedDocumentOnceAcrossOwners(t *testing.T) {
 	if got := read(); len(got) != 2 {
 		t.Fatalf("a second document is a second event, got %d", len(got))
 	}
-	// legacy rows (no doc_ident): same raw under two sources are two events
-	insertLegacy(t, s, "r4/a", identEvent("a", "", "a", at))
-	insertLegacy(t, s, "r5/b", identEvent("b", "", "b", at))
+	// rows keyed by label (insertRows): same raw under two sources are two events
+	insertRows(t, s, "r4/a", identEvent("a", "", "a", at))
+	insertRows(t, s, "r5/b", identEvent("b", "", "b", at))
 	if got := read(); len(got) != 4 {
-		t.Fatalf("legacy copies under two sources stay separate, got %d", len(got))
+		t.Fatalf("copies under two labels stay separate, got %d", len(got))
 	}
 }
 
-// Rows written before schema 4 have no doc_ident. The reader keeps its old rule for them:
-// one event per (source, kind, ts, content), the occurrence number within a run counted, the
+// Rows whose identity is the label (insertRows): one event per (source, kind, ts, content), the occurrence number within a run counted, the
 // latest run winning, and rows with an identity are not confused with them.
-func TestLegacyRowsAreStillReadOnceAndDeduplicatedByLabel(t *testing.T) {
+func TestRowsKeyedByLabelAreReadOnceAndDeduplicated(t *testing.T) {
 	s := openTest(t)
 	ctx := context.Background()
 	at := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
 	win := core.Window{From: at.Add(-time.Second), To: at.Add(time.Second)}
 	// Two overlapping runs of one source carry the same document; one run carries it twice.
-	insertLegacy(t, s, "old-1/a", identEvent("a", "", "r1", at), identEvent("a", "", "r1", at))
-	insertLegacy(t, s, "old-2/a", identEvent("a", "", "r2", at), identEvent("a", "", "r2", at))
+	insertRows(t, s, "old-1/a", identEvent("a", "", "r1", at), identEvent("a", "", "r1", at))
+	insertRows(t, s, "old-2/a", identEvent("a", "", "r2", at), identEvent("a", "", "r2", at))
 	got := readAll(t, s, win.From, win.To)
 	if len(got) != 2 {
-		t.Fatalf("legacy rows: got %d events, want 2 (a repeated line within a run survives, a re-fetch collapses)", len(got))
+		t.Fatalf("rows: got %d events, want 2 (a repeated line within a run survives, a re-fetch collapses)", len(got))
 	}
 	for _, e := range got {
 		if e.Fields["mapped_by"] != "r2" || e.Source != "a" {
@@ -76,7 +75,7 @@ func TestLegacyRowsAreStillReadOnceAndDeduplicatedByLabel(t *testing.T) {
 		}
 	}
 	// The same raw text under another label is another event: the label is the identity.
-	insertLegacy(t, s, "old-3/b", identEvent("b", "", "r3", at))
+	insertRows(t, s, "old-3/b", identEvent("b", "", "r3", at))
 	if got := readAll(t, s, win.From, win.To); len(got) != 3 {
 		t.Fatalf("a second label: got %d events, want 3", len(got))
 	}

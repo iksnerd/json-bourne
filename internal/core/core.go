@@ -35,8 +35,8 @@ func (e *EmptySaveError) Unwrap() error { return ErrNoRecords }
 
 // ErrNoDocIdentity means an event reached the evidence store without a document identity.
 // Every stored event names the document it came from (Event.DocKey, the scoped digest Hunt
-// sets), because the label-dependent identity the reader falls back to can merge or split
-// documents by the name of the source. Only rows written before schema 4 lack one.
+// sets): the reader has no other identity rule, and a store that holds an event without
+// one is refused at open (duckdb.ErrLegacyStore).
 var ErrNoDocIdentity = errors.New("no document identity")
 
 // NoDocIdentityError is what a Sink returns for an event with an empty identity. It matches
