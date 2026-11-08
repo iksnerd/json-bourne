@@ -138,7 +138,7 @@ func Intel(ctx context.Context, caseDir string, indicators []string, opts IntelO
 		}
 	}
 	if len(cfg.Feeds) == 0 {
-		return nil, fmt.Errorf("%s has no feeds: add a `feeds:` entry (docs/CONFIG.md)", cfgPath)
+		return nil, fmt.Errorf("%s has no feeds: add a `feeds:` entry (docs/config/reputation.md)", cfgPath)
 	}
 	feeds, err := cfg.BuildFeeds(opts.Env)
 	if err != nil {
@@ -148,7 +148,7 @@ func Intel(ctx context.Context, caseDir string, indicators []string, opts IntelO
 		notes = append(notes, fmt.Sprintf("note: feed %s is listed but not enabled (enabled: true), so it is not asked and nothing is sent to it", name))
 	}
 	if len(feeds) == 0 {
-		return nil, fmt.Errorf("%s lists feeds but none is enabled: set `enabled: true` on the feed you mean to ask (docs/CONFIG.md)", cfgPath)
+		return nil, fmt.Errorf("%s lists feeds but none is enabled: set `enabled: true` on the feed you mean to ask (docs/config/reputation.md)", cfgPath)
 	}
 	iopts := cfg.IntelOptions()
 

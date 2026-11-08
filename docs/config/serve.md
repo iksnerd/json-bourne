@@ -1,0 +1,45 @@
+# Serve
+
+This page covers `jb serve`, its flags and the Timeline page.
+
+`jb serve (--case DIR | --config FILE)` shows the evidence store in a browser. It loads the config only to find the database path: it builds no source, reads no environment variable and no credential, and the pages never show a config value (a test sets `api_key_env` and its value and checks neither appears).
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--case DIR` | none | A case directory. Takes the case's config (as `hunt --case`, with `--config` to choose among several), the evidence directory for `watch.log` and `watch-state.json`, and the estate directory. The evidence git guard applies as for `hunt`. |
+| `--config FILE` | none | A config without a case. The watch files are looked for in the store's directory; there is no estate, and `/estate` says so. |
+| `--addr` | `127.0.0.1:8090` | Listen address. `localhost` becomes `127.0.0.1`. Anything not loopback, including `:8090` and `0.0.0.0:8090`, is a usage error unless `--allow-remote`. |
+| `--allow-remote` | off | Accept a non-loopback `--addr`. A WARNING is printed on stderr. **There is no authentication**: anyone who can reach the port can read the evidence store, including paths, user agents and addresses from the logs. Put it behind something that authenticates, or do not. |
+| `--path-field`, `--status-field`, `--key-field` | `path`, `status`, `client_ip` | The event fields the per-run summary groups on (the default mapper emits these). Letters, digits and `_ . @ -`, at most 64. |
+
+The page makes no request to any other origin and uses no web font; its scripts (htmx, d3 and five small files of ours) and its stylesheet are served from the binary, so it works offline. The Estate page draws an interactive graph (drag, zoom, a label on every connection); selecting a node or a connection opens its record, with its connections, in a sheet at the right. Line width is the number of distinct sources that claim a connection (1, 2, 3 or more) and a dashed line has no claim newer than 90 days; both are computed when the page loads, the estate file stores neither. A node-kind filter (checkboxes, an htmx fragment, `?kind=ip&kind=host` in the address) narrows the graph and the tables; an unknown kind is ignored. An edge-confidence filter (`stated`, `inferred`; `?confidence=inferred`, repeatable, none chosen shows all) works the same way, beside the kind filter, and removes edges only. Each map lists the relations drawn with a count each. A node's record groups its facts by key (any key, each value with its source, method and time) and lists the assessments about it and those that cite it in their basis, under the "opinion" notice. A search box finds nodes by id or label (`/` focuses it, Escape clears it, arrow keys move between matches), and two buttons save the drawn graph as SVG or JSON; both run in the browser over what the page holds, and without script they are hidden. Opening the record of an `ip` node reads two overlays from the store as plain text: the latest reputation row per source, and the last time the address was a `--key-field` value in the stored events (the last 30 days, 3 second limit). Map load never queries the store. Without script the same page draws a static layered drawing and every record is an ordinary link. The Findings page filters by text and severity as you type (htmx), and falls back to an ordinary form without script; the Watch page refreshes its panel every 10 seconds (htmx) and is a normal page without it. The database file must already exist (a viewer never creates it) and be at the build's schema version. While a `jb watch` cycle is writing, a request can fail to open the file; the page then shows the error and a reload after the cycle works. Top-path rows group on the path with the query string and fragment removed; the raw events panel shows the stored fields, newest first, at most 50 rows, and not the original document. A node's record (the sheet, or the page at `/estate/node`) also shows: the estate files and layers (Operated, Adversary and third-party, Unclassified) that hold the node, a file being named by its estate `id`; each fact group with the assessments (opinion) that cite it, and every assessment basis entry as a link to the fact or node it names or marked "unresolved" when it names nothing in the map; the node's edges grouped by relation, with direction, the other node, source, method, confidence and time; and a "copy this record as plain text" button that builds the text in the browser from what the page shows (clipboard API, or a hidden textarea where that is refused) and fetches nothing. The button is hidden until the script runs. Every list on the record has a fixed order (facts by key, time, value; assessments by decided time, then id; edges by relation, then other node), so two loads of unchanged data are byte-identical.
+
+## Timeline
+
+`GET /timeline` (RFC 0019) lists, newest first, the findings saved in the store and the cycles of every watcher of the case, named or not, as a table and as one SVG lane per watcher on one time axis. It needs no flag and no config key. The cycles come from `watch[.NAME].log`, the interval and the retention (`--keep`) from `watch-status[.NAME].json`; the findings come from the store, opened read-only, with one fixed query bounded by the time their run was saved. With `--config` and no `--case` the watch files are looked for beside the store.
+
+| Parameter | Values | Rule |
+|---|---|---|
+| `w` | `1h`, `6h`, `24h`, `7d` | Window ending now (the clock rounded down to the minute). Default `24h`; any other value gives the default. |
+| `watcher` | a watcher name, or `_` for the unnamed one | Repeatable. None chosen shows all; a value that is not a found watcher is ignored. With a filter, findings are limited to the runs of those watchers; without one, findings of hunts are listed too, with the watcher `(hunt)`. |
+| `sev` | `info`, `check`, `activity`, `high`, `critical` | Repeatable. Filters findings only, never cycles. |
+| `gaps` | `1` | Plain cycles (QUIET or FINDINGS, no reported gap) are not listed; the "no cycle recorded" rows, the findings and every INCOMPLETE, FAILED or gap-reporting cycle are. Each watcher gets a line with the number of plain cycles not listed. Any other value shows all cycles. Notices and the retention section are shown in both views. |
+
+A finding is placed at the time its run was saved, which for `hunt --until` is the day of the backfill and not the time of the events; the row then also shows the events window. The cycle line has no duration; the newest cycle of each watcher shows one (from the status record), every other cycle shows `not recorded`. Severity and verdict are words and shapes, never colour.
+
+**The "no cycle recorded" row.** For one watcher with interval `E` (from its status record) a row is drawn when two consecutive cycle lines are more than `3 x E` apart, and when the last cycle is more than `3 x E` before now (the span is then open). Exactly `3 x E` draws nothing. It is the factor and the strict comparison `jb watch status` uses for `stale`, but measured from the start of each cycle (the only time the log has), not from the end of the last one, so the two can disagree. There is no row before the first cycle read. If the watcher has no readable status record its interval is unknown: no row is drawn and the page says so; no default is guessed. The row states that the log has no cycle line in the span. It does not say the watcher was down, and it does not say it was healthy: the watcher may not have run, or its log may not have been written. A restarted watcher leaves a row for the time it was stopped, which the `gap=true` report of the first cycle after a restart does not cover. The interval is the one in the current record; if `--every` was changed inside the window, older spans are judged with the new value.
+
+**Bounds.** Each is shown as `INCOMPLETE` before the table, and the table caption repeats it.
+
+| Bound | Value |
+|---|---|
+| Window | 7 days |
+| Findings | the newest 500 of the window |
+| Cycle rows | the newest 500 per watcher |
+| Watchers | 16; the rest are named and not drawn |
+| Log read | the last 256 KiB of each log. Measured on a synthetic log written by the real watch loop: 1515 to 1913 cycles per read (137 to 173 bytes per cycle line), about 6.3 days at a 5 minute interval and about 30 hours at 1 minute. Alert lines between cycle lines make it fewer. |
+| Store | 3 seconds. On failure the page says `could not read the store` and the cycles still render. |
+
+Findings of watch runs older than `--keep` are removed from the store, so the page prints each watcher's retention horizon; an empty finding column before it is not a result. A log line the parser does not understand is counted and named, never guessed at; the verdict is read only from an end-of-cycle line, and a gap span only from a `watch-gap` alert, at fixed positions, so the words `CYCLE QUIET` in finding text are not a cycle.
+
+[Back to the configuration index](../CONFIG.md)

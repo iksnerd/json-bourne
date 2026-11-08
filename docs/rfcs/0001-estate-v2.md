@@ -114,7 +114,7 @@ The viewer draws an edge's weight from what the file counts, not from a judgemen
 The file stores no weight and no age class. The viewer MAY draw two overlays on an `ip` node. It reads both from the evidence store when the person opens the node's record, never from the file and never when the map loads.
 
 - The latest reputation rows for the address, one per source (the same read as `jb db reputation --latest`).
-- The last time the address appeared in the stored events, found through the key field that `jb serve` takes (`--key-field`, default `client_ip`; see [CONFIG.md](../CONFIG.md), "serve").
+- The last time the address appeared in the stored events, found through the key field that `jb serve` takes (`--key-field`, default `client_ip`; see [serve](../config/serve.md)).
 
 An overlay is plain text with its source and time, for example `reputation: malicious (greynoise, observed 2026-11-03)` or `last seen in logs: 2026-11-04`. It has no verdict colour: a colour would be a judgement the tool does not make. The overlay query runs once per opened record, covers the last 30 days of events, and has a statement time limit. The sheet separates three states and never merges them: a result, `none in the last 30 days` or `never looked up`, and `could not read the store`. An empty overlay is never shown as clean.
 

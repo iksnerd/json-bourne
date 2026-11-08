@@ -124,7 +124,7 @@ A log mapper is a pure function from one raw document to one event. The built-in
 
 ## Mapper contract: request_dump
 
-`request_dump` (`internal/logmap/requestdump`) follows the contract above and adds a configuration, so the pure function is `New(Config)` and then `Map(bytes)`. The configuration is data (`client_ip_header`, `user_agent_header`, `header_fields`; see [CONFIG.md](CONFIG.md#mappers)); an unknown key or a credential-bearing header name is refused when the mapper is built, never at map time.
+`request_dump` (`internal/logmap/requestdump`) follows the contract above and adds a configuration, so the pure function is `New(Config)` and then `Map(bytes)`. The configuration is data (`client_ip_header`, `user_agent_header`, `header_fields`; see [config/mappers.md](config/mappers.md#mappers)); an unknown key or a credential-bearing header name is refused when the mapper is built, never at map time.
 
 **Input.** A JSON object with an RFC 3339 `@timestamp` and a `message` string that holds the request dump: a first line `=== Request Info ===`, then `method = M`, `path = P`, any other lines (ignored), and one `header = NAME<blanks>value = VALUE` line per header. A header line is recognised only in that shape. `method` and `path` are read only before the first header line.
 

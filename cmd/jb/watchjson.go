@@ -9,7 +9,7 @@ import (
 )
 
 // jsonCycle is the JSON form of one watch cycle (`jb watch --once --output json`). The
-// field names are part of the output contract; docs/CONFIG.md lists them.
+// field names are part of the output contract; docs/config/watch.md lists them.
 type jsonCycle struct {
 	Run            string       `json:"run"`
 	Watcher        string       `json:"watcher,omitempty"` // --name; absent for the unnamed watcher

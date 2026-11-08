@@ -82,7 +82,7 @@ func newExtCmd(d deps, s extSpec) *cobra.Command {
 		Use:   s.use,
 		Short: s.short,
 		Long: s.long + "\n\n" +
-			"Off by default. The service must be listed in `estate.external` in the case's config (docs/CONFIG.md);\n" +
+			"Off by default. The service must be listed in `estate.external` in the case's config (docs/config/estate.md);\n" +
 			"until it is, nothing is sent and the command refuses. Requests are timed out, size-limited, spaced by\n" +
 			"--min-interval and capped by --max-targets (a longer list is refused, not truncated).\n\n" +
 			"A lookup that failed, timed out, was rate limited, got a non-2xx answer or was cut at a cap is listed,\n" +

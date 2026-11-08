@@ -25,7 +25,7 @@ func TestUnsetCredentialErrorsSayWhereTheVariableIsRead(t *testing.T) {
 			t.Errorf("%s: no error for an unset variable", name)
 			continue
 		}
-		for _, want := range []string{c.vars, "is not set", "process environment", "docs/CONFIG.md", "Supplying credentials"} {
+		for _, want := range []string{c.vars, "is not set", "process environment", "docs/config/environment.md", "Supplying credentials"} {
 			if !strings.Contains(c.err.Error(), want) {
 				t.Errorf("%s: error %q lacks %q", name, c.err, want)
 			}

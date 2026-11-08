@@ -1,4 +1,4 @@
-# Hunt config for the fingerprint detector (docs/CONFIG.md, `type: fingerprint`).
+# Hunt config for the fingerprint detector (docs/config/detectors-markers-and-actors.md, `type: fingerprint`).
 #
 # Listed after config/hunt.yaml in case.yaml. `commands` below says it answers
 # `jb activity` and `jb actor status`, so neither needs --config:

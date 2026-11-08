@@ -26,7 +26,7 @@ var ErrUnparsable = errors.New("kibana: document does not parse")
 // resolved: the config loader validates against it and the source never switches
 // on a name. Later mappers (ecs) are one entry each.
 //
-// Every mapper emits the canonical field names (docs/CONFIG.md, "Mappers"), so a
+// Every mapper emits the canonical field names (docs/config/mappers.md, "Mappers"), so a
 // detector's key_field/status_field/path_field mean the same thing on any index.
 var mappers = map[string]Mapper{
 	"default":       DefaultMap,

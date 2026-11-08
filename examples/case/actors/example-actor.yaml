@@ -26,7 +26,7 @@ indicators:
     probe_target: portal.example.com:443
     value: 00000000000000000000000000000000000000000000000000000000000000
 
-# Read by `type: fingerprint` (docs/CONFIG.md). A user agent alone is not a fingerprint.
+# Read by `type: fingerprint` (docs/config/detectors-markers-and-actors.md). A user agent alone is not a fingerprint.
 detection:
   # Commodity scanners reuse a user agent on paths no real actor request has used.
   noise_paths: ["/wp-", "/xmlrpc.php", "/wordpress", "/robots.txt"]

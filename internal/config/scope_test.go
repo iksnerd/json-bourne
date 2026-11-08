@@ -135,13 +135,13 @@ func TestEmptyIsQuietIsRefusedWithoutAFilterOnEveryDetector(t *testing.T) {
 
 // The worked examples in the docs are configs people will copy: they must load.
 func TestDocumentedTwoSourceExamplesLoad(t *testing.T) {
-	doc, err := os.ReadFile(filepath.Join("..", "..", "docs", "CONFIG.md"))
+	doc, err := os.ReadFile(filepath.Join("..", "..", "docs", "config", "detector-scoping.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, after, ok := strings.Cut(string(doc), "### Example: two sources")
+	_, after, ok := strings.Cut(string(doc), "## Example: two sources")
 	if !ok {
-		t.Fatal("CONFIG.md lost its two-source example")
+		t.Fatal("docs/config/detector-scoping.md lost its two-source example")
 	}
 	_, block, _ := strings.Cut(after, "```yaml\n")
 	block, _, _ = strings.Cut(block, "```")
