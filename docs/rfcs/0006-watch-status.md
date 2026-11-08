@@ -1,5 +1,5 @@
 # RFC 0006: Watcher status record and `jb watch status`
-Status: accepted
+Status: implemented
 Scope: a machine-readable health record written by `jb watch`, and a command and Go function that report whether each watcher of a case is alive.
 Accepted: 2026-11-06 by the maintainer
 Update: 2026-11-08. Package `jb` now lives in `jb/` (import path `github.com/iksnerd/json-bourne/jb`). Where this RFC says "the root package" or names a root file (`jb.go`, `activity.go`, a `*_test.go` at the root), it means that package and its files, which were at the module root when this was written. The text below is otherwise unchanged.
@@ -32,7 +32,7 @@ The heartbeat limit is three intervals. One missed cycle, such as a slow hunt, i
 
 ## The design
 
-Proposed, all of it.
+Implemented, all of it.
 
 **The record.** `<evidence>/watch-status.json`, or `watch-status.NAME.json`, named by the same rule as the other watch files. The format, with every key, is in docs/CASE-SPEC.md section 3.1 under `watch-status.json`. In short: `apiVersion` (`jb.watch-status/v1`), `name`, `pid`, `started`, `updated`, `config` (relative to the case), `everySeconds`, `windowSeconds`, `ttlSeconds`, `keepSeconds`, `repeatSeconds`, `lastCycle` (`run`, `verdict`, `ended`, `windowFrom`, `windowTo`, `new`, `suppressed`, `repeated`, `recovered`, `failed`) and `nextDue`. `verdict` is `QUIET`, `FINDINGS`, `INCOMPLETE` or `FAILED`. The record holds names, counts and times. It holds no error text, so it cannot carry a credential.
 
@@ -111,9 +111,9 @@ The file is written with mode 0600 inside `evidence/`, which the case guard alre
 
 ## Reference implementations
 
-Shipped: none yet.
+Shipped: yes. The list below is where it lives.
 
-Proposed:
+Implemented in:
 
 - `internal/core/watchstatus.go`: the record's domain types and the `WatchStatusSink` port.
 - `internal/adapters/watchstatus/watchstatus.go`: writer and strict reader.

@@ -1,5 +1,5 @@
 # RFC 0007: jb case show and a uniform --case flag
-Status: accepted
+Status: implemented
 Scope: a command and a Go function that print what one config of a case would run, a reusable `Describe` in `internal/config`, and `--case DIR` on `jb case check` in place of its positional argument.
 Accepted: 2026-11-06 by the maintainer
 
@@ -31,7 +31,7 @@ Config choice calls `config.ChooseCaseConfig` unchanged. The store is placed wit
 
 ## The design
 
-Proposed. `File.Describe() Description` returns plain data with JSON tags:
+Implemented. `File.Describe() Description` returns plain data with JSON tags:
 
 - `sources[]`: `type`, `name`, `enabled`, `url` (scheme, host and path only: query, fragment and user info are dropped), `index`, `credential_env` (the variable name), `options` (time field, page size, mapper, filter, search field, and the key names of `mapper_config` without its values).
 - `detectors[]`: `type`, `name`, `enabled`, `sources` (the scope as written, absent for all), `reads` (the enabled sources the detector reads, absent when disabled), `options`.
@@ -87,9 +87,9 @@ The description is the new place a credential could leak, so it is built from na
 
 ## Reference implementations
 
-Shipped: none, while this RFC is a draft.
+Shipped: yes. The list below is where it lives.
 
-Proposed: `internal/config/describe.go` (`Describe`, `ShowCase`), `cmd/jb/caseshow.go`, `caseshow.go` (root), `--case` on `cmd/jb/case.go`.
+Implemented in: `internal/config/describe.go` (`Describe`, `ShowCase`), `cmd/jb/caseshow.go`, `caseshow.go` (root), `--case` on `cmd/jb/case.go`.
 
 ## Open questions
 

@@ -1,5 +1,5 @@
 # RFC 0009: Ask a question without leaving evidence
-Status: accepted
+Status: implemented
 Scope: a `--no-store` flag on `jb hunt` and `jb activity`, and the matching Go options, that run the same code over a private temporary store.
 Accepted: 2026-11-06 by the maintainer
 Update: 2026-11-08. Package `jb` now lives in `jb/` (import path `github.com/iksnerd/json-bourne/jb`). Where this RFC says "the root package" or names a root file (`jb.go`, `activity.go`, a `*_test.go` at the root), it means that package and its files, which were at the module root when this was written. The text below is otherwise unchanged.
@@ -30,7 +30,7 @@ Considered and rejected: an in-memory DuckDB (`:memory:`). It would skip the fil
 
 ## The design
 
-Proposed. Nothing below exists yet.
+Implemented.
 
 Flag. `jb hunt` and `jb activity` take `--no-store` (bool, default false). It combines with `--case`, `--config`, `--window`, `--until`, `--search`, `--search-field` and `--output`.
 
@@ -107,9 +107,9 @@ A SIGKILL leaving a directory has no test. A test cannot kill its own process an
 
 ## Reference implementations
 
-Shipped: none.
+Shipped: yes. The list below is where it lives.
 
-Proposed:
+Implemented in:
 
 - `duckdb.OpenTemp`, `Store.TempDir`, and removal in `Store.Close` (`internal/adapters/duckdb/duckdb.go`).
 - `config.OpenRunStore` (`internal/config/runstore.go`).

@@ -1,5 +1,5 @@
 # RFC 0011: Behaviour severity floor and per-key threshold
-Status: accepted
+Status: implemented
 Scope: add `min_severity`, `note` and `min_events_per_key` to a `rare` action of the `behaviour` detector, and say what happens when keys are truncated.
 Accepted: 2026-11-06 by the maintainer
 
@@ -106,9 +106,9 @@ The check and the field live in one helper shared by `behaviour` and `newkey`, s
 
 ## Reference implementations
 
-Proposed: the code, tests and `docs/CONFIG.md` text in the commit that adds this file.
+Implemented in: the code, tests and `docs/CONFIG.md` text in the commit that adds this file.
 
-Shipped: none.
+Shipped: yes. The list below is where it lives.
 
 ## Open questions
 

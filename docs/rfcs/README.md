@@ -73,17 +73,17 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0002](0002-mapper-plugin-protocol-v1.md) | Mapper plugin protocol v1 | implemented |
 | [0003](0003-dashboard-security-model.md) | Dashboard security model | implemented |
 | [0004](0004-stability-policy.md) | Stability policy | withdrawn |
-| [0005](0005-caller-errors-and-output.md) | Caller errors and output | accepted |
-| [0006](0006-watch-status.md) | Watcher status | accepted |
-| [0007](0007-case-show.md) | Case show | accepted |
+| [0005](0005-caller-errors-and-output.md) | Caller errors and output | implemented |
+| [0006](0006-watch-status.md) | Watcher status | implemented |
+| [0007](0007-case-show.md) | Case show | implemented |
 | [0008](0008-config-commands.md) | Config commands | accepted |
-| [0009](0009-no-store.md) | Hunt and activity without storing | accepted |
+| [0009](0009-no-store.md) | Hunt and activity without storing | implemented |
 | [0010](0010-operations.md) | Operations | accepted |
-| [0011](0011-behaviour-severity-and-per-key.md) | Behaviour severity floor and per-key threshold | accepted |
-| [0012](0012-partial-findings.md) | Partial findings | accepted |
+| [0011](0011-behaviour-severity-and-per-key.md) | Behaviour severity floor and per-key threshold | implemented |
+| [0012](0012-partial-findings.md) | Partial findings | implemented |
 | [0013](0013-library-surface.md) | Library surface | implemented |
-| [0014](0014-newkey-history.md) | History probe for the newkey detector | accepted |
-| [0015](0015-estate-subject.md) | Subject of an estate file | accepted |
+| [0014](0014-newkey-history.md) | History probe for the newkey detector | implemented |
+| [0015](0015-estate-subject.md) | Subject of an estate file | implemented |
 | [0016](0016-own-cloud-inventory.md) | Inventory of the operator's own cloud | draft (parked) |
 | [0017](0017-public-api-owns-its-types.md) | Public API owns its types | accepted |
 | [0018](0018-stability-policy.md) | Stability policy for 1.0 | accepted |

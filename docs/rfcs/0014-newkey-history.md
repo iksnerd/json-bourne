@@ -1,5 +1,5 @@
 # RFC 0014: History probe for the newkey detector
-Status: accepted
+Status: implemented
 Scope: add an optional `history` block to the `newkey` detector that asks the sources, once per run, how many events carried each candidate key over a lookback before the window; add the optional source port that answers it.
 Accepted: 2026-11-06 by the maintainer
 
@@ -195,9 +195,9 @@ Tests to write first and see fail:
 
 ## Reference implementations
 
-Proposed: `internal/core/history.go` (the three ports), `internal/adapters/detectors/newkey/history.go`, `internal/adapters/kibana/keycount.go`, the `key_match` and `history` checks in `internal/config`, `internal/app/history.go` with the one call site in `internal/app/hunt.go`, the `TestDetectorsImportNoAdapter` rule in `internal/archtest`, and the text in `docs/CONFIG.md`, `docs/POLICY.md` and `CHANGELOG.md`, all in the commit that adds this note.
+Implemented in: `internal/core/history.go` (the three ports), `internal/adapters/detectors/newkey/history.go`, `internal/adapters/kibana/keycount.go`, the `key_match` and `history` checks in `internal/config`, `internal/app/history.go` with the one call site in `internal/app/hunt.go`, the `TestDetectorsImportNoAdapter` rule in `internal/archtest`, and the text in `docs/CONFIG.md`, `docs/POLICY.md` and `CHANGELOG.md`, all in the commit that adds this note.
 
-Shipped: none.
+Shipped: yes. The list below is where it lives.
 
 ## Changes
 

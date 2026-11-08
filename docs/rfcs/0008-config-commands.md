@@ -131,11 +131,11 @@ Tests in `internal/config/casecommands_test.go`:
 
 ## Reference implementations
 
-Shipped: none.
+Shipped: all but the `jb case check` duplicate-command warning (see "What `jb doctor` and `jb case check` should report").
 
-Proposed:
+Implemented in:
 
-- `internal/config/casecommands.go` (`CaseCommands`, `LoadCommands`) and the `Commands` field of `File` in `internal/config/config.go`.
+- `internal/config/casecommands.go` (`LoadCommands`) and the `Commands` field of `File` in `internal/config/config.go`.
 - The four-step choice in `internal/config/casehunt.go`.
 - The command parameter threaded through `cmd/jb/casehunt.go`, `jb.go`, `activity.go` and `watch.go`.
 - `examples/case` with two listed configs.

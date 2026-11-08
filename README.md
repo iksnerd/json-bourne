@@ -135,7 +135,7 @@ Each component, its options and its limits: [docs/COMPONENTS.md](docs/COMPONENTS
 
 ## Status
 
-Pre-1.0 and private. The latest tag is v0.10.5 (see [CHANGELOG.md](CHANGELOG.md)). Before 1.0 there is no backward compatibility: the Go API, the flags and the file formats may change between minor versions. `jb` takes no new command, port, file format or config key before 1.0, except in `jb serve` ([the feature freeze](.github/CONTRIBUTING.md#feature-freeze-the-stable-core)). 1.0 is reached by criteria, not a date ([RFC 0018](docs/rfcs/0018-stability-policy.md)).
+Pre-1.0 and private. The releases are listed in [CHANGELOG.md](CHANGELOG.md). Before 1.0 there is no backward compatibility: the Go API, the flags and the file formats may change between minor versions. `jb` takes no new command, port, file format or config key before 1.0, except in `jb serve` ([the feature freeze](.github/CONTRIBUTING.md#feature-freeze-the-stable-core)). 1.0 is reached by criteria, not a date ([RFC 0018](docs/rfcs/0018-stability-policy.md)).
 
 What it is not:
 

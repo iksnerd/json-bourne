@@ -1,5 +1,5 @@
 # RFC 0012: Keep the findings of a detector that did not finish
-Status: accepted
+Status: implemented
 Scope: say that `Hunt` keeps the findings a detector returns beside an error, state the contract a detector follows when it cannot finish, and say how the verdict reads.
 Accepted: 2026-11-06 by the maintainer
 
@@ -31,9 +31,9 @@ For `activity`, a kept finding is a genuine event: `Detect` applies the same noi
 
 ## The design
 
-Proposed, in `internal/app/hunt.go`: `Hunt` stores the findings a detector returns whatever the error. `DetectorResult.Findings` counts them. `DetectorResult.Status` and `Err` still come from `classify(err)`, so `Result.Complete()` is false and `Result.Failures()` lists the detector.
+Implemented, in `internal/app/hunt.go`: `Hunt` stores the findings a detector returns whatever the error. `DetectorResult.Findings` counts them. `DetectorResult.Status` and `Err` still come from `classify(err)`, so `Result.Complete()` is false and `Result.Failures()` lists the detector.
 
-Proposed, in `internal/core/core.go`, the contract on `Detector`:
+Implemented, in `internal/core/core.go`, the contract on `Detector`:
 
 - A detector that cannot finish MUST return the findings it can prove from the evidence it read, together with the error.
 - It MUST NOT return a finding that depends on the part it failed to read, or that it could not support.
@@ -102,9 +102,9 @@ Review of the built-in detectors (read in the code, not by a test): `authspike`,
 
 ## Reference implementations
 
-Proposed: the `Hunt` change in `internal/app/hunt.go`, `ActivityDetector.Findings` and the `ACTIVE` rule in `internal/app/activity.go`, the contract text on `core.Detector`, the activity table and JSON in `cmd/jb/activity.go`, the `--help` text of `jb hunt` and `jb activity`, and the text in `docs/ARCHITECTURE.md` and `docs/CONFIG.md`, all in the commit that adds this file.
+Implemented in: the `Hunt` change in `internal/app/hunt.go`, `ActivityDetector.Findings` and the `ACTIVE` rule in `internal/app/activity.go`, the contract text on `core.Detector`, the activity table and JSON in `cmd/jb/activity.go`, the `--help` text of `jb hunt` and `jb activity`, and the text in `docs/ARCHITECTURE.md` and `docs/CONFIG.md`, all in the commit that adds this file.
 
-Shipped: none.
+Shipped: yes. The list below is where it lives.
 
 ## Open questions
 

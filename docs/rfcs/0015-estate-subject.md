@@ -1,5 +1,5 @@
 # RFC 0015: Subject of an estate file
-Status: accepted
+Status: implemented
 Scope: an optional `subject` key on a `jb.estate/v2` file, `operated` or `adversary`, so the case owner's own infrastructure and an attacker's are separate files and separate layers on the map.
 Accepted: 2026-11-06 by the maintainer
 
