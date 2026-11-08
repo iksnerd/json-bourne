@@ -13,6 +13,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 - The watcher lock file and its PID read no longer block or misread when the path is a FIFO, device or directory; they fail with a clear "not a regular file" error, a PID file over 64 bytes is ignored, and a directory at the lock path is refused (`Probe` used to report it free). The archtest rule for the lock package now allows `internal/safefile` and nothing else.
 
 ### Changed
+- The evidence store refuses to save an event that has no document identity (`core.ErrNoDocIdentity`, error text "event N of run R has no document identity"). The source that produced it ends the hunt incomplete and nothing of its run is stored; the previous contents of the run stay. The Kibana source is unaffected (it always names a document scope and key). A custom source must implement `core.DocScoped` and set `Event.DocKey`. Rows written before store schema 4 keep the old label-dependent read rule; the reader's fallback for them can be deleted once `jb db usage` reports no such rows.
+- `jb db usage` reports `events_without_doc_ident`, the number of stored events written before schema 4 (a row count, not recent data: only prune or compaction removes them).
 - Removed six functions nothing called (`inspectCase`, `chooseCaseConfig`, `insideDir`, `casePlan.keepOut`, `loadCaseConfig` in `cmd/jb`; `mcp.Sanitize`; `config.CaseCommands`). `make deadcode` lists what no command reaches (informational, not a gate: the public Go API and test helpers show up in it by design).
 - `go.mod` lists `templ`, `graph` and `pflag` as direct dependencies, as the code uses them.
 
