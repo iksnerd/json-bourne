@@ -2,6 +2,10 @@
 Status: withdrawn
 Scope: what `jb` promises not to break before 1.0, how a change is announced, and what must be true before a 1.0 release.
 
+Withdrawn: 2026-11-06
+
+Several Today claims below are stale (for example the frozen `jb.estate/v1` loader; see [RFC 0018](0018-stability-policy.md) and CONTRIBUTING.md Compatibility before 1.0). The file is kept as written.
+
 ## Summary
 
 Withdrawn on 2026-11-06. The owner decided that `jb` has no backward compatibility before a public release: `jb` and one other program are the only users and nothing is public, so a policy of tiers and notice periods costs more than it buys. The pre-1.0 rule is in [CONTRIBUTING.md](../../.github/CONTRIBUTING.md). The text below is kept as written, so the reasons stay readable.

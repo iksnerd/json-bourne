@@ -14,7 +14,7 @@ The model has seven parts:
 1. The dashboard is read-only and answers GET and HEAD only.
 2. It binds loopback by default and refuses a request whose `Host` header is not a loopback name.
 3. A strict Content-Security-Policy allows script, style, image and fetch from this origin only.
-4. Scripts are two vendored libraries, pinned by hash, and two files of this project.
+4. Scripts are two vendored libraries, pinned by hash, and five files of this project.
 5. Stored text reaches the page only through templ escaping. A test bans the raw-HTML escape hatches.
 6. Links are built from fixed paths and percent-encoded values.
 7. Every query and every response is bounded.
@@ -65,10 +65,11 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 - **Bind.** `CheckAddr` MUST return an error wrapping `ErrNotLoopback` for a non-loopback address unless remote binding is allowed (`--allow-remote` on the CLI). A malformed address wraps `ErrBadAddr`. Neither message names a command-line flag, so a Go caller can show it as is. `":8090"`, `"0.0.0.0:8090"` and `"[::]:8090"` count as non-loopback. `localhost` MUST become `127.0.0.1`, so a name lookup does not decide where the server binds. Held by `TestCheckAddr`, and for the flag and its hint by the tests in `cmd/jb/serve_test.go` (`TestServeAllowRemoteWarnsLoudly` and `TestServeRequiresASourceAndRefusesNonLoopback`).
 - **Host header.** When the server is bound to loopback, a request whose `Host` is not `localhost`, a loopback IP or a loopback IPv6 address MUST get 421. When `Loopback` is false, the server MUST NOT filter on `Host`. Held by `TestForeignHostHeaderRefusedOnLoopbackOnly`.
 - **Hosts behind a proxy.** `Options.AllowedHosts` is a list of at most 16 values, each a host name, an IP address or a bracketed IPv6 address with an optional `:port`. When it is not empty, it replaces the loopback rule: the `Host` header MUST equal one of the values, compared exactly and without regard to ASCII case, or the request gets 421. This holds whether `Loopback` is true or false, so a handler behind a reverse proxy that rewrites `Host` keeps a Host check. A value with no port matches only a header with no port. There are no wildcards. An empty value, a wildcard, a scheme, a path, a bad port or a list over 16 is refused: `Options.Validate` returns an error wrapping `ErrBadAllowedHosts`, and `New` panics on such options. An empty list keeps the rules above exactly. The method check, the security headers, the CSP and the read-only store are unchanged. The list is not authentication: the proxy MUST authenticate, and MUST NOT forward a `Host` the visitor chose. Held by `TestAllowedHostsReplacesTheLoopbackRule`, `TestEmptyAllowedHostsKeepsTodaysBehaviour`, `TestAllowedHostsRefusedAtConstruction` and `TestAllowedHostsKeepsHeadersAndReadOnly`.
+- **Routes.** The routes are the fixed list in `New`: `/`, `/run`, `/findings`, `/reputation`, `/watch`, `/timeline`, `/estate`, `/estate/node`, `/estate/edge`, `/estate/overlay`, `/estate/graph.json` and `/favicon.ico`, plus `/static/` for the named files. `/timeline` is specified by RFC 0019. `/estate/overlay` is a GET fragment of the estate page. Both sit behind the method and Host checks and carry the same headers.
 - **Order of checks.** The method check runs first, then the Host check. Both run before routing, so every route is covered, including `/static/` and `/favicon.ico`. Held in part by the two tests above. No test asserts the order.
 - **Server limits.** `NewServer` MUST set read-header, read, write and idle timeouts and a header size of at most 64 KiB. The code sets 5 s, 15 s, 30 s, 60 s and 16 KiB. Held by `TestServerHasTimeouts`, which asserts only that each is set and that the header size is at most 64 KiB.
 - **Per-request budget.** Each request has a 20 second budget (`http.TimeoutHandler`), which also cancels the query context. No test asserts the budget.
-- **Per-request store handle.** The handle MUST be closed when the request ends. Held by the `f.closed` check in `TestRunPageShowsSummaryFindingsAndSampleAndPassesConfiguredFields` (`web_test.go`, near line 392), which covers the run page only.
+- **Per-request store handle.** The handle MUST be closed when the request ends. Held by the `f.closed` check in `TestRunPageShowsSummaryFindingsAndSampleAndPassesConfiguredFields` (`web_test.go`) for the run page, and by the `f.closed` check in the estate overlay test in `estate_v2_test.go`. No other page asserts it.
 - **Serving only.** The web package MUST NOT call out: no `net/http` client symbol and no `net.Dial`. Held by `TestWebAdapterIsServingOnly`, with `TestServingScannerFlagsClientSymbols` checking the scanner.
 
 ### Response headers
@@ -93,14 +94,14 @@ default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'; img
 - **CSP excludes unsafe sources.** The policy MUST NOT contain `unsafe-inline`, `unsafe-eval`, `http`, `data:`, `*`, `blob:` or `strict-dynamic`. Held by the same test. The test checks for these substrings. It does not compare the whole string, so a new directive would pass.
 - **`nosniff`.** Every response MUST carry `X-Content-Type-Options: nosniff`. Held by the same test, and for the JSON endpoint by `TestEstateGraphJSON`.
 - **No CORS.** No response MAY carry an `Access-Control-*` header. Held by `TestEveryPageSetsSecurityHeadersAndNoCORS` and `TestOnlyReadMethods`.
-- **The other three headers.** `Referrer-Policy`, `Cache-Control` and `Cross-Origin-Resource-Policy` are set in `New`. No test asserts them. See Conformance.
+- **The other three headers.** `Referrer-Policy`, `Cache-Control` and `Cross-Origin-Resource-Policy` are set in `New`. `TestAllowedHostsKeepsHeadersAndReadOnly` asserts `Cache-Control: no-store` on one allowed-host request, and that the CSP equals the `csp` constant. No test asserts `Referrer-Policy` or `Cross-Origin-Resource-Policy`. See Conformance.
 
 ### Scripts
 
-- **Only own-origin scripts.** A page MAY load `/static/htmx.min.js`, `/static/d3.min.js`, `/static/estate.js` and `/static/sheet.js`, each as `<script src="..." defer></script>`, and nothing else. Held by `TestPagesCarryOnlyTheVendoredScriptsAndNoInlineCode`. The test also fails on an inline script body, an inline event handler, an inline `style=` attribute, a `javascript:` URL, an `@import` and an external `src`, `href` or `action`.
-- **Which page loads what.** htmx loads on every page. d3, `sheet.js` and `estate.js` load on the estate page only. Held by the same test for d3 and `sheet.js`, and by `TestEstatePageHasTheSheetThatHTMXFills` for the order.
+- **Only own-origin scripts.** A page MAY load `/static/htmx.min.js`, `/static/d3.min.js` and the five files of this project (`/static/estate.js`, `/static/estate-search.js`, `/static/estate-export.js`, `/static/sheet.js` and `/static/sheet-copy.js`), each as `<script src="..." defer></script>`, and nothing else. The `ownScript` pattern in `web_test.go` names exactly these seven. Held by `TestPagesCarryOnlyTheVendoredScriptsAndNoInlineCode`. The test also fails on an inline script body, an inline event handler, an inline `style=` attribute, a `javascript:` URL, an `@import` and an external `src`, `href` or `action`.
+- **Which page loads what.** htmx loads on every page. The estate page also loads d3, `sheet.js`, `estate.js`, `estate-search.js`, `estate-export.js` and `sheet-copy.js`. The node page also loads `sheet-copy.js`. A sheet fragment carries no script. Held by the same test for d3 and `sheet.js`, by `TestEstatePageHasTheSheetThatHTMXFills` for the order, and by `TestEstatePageHasTheSearchBoxAndItsScriptFromSelf`, `TestEstatePageHasTheExportButtonsAndTheirScript` and `TestCopyScriptIsLoadedOnThePagesThatHaveTheSheetAndNotInTheFragment` for the other three.
 - **Vendored and pinned.** `static/d3.min.js` (d3 7.9.0) and `static/htmx.min.js` (htmx.org 2.0.11) MUST match the SHA-256 pinned in `TestVendoredLibrariesArePinned` in `internal/adapters/web/web_ui_test.go`. The test also checks that each ships with its licence file and that `d3.min.js` starts with its version comment. Provenance, licence and the verification of the npm tarball are in [docs/THIRD-PARTY.md](../THIRD-PARTY.md). A change to either file MUST change the pin in the same commit.
-- **Own files are not pinned.** `static/estate.js` and `static/sheet.js` are this project's code. No hash pins them. Review is the control.
+- **Own files are not pinned.** The five own files are this project's code. No hash pins them. Review is the control, with the sink scans under "Escaping".
 - **Named static files only.** `/static/` MUST serve only the files in the `staticFiles` map in `web.go`, with no directory listing and no traversal. Held by `TestStaticServesOnlyTheNamedFiles`.
 
 ### htmx configuration
@@ -124,7 +125,7 @@ The meta element MUST carry these values. Held by `TestHTMXIsConfiguredNotToEval
 - **Hostile text shows as text.** A stored string with `<script`, an `onmouseover=` attribute or `javascript:` MUST NOT appear raw on any page. Held by `TestHostileStoredTextIsEscapedOnEveryPage`, which also fails if fewer than five pages show the escaped form, so the payload must reach the templates. `TestHTMXAsksGetFragmentsAndEveryPageVariesOnIt` runs the same check on htmx fragments.
 - **Length cap.** One stored string MUST be cut to 300 characters (`textCap`, `clip` in `views.go`), with control characters replaced. Held by `TestLongStoredStringsAreCapped`.
 - **Filter echo.** The findings filter echoes the user's query. It MUST be escaped and bounded. Held by `TestFindingsFilterEchoIsEscapedAndBounded`.
-- **Static files are not text from the evidence.** `estate.js` sets labels with d3's `.text()` and `textContent`. No test scans the static JavaScript for `innerHTML`. The archtest rule scans `.go` and `.templ` files only. See Conformance.
+- **Static JavaScript.** `estate.js` sets labels with d3's `.text()` and `textContent`. Tests fetch four own files and fail when the text contains a sink: `.innerHTML`, `outerHTML`, `insertAdjacentHTML`, `eval(`, `new Function` or `document.write`. `sheet-copy.js` (`estate_copy_test.go`), `estate-search.js` (`estate_search_test.go`) and `estate-export.js` (`estate_export_test.go`) get the full list. The search and export scripts, and `sheet-copy.js`, are also scanned for `fetch(` and `XMLHttpRequest`, and the latter two and `sheet-copy.js` for `sendBeacon` and `WebSocket`. `estate.js` (`estate_v2_test.go`) gets a shorter list: `setAttribute("style"`, `.innerHTML`, `insertAdjacentHTML` and `eval(`. I found no test that reads `sheet.js`. The archtest rule scans `.go` and `.templ` files only.
 
 ### Links
 
@@ -171,7 +172,7 @@ Every query is bounded by a row limit. The limits in `web.go` are: runs 100, top
 
 **No script at all.** The earlier policy, `default-src 'none'`, allowed no script. It was the strongest option and it ruled out an interactive graph and htmx partial updates. The static drawing in `<figure class="static-graph">` still works without script.
 
-**A nonce or hash in the CSP.** A per-response nonce suits inline script. This dashboard has none. A hash list would pin the four files by content. See Security considerations.
+**A nonce or hash in the CSP.** A per-response nonce suits inline script. This dashboard has none. A hash list would pin the seven script files by content. See Security considerations.
 
 **A token in the URL.** A secret in the URL adds state, shows up in browser history and complicates a quick start. It was not chosen.
 
@@ -197,9 +198,9 @@ A change that tightens the policy is allowed without an RFC if the tests still p
 
 **Residual risks.**
 
-- **`script-src 'self'` is wider than the old `'none'`.** The CSP now allows any script served from this origin. The origin serves four named script files, the JSON endpoint and HTML. An attacker who could inject a `<script src>` tag could load any of the four. The JSON endpoint is served as `application/json` with `nosniff`, so a browser refuses it as script. The risk depends on the escaping holding, which the archtest rule and the hostile-text test guard.
-- **A hash-based `script-src` would add a binding to content.** A policy of `script-src 'sha256-...'` per file would make the browser refuse a file whose bytes differ, even if the origin served it. That would protect against a tampered embedded file and against an injected tag that points to a different same-origin file. The cost is that the hash list must change with each file edit, and `estate.js` and `sheet.js` change often. This RFC does not adopt it. The vendored libraries are pinned by a test at build time. The browser does not check that pin.
-- **Own scripts are unpinned.** `estate.js` and `sheet.js` have no hash pin and no test that bans `innerHTML` or similar sinks. Today they use `.text()` and `textContent` for stored text. A later edit could break that without a test failing.
+- **`script-src 'self'` is wider than the old `'none'`.** The CSP now allows any script served from this origin. The origin serves seven named script files, the JSON endpoint and HTML. An attacker who could inject a `<script src>` tag could load any of the seven. The JSON endpoint is served as `application/json` with `nosniff`, so a browser refuses it as script. The risk depends on the escaping holding, which the archtest rule and the hostile-text test guard.
+- **A hash-based `script-src` would add a binding to content.** A policy of `script-src 'sha256-...'` per file would make the browser refuse a file whose bytes differ, even if the origin served it. That would protect against a tampered embedded file and against an injected tag that points to a different same-origin file. The cost is that the hash list must change with each file edit, and the own files change often. This RFC does not adopt it. The vendored libraries are pinned by a test at build time. The browser does not check that pin.
+- **Own scripts are unpinned.** The five own files have no hash pin. Four have a test that bans `innerHTML` and similar sinks, with a shorter list for `estate.js`. `sheet.js` has none that I found. Today they use `.text()` and `textContent` for stored text. A later edit to `sheet.js`, or one that uses a sink outside the `estate.js` list, could break that without a test failing.
 - **The favicon route.** `GET /favicon.ico` answers 204 with no body. It sits behind the method and Host checks and carries the security headers (`TestFaviconIsNoContentWithTheSecurityHeaders`). It is one more route to keep inside the model. It reads no data.
 - **No authentication.** Anyone who can open a connection to the port can read the evidence the dashboard shows. On loopback that means any local user and any local process. With `--allow-remote`, `CheckAddr` allows a non-loopback address, the Host filter turns off, and `jb serve` prints a loud warning (`TestServeAllowRemoteWarnsLoudly`). The operator is then responsible for network controls. The evidence can hold personal data.
 - **DNS rebinding in remote mode.** With `--allow-remote` the Host check is off by design, so the rebinding defence is off too. A library caller who knows the names the dashboard is served under sets `Options.AllowedHosts` and gets the defence back (see Hosts behind a proxy).
@@ -218,12 +219,12 @@ The tests that hold the rules are named in the design section. In summary:
 
 Rules with no test, found by searching the tests of the web package, `cmd/jb` and `internal/archtest` for each name:
 
-- **`Referrer-Policy: no-referrer`, `Cache-Control: no-store` and `Cross-Origin-Resource-Policy: same-origin`** are set in `New` and no test reads them.
+- **`Referrer-Policy: no-referrer` and `Cross-Origin-Resource-Policy: same-origin`** are set in `New` and no test reads them. `Cache-Control: no-store` is read in one test only (`TestAllowedHostsKeepsHeadersAndReadOnly`).
 - **The 20 second request budget** (`requestBudget`, `http.TimeoutHandler`) has no test.
 - **The whole CSP string** is not compared. The test checks substrings.
 - **No SQL route** is not asserted. The route list is the only evidence.
-- **The store handle is closed** is checked on the run page only, not on every page.
-- **Static JavaScript** is not scanned for `innerHTML`, `eval` or `document.write`.
+- **The store handle is closed** is checked on the run page and the estate overlay only, not on every page.
+- **`sheet.js`** is not scanned for `innerHTML`, `eval` or `document.write`, and `estate.js` is scanned for a shorter list than the other own files.
 - **Order of the method and Host checks** is not asserted.
 - **The CSP in a real browser** is not tested.
 
@@ -249,9 +250,8 @@ None.
 The maintainer decides each one.
 
 - **Tests for the untested rules.** The Conformance section lists eight. Decide which are worth a test. The three headers and the whole-CSP comparison are cheap.
-- **A scan of `static/*.js`.** Decide whether to extend the archtest rule, or add a test, to ban `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write` and `eval` in `estate.js` and `sheet.js`.
-- **Hash-based `script-src`.** Decide whether to adopt it, and if so whether `estate.js` and `sheet.js` would be generated with a hash at build time.
-- **A doc disagreement.** docs/ARCHITECTURE.md says the scripts are "three vendored files and one of our own". The code and docs/THIRD-PARTY.md show two vendored files (`d3.min.js`, `htmx.min.js`) and two of this project (`estate.js`, `sheet.js`). The CSP and the page-script test agree with the second. Decide who corrects ARCHITECTURE.md. This RFC does not.
+- **A scan of every `static/*.js`.** Decide whether to add one test that bans the same sinks in all five own files, including `sheet.js`, in place of the per-file lists.
+- **Hash-based `script-src`.** Decide whether to adopt it, and if so whether the five own files would be generated with a hash at build time.
 - **Local users.** Decide whether loopback with no authentication is enough on a shared machine, or whether a token option is wanted.
 - **Request rate.** Decide whether the dashboard needs a limit on concurrent requests.
 - **Spec index row.** docs/spec/README.md points the "Dashboard security model" row at ARCHITECTURE.md. Decide whether it should also point here.
@@ -259,3 +259,4 @@ The maintainer decides each one.
 ## Changes
 
 - 2026-11-06: back-filled from the shipped dashboard, its tests and CHANGELOG.md `[0.3.0]`. Status `implemented`.
+- 2026-11-09: straightened against the code. Scripts are two vendored libraries and five own files, not four. The page-to-script table is corrected. The claims that own scripts are unscanned are reduced to `sheet.js` and the shorter `estate.js` list. The header and store-handle notes name the tests that exist. The stale ARCHITECTURE.md question is removed. `/timeline` and `/estate/overlay` are listed.

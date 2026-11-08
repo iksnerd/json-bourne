@@ -7,7 +7,7 @@ Update: 2026-11-08. Package `jb` now lives in `jb/` (import path `github.com/iks
 
 ## Summary
 
-Package `jb` exports 42 type aliases of internal types (counted below). A change inside `internal/` therefore changes the public Go API with no edit to `jb` and no review of that edge. This RFC proposes that every public type is defined in package `jb` with explicit fields, that the root package converts at the boundary, and that a golden of the exported surface fails the build when the surface changes without a deliberate edit.
+Package `jb` exported 42 type aliases of internal types when this was written (counted below). 41 remain after step 6, because `Config` is no longer an alias (`grep -c '^alias' jb/testdata/api/jb.txt`). A change inside `internal/` therefore changes the public Go API with no edit to `jb` and no review of that edge. This RFC proposes that every public type is defined in package `jb` with explicit fields, that the root package converts at the boundary, and that a golden of the exported surface fails the build when the surface changes without a deliberate edit.
 
 `--output json` stays byte for byte the same. The change adds no command, port, file format or config key. Several Go-API changes are breaking and are allowed before 1.0 ([CONTRIBUTING.md](../../.github/CONTRIBUTING.md), "Compatibility before 1.0").
 
@@ -23,17 +23,17 @@ The maintainer accepted two parts on 2026-11-07, after a review against the Hash
 
 An independent review said: "Several public types in jb.go alias internal types, so internal changes can change the public API accidentally. Use explicit public request/result types where independence matters, keep adapter interfaces internal. Before promising stability, define the supported jb/sdk surface and require deliberate review for breaking changes."
 
-The measured state (commands run on 2026-11-07 in the working tree; `go doc -all .` in the root package):
+The measured state (measured 2026-11-07, before step 6; commands run in the working tree; `go doc -all .` in the root package). The alias count was rerun on 2026-11-09 and gives 41. The other figures are not rerun:
 
-- 42 type aliases, in 10 root files (`jb.go`, `activity.go`, `caseshow.go`, `db.go`, `doctor.go`, `errors.go`, `estate.go`, `operations.go`, `watch.go`, `watchstatus.go`). Their targets sit in `core` (13), `app` (15), `config` (8), `watchrun` (3), `casefile` (2) and `ops` (1).
+- 42 type aliases when this was written (41 after step 6), in 10 root files (`jb.go`, `activity.go`, `caseshow.go`, `db.go`, `doctor.go`, `errors.go`, `estate.go`, `operations.go`, `watch.go`, `watchstatus.go`). Their targets sit in `core` (13), `app` (15), `config` (8), `watchrun` (3), `casefile` (2) and `ops` (1).
 - 54 other exported types are defined in package `jb` already. These are the option and result structs written for RFC 0013.
 - 87 lines with a `jb:"..."` tag in non-test files, all on option structs defined in package `jb`.
 - The `go doc -all` output has 52 lines that start with `func` (functions and methods together; I did not split them).
 
 Two concrete leaks:
 
-- `jb.Config` is `config.File`. Its method set includes `Build`, `BuildAlerts`, `BuildFeeds` and `BuildDetectors`, which return the runtime, alert sinks, feeds and detectors, all internal port types. A Go program can call them but cannot name what they return.
-- `jb.EstatePorts` has fields of type `core.PTRResolver`, `core.RDAPRegistry`, `core.BGPSource`, `core.CTSource` and `core.DNSForward`. Its own doc comment says a program outside the module cannot implement them.
+- Before step 6, `jb.Config` was `config.File`. Its method set includes `Build`, `BuildAlerts`, `BuildFeeds` and `BuildDetectors`, which return the runtime, alert sinks, feeds and detectors, all internal port types. A Go program can call them but cannot name what they return.
+- Before step 6, `jb.EstatePorts` had fields of type `core.PTRResolver`, `core.RDAPRegistry`, `core.BGPSource`, `core.CTSource` and `core.DNSForward`. Its own doc comment said a program outside the module cannot implement them.
 
 A third effect is hidden: a type reachable from an alias is public too, with no name in `jb`. By reading fields I found 7 such types: `app.Disabled`, `app.ActivityDetector`, `app.Failure`, `app.DriftSide`, `core.Alert`, `core.PruneResult` and `core.WatchCycleSummary`. I did not walk the whole graph; the test below does.
 
@@ -54,7 +54,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 ### 1. What is contract and what is a leak
 
-The 42 aliases fall into four groups. This is my reading of the field lists; the maintainer decides.
+The 42 aliases counted when this was written fall into three groups (41 after step 6, which removed `Config` from the aliases). This is my reading of the field lists; the maintainer decides.
 
 | Group | Count | Aliases | Verdict |
 |---|---|---|---|
@@ -101,7 +101,7 @@ Each root function that calls `app` or `config` returns a public value built by 
 
 ### 4. The surface golden
 
-A test in the root package (`api_surface_test.go`, proposed) walks the exported API with `go/types` and compares it with a committed file (`testdata/api/jb.txt`, proposed). The walk:
+Shipped (step 1). A test in package `jb` (`jb/api_surface_test.go`, `TestAPISurface`) walks the exported API with `go/types` and compares it with a committed file (`jb/testdata/api/jb.txt`). The walk as designed:
 
 1. Loads the package from source. `go.mod` says Go 1.25.0, so aliases are tracked by default and `types.Unalias` is available.
 2. For every exported identifier writes one line: kind, name and `types.TypeString` of its type with the full package path. For a struct it writes every field in order with its tag. For a named type it writes the exported method set.
@@ -110,7 +110,7 @@ A test in the root package (`api_surface_test.go`, proposed) walks the exported 
 
 The file is sorted and reviewed when it changes. `go doc -all` was considered and rejected as the source: it includes comment text, so a doc edit changes the file and the diff stops being a signal for a type change.
 
-The same test, aimed at package `sdk`, gives the `sdk` golden RFC 0018 needs. The golden is read-write only through `-update-api`, as `cmd/jb` does for flag sets (`TestFlagSetsAreUnchanged`, `-update-flagsets`).
+The same test, aimed at package `sdk`, gives the `sdk` golden RFC 0018 needs (`jb/testdata/api/sdk.txt`). The golden is written only through `-update-api`, as `cmd/jb` does for flag sets (`TestFlagSetsAreUnchanged`, `-update-flagsets`).
 
 ### 5. Options structs and the `jb` tags (RFC 0010)
 
@@ -122,9 +122,9 @@ Two checks are new. The surface golden records every tag, so a tag change is vis
 
 This is a refactor with no behaviour change. It adds no command, port, format or config key. CONTRIBUTING.md lists what the freeze lets in: "bug fixes, hardening, tests and docs". A refactor that makes accidental API change impossible is closest to hardening, but the text does not name refactors, so the maintainer decides (Open questions).
 
-Order, each step one commit that passes the gate:
+Order, each step one commit that passes the gate. Status on 2026-11-09: steps 1 and 6 shipped; steps 2 to 5 and 7 parked and unbuilt.
 
-1. Add the surface walk and its golden of the current state. The "no `/internal/` path" rule starts with a known-leaks list of the 42 aliases and `EstatePorts`. The list only shrinks.
+1. Add the surface walk and its golden of the current state. The "no `/internal/` path" rule starts with a known-leaks list (`jb/testdata/api/known-leaks.txt`) of the aliases and `EstatePorts`. The list only shrinks.
 2. Move the enums and small values: `Window`, `Severity`, `Status`, `Verdict` and the other string types. Casts only.
 3. Move the flat results with plain tags: `DoctorCheck`, `DoctorService`, `StoreUsage`, `KindUsage`, `LabelUsage`, `PruneRun`, `PruneTotals`, `EventPruneResult`, `CompactResult`, `TableCount`, the estate change types, and the description types.
 4. Move `Finding`, `SourceResult`, `DetectorResult`, `Result` and `ActivityResult` with their encoders. Then `CycleReport`, `WatcherStatus`, `WatchStatusResult`.
@@ -164,7 +164,7 @@ Before 1.0 there is no compatibility promise, so the breaking Go-API changes in 
 
 ## Security considerations
 
-Nothing changes in what `jb` reads, sends or stores. I checked that `Config.Build` takes `Env` and resolves credentials, so making `Config` opaque narrows what a library caller can reach. `EstatePorts` removal also removes a way for a library caller to replace the network adapters; the passive-only policy (docs/POLICY.md) is enforced in the adapters, not in the port types. The `Err error` fields stay as they are and keep the rule that errors hold no credential. One risk: the conversion functions are new code that copy error text. A test per result type with an error field checks the text is unchanged (proposed).
+Nothing changes in what `jb` reads, sends or stores. I checked that `Config.Build` takes `Env` and resolves credentials, so making `Config` opaque narrows what a library caller can reach. `EstatePorts` removal also removes a way for a library caller to replace the network adapters; the passive-only policy (docs/POLICY.md) is enforced in the adapters, not in the port types. The `Err error` fields stay as they are and keep the rule that errors hold no credential. One risk: the conversion functions are new code that copy error text. A test per result type with an error field checks the text is unchanged (proposed, parked with steps 2 to 5).
 
 ## Conformance
 
@@ -175,19 +175,22 @@ Shipped, and the gate for this RFC:
 - `cmd/jb/flagsets_test.go` with `cmd/jb/testdata/flagsets.golden`: the flag set of every command.
 - `cmd/jb/operations_test.go`: `docs/operations.json` equals `jb operations`.
 
-Proposed:
+- **Surface golden** (`TestAPISurface` in `jb/api_surface_test.go`; `jb/testdata/api/jb.txt` and `sdk.txt`; rewritten only with `-update-api`): the section 4 walk, with the `/internal/` rule.
+- **Opaque `Config`** (`TestConfigIsOpaque` in `jb/config_opaque_test.go`).
+- **Known-leaks list** (`jb/testdata/api/known-leaks.txt`, 55 entries on 2026-11-09): records the aliases that remain. It only shrinks.
 
-- **Surface golden** (`jb/api_surface_test.go`, `jb/testdata/api/jb.txt`): the section 4 walk, with the `/internal/` rule.
+Proposed (parked with steps 2 to 5 and 7; none is built):
+
 - **Byte golden per result type** that the parity tests do not already cover (estate, db, intel, reputation, caseshow): one synthetic value per type, marshalled, compared byte for byte with a file recorded before the move. Recorded first, then the type moves.
 - **Enum values test**: each public constant equals its internal constant.
 - **Usage error test**: a usage failure from every group is `jb.IsUsage` and exits 2.
-- **Known-leaks list** in the surface test; step 7 removes it.
+- **Empty known-leaks list**: step 7 removes the list once the aliases are gone.
 
 ## Reference implementations
 
 Shipped: step 1, the surface golden (`jb/api_surface_test.go`, `jb/testdata/api/jb.txt`, `jb/testdata/api/sdk.txt`, `jb/testdata/api/known-leaks.txt`, `-update-api`). The walk follows only types of this module; standard-library and third-party types appear by name, so the golden does not depend on the Go version.
 
-Shipped: step 6. `Config` is `struct{ f *config.File }` with no exported field or method (`TestConfigIsOpaque`, and the surface golden). `EstatePorts` and `EstateOptions.Ports` are removed; the module's own tests and `cmd/jb` set the doubles on the call's context through `internal/estateseam`, which is not public API. The golden shrank from 1093 to 918 lines and `known-leaks.txt` from 92 to 55 types.
+Shipped: step 6. `Config` is `struct{ f *config.File }` with no exported field or method (`TestConfigIsOpaque`, and the surface golden). `EstatePorts` and `EstateOptions.Ports` are removed; the module's own tests and `cmd/jb` set the doubles on the call's context through `internal/estateseam`, which is not public API. Across step 6 the golden shrank from 1093 to 918 lines and `known-leaks.txt` from 92 to 55 entries (read from git, commits d71f0bd and efc189b). The golden has 920 lines on 2026-11-09 after later store changes.
 
 Proposed: steps 2 to 5 and 7 in section 6 (parked).
 
@@ -207,3 +210,4 @@ Decided on 2026-11-07 by the maintainer, in a grilling session:
 - 2026-11-07: accepted for steps 1 and 6; steps 2 to 5 and 7 parked.
 - 2026-11-07: step 1 shipped.
 - 2026-11-07: step 6 shipped; open question 3 answered.
+- 2026-11-09: straightened against the code. Alias count restated (42 when written, 41 after step 6). Figures from the Motivation section labelled as measured 2026-11-07, before step 6. The `Config` and `EstatePorts` leaks marked as pre-step-6. The surface golden, `-update-api`, `TestConfigIsOpaque` and the known-leaks list moved to Shipped. Golden size corrected (918 at step 6, 920 now). The group count in section 1 corrected to three. Steps 2 to 5 and 7 stay parked.

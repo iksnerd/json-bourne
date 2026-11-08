@@ -86,10 +86,10 @@ The policy is held by tests that fail, in this order of strength:
 1. Goldens already in the repo: flag sets, `docs/operations.json`, hunt and activity JSON.
 2. The RFC 0017 API surface golden for `jb` and `sdk`.
 3. Schema files for case, actor and estate, kept equal to the loaders by tests (RFC 0004 names these).
-4. The consumer contract module (`contract/`), being added by another agent. This RFC does not depend on it. If it lands, it pins JSON shapes from a consumer's side and is listed here.
+4. The consumer contract module (`contract/`), landed on 2026-11-07. It pins JSON shapes from a consumer's side. This RFC does not depend on it.
 5. Goldens added on 2026-11-07: config key set, plugin messages, MCP tool list, evidence schema; and the exit-code, file-format and remaining-JSON tests listed in the table.
 
-A part of the surface with no test is listed as "proposed" above and MUST get one before 1.0, or be removed from the supported list.
+A part of the surface with no test MUST get one before 1.0, or be removed from the supported list. Today the only proposed item in the table is `jb.assets/v1`, which is not supported until a loader exists.
 
 ### What 1.0 means
 
@@ -115,7 +115,7 @@ The maintainer. Only the maintainer accepts this RFC, lifts the freeze, sets 1.0
 ## Drawbacks
 
 - Goldens add friction. Every deliberate surface change edits a file and needs an explanation.
-- Five of the ten surfaces have no full test today. The policy is only as strong as the tests that exist.
+- Every surface in the table names a test. The policy is only as strong as those tests.
 - Leaving detector output out means a consumer that records answers can see them change in a minor release. The changelog is the only warning.
 - A one-person maintainer is also the only reviewer, so "deliberate review" is the maintainer reviewing their own change. The golden diff makes that visible; it does not make it independent.
 
@@ -168,3 +168,4 @@ Decided on 2026-11-07 by the maintainer, in a grilling session:
 - 2026-11-07: first draft.
 - 2026-11-07: accepted. MCP tools folded into Operations; "What 1.0 means" added.
 - 2026-11-07: surface tests added for exit codes, config keys, plugin wire protocol, MCP tool list, remaining JSON documents, evidence store and file-format versions; the table names them.
+- 2026-11-09: straightened against the code. Drawbacks no longer says five surfaces lack a test (all table rows name one, and the named tests exist). Enforcement item 4 says `contract/` landed. The paragraph after the Enforcement list names `jb.assets/v1` as the only proposed item. Counts (32 command entries, 22 operations) re-checked and unchanged. The Proposed changelog check is still unbuilt.

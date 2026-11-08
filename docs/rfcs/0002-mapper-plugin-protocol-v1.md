@@ -11,7 +11,7 @@ A mapper turns one raw log document into one event. A mapper plugin is a separat
 
 [docs/PLUGINS.md](../PLUGINS.md) is the specification. It holds the handshake line, the request and response lines, the allowlist file format and the limits table. This RFC does not repeat that text and does not override it. If the two differ, PLUGINS.md and the code decide, and this RFC is corrected.
 
-This RFC holds what PLUGINS.md does not: the scope, the reasons for each choice, the non-goals, the drawbacks, the security considerations, the compatibility rule and the conformance evidence. The compatibility rule is that the protocol is frozen at `v: 1` as `jb`'s own, as [ADR 0001](../adr/0001-relationship-to-other-plugin-specifications.md) decided.
+This RFC holds what PLUGINS.md does not: the scope, the reasons for each choice, the non-goals, the drawbacks, the security considerations, the compatibility rule and the conformance evidence. The compatibility rule is that the protocol is `jb`'s own and carries no compatibility promise. An incompatible change is a new `v` ([ADR 0001](../adr/0001-relationship-to-other-plugin-specifications.md), point 3, revised).
 
 ## Motivation
 
@@ -64,7 +64,7 @@ The normative text is [docs/PLUGINS.md](../PLUGINS.md), sections "The protocol",
 
 ### Limits
 
-The numbers below come from the constants in `internal/adapters/plugin/host.go` and `allowlist.go`. PLUGINS.md lists the same limits; "Open questions" notes the places where its wording differs from the code.
+The numbers below come from the constants in `internal/adapters/plugin/host.go` and `allowlist.go`. The Limits table in PLUGINS.md has seven rows: documents per request, deadline, response line, request line, `mapper_config`, stderr and breaks. The other four limits are not in that table. "Open questions" notes the places where its wording differs from the code.
 
 | Limit | Value in the code | Constant | Where it applies |
 |---|---|---|---|
@@ -80,7 +80,7 @@ The numbers below come from the constants in `internal/adapters/plugin/host.go` 
 | Manifest `name` | 64 bytes | literal in `handshake` | A break. |
 | Allowlist file | 1 MiB | `maxAllowlistBytes` | Refused at load. |
 
-The limits can be set through `plugin.Limits` in the Go API of the host. The `jb` command line and config do not expose them, so these are the values every operator gets. The limit tests (`TestBatchesAreCappedAtMaxDocs`, `TestOversizedResponseIsABreak`, `TestUnterminatedFloodIsBoundedAndKilled`, `TestOneDocumentOverTheRequestLimitFailsInsteadOfBeingSkipped`, `TestStderrIsBoundedAndScrubbed`, `TestDeadlineKillsTheWholeProcessGroup`) pass smaller values in `Limits` to run quickly. The default values themselves are not asserted by a test. See "Open questions".
+The limits can be set through `plugin.Limits` in the Go API of the host. The `jb` command line and config do not expose them, so these are the values every operator gets. The limit tests (`TestBatchesAreCappedAtMaxDocs`, `TestOversizedResponseIsABreak`, `TestUnterminatedFloodIsBoundedAndKilled`, `TestOneDocumentOverTheRequestLimitFailsInsteadOfBeingSkipped`, `TestStderrIsBoundedAndScrubbed`, `TestDeadlineKillsTheWholeProcessGroup`) pass smaller values in `Limits` to run quickly. The default values are pinned separately: `TestPluginWireProtocolV1HostSideIsUnchanged` (`internal/adapters/plugin/wire_test.go`) compares the host against `testdata/wire-v1.golden`, which holds the `Default*` limits, `maxConfigBytes`, `maxManifestBytes` and `shutdownGrace`. A change to one of those values fails a test.
 
 ### Trust rules
 
@@ -142,7 +142,7 @@ The protocol is `jb`'s own and carries no compatibility promise (ADR 0001, point
 - **A host ignores unknown fields** in the manifest, response and event, so a plugin can add data without a version change.
 - **Changing the protocol needs an RFC.** Any change to the wire format, the limits or the trust rules goes through the process in [docs/rfcs/README.md](README.md).
 
-The Go package `sdk` is the plugin side. It is public and v0, and its API MAY change in any release (`sdk/serve.go` says so; so does CHANGELOG.md). Its wire behaviour is bound by this RFC and PLUGINS.md, not by its own version.
+The Go package `sdk` is the plugin side. It is public and v0, and its API MAY change in any release (`sdk/serve.go` says so; so does CHANGELOG.md). Its wire behaviour is bound by this RFC and PLUGINS.md, not by its own version. RFC 0018 (accepted) pins the sdk surface and the wire protocol with golden tests: `TestAPISurface` (`jb/testdata/api/sdk.txt`), `TestPluginWireProtocolV1PluginSideIsUnchanged` (`sdk/testdata/wire-v1.golden`) and the host-side golden above.
 
 Changing the limits is not a protocol change, but it changes what a plugin can rely on. A plugin SHOULD be written to the limits in the table, not to the sdk's own bound (`sdk.MaxRequestLine`, 16 MiB, above the host's 8 MiB request limit).
 
@@ -174,9 +174,10 @@ A plugin or host is checked against these tests. Each runs in this repository.
 - **Config tests.** `internal/config/plugin_test.go` covers name validation, allowlist lookup, one host per source and the shipped examples (`TestShippedPluginExamplesLoad`). `cmd/jb/plugin_test.go` covers a hunt through a plugin, a broken plugin ending incomplete and never clean (`TestHuntWithABrokenPluginIsIncompleteNeverClean`), an unlisted plugin, signal handling and `jb doctor`.
 - **SDK tests.** `sdk/sdk_test.go` covers the plugin side: the manifest then one response per request, per-document unparsable reporting, a panic reported without the document, a wrong version answered with an error, and an overlong request line ending the process.
 - **Conformance corpus.** `internal/conformance` runs synthetic documents from `internal/conformance/testdata` through each example plugin as a real child process behind the real host. For the nginx access line it also runs the built-in `nginx_ingress` mapper, and both must give the same events (`TestCorpus`). `TestKeycloakCorpusBuiltinAndKvlines` runs the built-in `keycloak` corpus through `kvlines` and records every difference with its reason in `testdata/keycloak/kvlines_differences.json`.
+- **Wire goldens.** `TestPluginWireProtocolV1HostSideIsUnchanged` and `TestPluginWireProtocolV1PluginSideIsUnchanged` compare the host and the sdk against `wire-v1.golden` files. The host golden holds the manifest, response and event structs, the `Default*` limits, `maxConfigBytes`, `maxManifestBytes`, `shutdownGrace` and a request transcript. `contract/sdk_test.go` pins the sdk constants (`ProtocolVersion`, `MaxRequestLine` and the line-size limits).
 - **Architecture rules.** `TestOSExecIsConfined`, `TestPluginsAreStdlibOnlyAndInert` and `TestNothingImportsThePlugins` in `internal/archtest/archtest_test.go`.
 
-Not checked by a test: the default values of the limits as constants, and the 64 KiB `mapper_config` limit. Also not checked: the 16 KiB manifest limit, the 64-byte name limit, the 2 second shutdown grace as a number, and behaviour on platforms without process groups. These are listed in "Open questions".
+Not checked by a test: the 64-byte manifest `name` limit, the refusal of an oversized `mapper_config` (at either check, and the `64<<10` literal in `validateMapper`), and behaviour on platforms without process groups. The values of the other limits are pinned by the wire golden. The 1 MiB allowlist cap has a test (`allowlist_shape_test.go`). The untested items are listed in "Open questions".
 
 ## Reference implementations
 
@@ -199,10 +200,9 @@ None.
 
 The maintainer decides each one. None is fixed by this RFC, which changes no behaviour.
 
-- **`mapper_config` limit has two copies and no test.** The 64 KiB limit is a literal in `validateMapper` (config load) and a constant in `host.go` (`NewHost`). The two agree today. No test covers either. Decide whether to share one constant and add a test.
+- **`mapper_config` limit has two copies and no test.** The 64 KiB limit is a literal in `validateMapper` (config load) and a constant in `host.go` (`NewHost`). The two agree today. The golden pins the constant. Nothing pins the literal, and no test sends an oversized `mapper_config` to either check. Decide whether to share one constant and add a test.
 - **Manifest limits missing from PLUGINS.md.** The host refuses a manifest line over 16 KiB and a `name` longer than 64 bytes. PLUGINS.md says only that `name` is required. Decide whether to document them.
 - **`config_schema` type.** PLUGINS.md calls it free text. The host reads it as any JSON value. The sdk always sends a string. Decide whether to say "string" in the spec.
-- **Default limits are not asserted.** The tests pass explicit values. A change to a default constant would pass every test. Decide whether to add a test that pins the table above.
 - **Request size and the document cap.** PLUGINS.md says a single document too large to fit fails the source. It does not say the host also splits a batch by size before the 200-document cap. The code does both. Decide whether to say so.
 - **Limits are not operator-tunable.** The `Limits` struct exists, but no config key sets it. Decide whether an operator ever needs to.
 - **Non-Unix platforms.** The fallback in `procgroup_other.go` kills the plugin only. No test covers it. Decide whether to support those platforms or refuse them.
@@ -212,3 +212,4 @@ The maintainer decides each one. None is fixed by this RFC, which changes no beh
 
 - 2026-11-06: back-filled from the shipped protocol, `docs/PLUGINS.md` and ADR 0001. Status `implemented`.
 - 2026-11-06: the freeze at `v: 1` is removed. The protocol is versioned by `v` and a host reads only the current one (ADR 0001, point 3, revised).
+- 2026-11-09: straightened against the code. The Summary no longer says the protocol is frozen. The wire golden tests are named, and the claim that default limits are untested is removed. The `mapper_config` and Limits notes say what is really untested. The sdk stability note points to RFC 0018. The PLUGINS.md limits table is described as seven rows.

@@ -1,5 +1,5 @@
 # RFC 0019: Timeline page for `jb serve`
-Status: accepted
+Status: implemented
 Scope: one new read-only page, `/timeline`, that shows findings and watch cycles on one time axis and marks the spans where a watcher left no cycle for longer than three of its intervals.
 
 Accepted: 2026-11-07 by the maintainer
@@ -32,7 +32,7 @@ Read from `internal/adapters/web/web.go` (routes) and `views.go` (handlers):
 | `/watch` (`watch`) | The last 100 lines of one `watch.log`, the verdict and age of its last `CYCLE` line, the dedupe memory | The unnamed watcher only (see below). No history, no gaps |
 | `/estate*`, `/reputation` | Unrelated | |
 
-Verified: `dashboard.go` (root) wires `Log` and `State` to `watch.log` and `watch-state.json` only (`watchrun.LogFile`, `watchrun.StateFile`, with no watcher name). A named watcher writes `watch.NAME.log`, so the Watch page does not show it. This is the largest gap for the requester, who runs named watchers.
+Verified: `jb/dashboard.go` wires `Log` and `State` to `watch.log` and `watch-state.json` only (`watchrun.LogFile`, `watchrun.StateFile`, with no watcher name). A named watcher writes `watch.NAME.log`, so the Watch page does not show it. This is the largest gap for the requester, who runs named watchers.
 
 What is new in this RFC, and only this:
 
@@ -107,7 +107,7 @@ The page has these panels. Each fails on its own, so a failed store does not hid
 
 **How much history exists.**
 
-- The log is unbounded in code, but one read reads at most the last 256 KiB (`alertlog` `maxTailBytes`). The reader keeps that bound and reports `Cut` when the file is larger. Cycles per 256 KiB depend on line length and on alerts per cycle. I did not measure it, so no number is given here (unverified). The implementer measures it on a synthetic log and writes it in `docs/CONFIG.md`.
+- The log is unbounded in code, but one read reads at most the last 256 KiB (`alertlog` `maxTailBytes`). The reader keeps that bound and reports `Cut` when the file is larger. Cycles per 256 KiB depend on line length and on alerts per cycle. I did not measure it, so no number is given here (unverified). The implementer measures it on a synthetic log; the numbers are under Reference implementations.
 - Findings of watch runs older than `keepSeconds` are gone from the store. Cycle lines older than that are still in the log. For a cycle older than that horizon the page prints `findings of this watcher older than <keep> are removed by retention`, so an empty finding column there is not read as "none". If the status record is missing, the horizon is unknown and the page says so.
 - Findings of hunts are not pruned by `--keep`.
 
@@ -197,7 +197,7 @@ LIMIT ?   -- Limit + 1
 - The `JOIN` is inner. Findings without a `runs` row are not listed (unverified whether any can exist: `SaveFindings` writes both in one transaction).
 - Adding a method to `DashboardStore` breaks its fakes in tests. They get the method.
 
-New port in `core`, implemented in `internal/watchrun/history.go`, wired in the root `dashboard.go` as `Deps.History` (nil means "not available", like `Log`):
+New port in `core`, implemented in `internal/watchrun/history.go`, wired in `jb/dashboard.go` as `Deps.History` (nil means "not available", like `Log`):
 
 ```go
 type WatchHistoryReader interface {
@@ -236,7 +236,7 @@ type WatchNoCycle struct {
 - templ components in `internal/adapters/web/timeline.templ`; generated file and `static/tailwind.css` are committed (`make ui`). No `templ.Raw`, no inline script, no inline style. No new script and no new static file. The page works without script; htmx only refreshes the results fragment, as on `/findings`.
 - Every stored string passes `c()` (`clip`, 300 characters, control characters replaced) and then templ escapes it for its place (text, attribute, URL). This covers detector, tag, summary, run id, watcher name, verdict, and the gap text. SVG `<title>` text goes through the same path.
 - `subject` is the finding's `tag`, clipped to 120 characters in the table. The full tag is on the run page.
-- A verdict is matched to the closed set `QUIET`, `FINDINGS`, `INCOMPLETE`, `FAILED` by an anchored parser. Anything else is `unparsed` and counted. Verdict text is never taken from a free-text position in a line: a `FAILED` cycle carries error text, and an alert carries finding text, which can hold attacker-influenced strings, including the words `CYCLE QUIET`. The existing `cycleRE` on the Watch page is unanchored (`views.go`); this RFC does not change it, and Open question 4 asks whether it should be fixed.
+- A verdict is matched to the closed set `QUIET`, `FINDINGS`, `INCOMPLETE`, `FAILED` by an anchored parser. Anything else is `unparsed` and counted. Verdict text is never taken from a free-text position in a line: a `FAILED` cycle carries error text, and an alert carries finding text, which can hold attacker-influenced strings, including the words `CYCLE QUIET`. When this was drafted, the Watch page used an unanchored `cycleRE` (`views.go`). Open question 4 fixed that: no `cycleRE` remains, and the Watch page uses `core.ParseWatchLogLine`.
 - The watcher name in a row is the file's name (validated by `NameFrom`), not the `[w:...]` text inside the line.
 - Order is total: rows sort by time descending, then kind, then watcher, then run id, then sequence. Two loads over unchanged files and an unchanged store with the same `Deps.Now` give byte-identical output. `Now` is rounded down to the minute for the window end and the trailing marker.
 - Severity: the name in text (`high`), and a shape in the SVG. The Findings page colours its severity badge (`sevVariant`: `destructive`, `warning`). The timeline does not reuse that badge. See Open question 3.
@@ -244,7 +244,7 @@ type WatchNoCycle struct {
 
 ### 7. Privacy
 
-A finding's `tag`, `summary` and `Detail` can hold a subject such as an address or a username. For `username`, `email` and `user_id` keys, the detectors refuse to run without `hash_keys`, so the stored tag and summary carry `h:` plus 12 hex digits of SHA-256, not the plain value (`docs/CONFIG.md`, `hash_keys`; the guard is `internal/piiguard`). The hash is applied by the detector before the finding is stored, so any reader of the store sees the hashed form. The existing Findings page shows `tag` and `summary` as stored. The timeline shows `detector`, `severity`, `tag` and the run id only. It never selects `detail`, and never reads events. It therefore shows no more than `/findings` already shows. A plain address as a key (`client_ip`) is not hashed unless the config says so; that is the same on every page. Cycle lines hold names, counts and the failure text of components. The Watch page already prints these lines whole. The timeline prints the verdict, the gap span and component names only.
+A finding's `tag`, `summary` and `Detail` can hold a subject such as an address or a username. For `username`, `email` and `user_id` keys, the detectors refuse to run without `hash_keys`, so the stored tag and summary carry `h:` plus 12 hex digits of SHA-256, not the plain value (`hash_keys` is documented in `docs/config/mappers.md` and `docs/config/detectors-markers-and-actors.md`; the guard is `internal/piiguard`). The hash is applied by the detector before the finding is stored, so any reader of the store sees the hashed form. The existing Findings page shows `tag` and `summary` as stored. The timeline shows `detector`, `severity`, `tag` and the run id only. It never selects `detail`, and never reads events. It therefore shows no more than `/findings` already shows. A plain address as a key (`client_ip`) is not hashed unless the config says so; that is the same on every page. Cycle lines hold names, counts and the failure text of components. The Watch page already prints these lines whole. The timeline prints the verdict, the gap span and component names only.
 
 ## Non-goals
 
@@ -268,7 +268,7 @@ A finding's `tag`, `summary` and `Detail` can hold a subject such as an address 
 
 ## Alternatives and prior art
 
-**Extend the Watch page.** Rejected. It has one watcher wired in `dashboard.go`, no time window and a different job: the live state of one watcher. Merging findings into it mixes "now" with "history". The timeline could replace its log tail later (Open question 5).
+**Extend the Watch page.** Rejected. It has one watcher wired in `jb/dashboard.go`, no time window and a different job: the live state of one watcher. Merging findings into it mixes "now" with "history". The timeline could replace its log tail later (Open question 5).
 
 **A JSON API only.** Rejected. The requester reads in a browser and the dashboard has no JSON API except `/estate/graph.json`, which exists for the graph script. A new JSON surface is a new contract, and RFC 0018 lists the dashboard pages as unsupported surface, so a JSON API would be a new contract with no gain here.
 
@@ -299,24 +299,24 @@ The dashboard is pre-1.0 and its pages are unsupported surface (RFC 0018), so ad
 
 ## Conformance
 
-The implementation is checked by these tests. They do not exist yet.
+The implementation is checked by the tests below. Status on 2026-11-09.
 
-- `internal/adapters/duckdb`: `FindingsBetween` bounds `[From, To)`, order, `More` at `Limit+1`, severity and prefix filters, `watch-a-` does not reach `watch-ab-`, the handle refuses a write, no `detail` column is read.
-- `internal/adapters/alertlog`: the parser round-trips every `Line` output for each verdict, with and without a watcher; a cycle line whose error text holds `CYCLE QUIET`, a newline and `[w:other]` still parses as `FAILED` of the right watcher; a forged `[c:watch-gap]` inside a summary is not read as a gap; an unknown line counts as `Unparsed`.
-- `internal/watchrun/history_test.go`: gap rule at `3E - 1s` (no marker), exactly `3E` (no marker), `3E + 1s` (marker); trailing marker; leading none; unknown interval (no marker, notice); a changed interval; a cut log; a status record for another name; no log (`ErrAbsent`).
-- `internal/adapters/web/timeline_test.go`, with store and history fakes:
-  - hostile strings in detector, tag, summary, run, watcher and gap text are escaped in every context (text, attribute, URL, SVG title);
-  - bounds: window clamp, 500-row cut shows the `INCOMPLETE` notice, log `Cut` notice, the 3 s limit shows `could not read the store` and the cycles still render;
-  - determinism: two renders with the same fake data and clock are byte-identical, and a shuffled fake input gives the same bytes;
-  - wording: a marker never contains "down", "dead", "healthy" or "ok"; an unknown interval says so and draws nothing;
-  - no verdict colour: no `bad`, `warn`, `destructive`, `warning` or `success` class in the page's markup;
-  - repeatable `watcher` and `sev`, unknown values ignored, `_` selects the unnamed watcher;
-  - CSP, `no-store`, GET-only and Host checks via the existing `assertSecure` helper in `dashboard_test.go`;
-  - the HX fragment omits the layout.
-- `internal/archtest`: `TestWebAdapterHasNoRawHTMLOrScriptEscapeHatch` covers the new `.templ` and `.go` files with no change. A new rule is added that `internal/watchrun` history imports no `net/http`.
-- Root `dashboard_test.go`: end to end with the existing helpers. `seedDash` writes a store; a real `jb watch --once` against the fake source from `cmd/jb/watch_test.go` (`searchfake_test.go`) writes a cycle line and a status record; `/timeline` shows the finding, the cycle and no marker. Then the test sets the clock to `3E + 1s` after the cycle and the marker appears.
-- Browser smoke test: the implementer runs `jb serve` on a synthetic case with a browser tool (Playwright or Chrome DevTools are installed on the author's machine; not run for this draft), loads `/timeline`, changes the filters, and checks no CSP violation in the console.
-- Docs: `docs/CONFIG.md` serve section gets the page, its parameters and its bounds. A test that the doc names the route is added to the doc-parity tests if one covers routes (unverified).
+Shipped:
+
+- `internal/adapters/duckdb/findings_between_test.go`: `FindingsBetween` (bounds, order, `More`, filters, prefix matching, read-only handle).
+- `internal/core/watchlog_test.go`: the anchored parser `core.ParseWatchLogLine` (`internal/core/watchlog.go`). The parser moved from `alertlog` to `core` (see Changes), so these tests replace the `internal/adapters/alertlog` parser tests the draft listed.
+- `internal/watchrun/history_test.go` and `internal/watchrun/gaps_test.go`: the gap rule, the trailing marker, the unknown interval, a cut log, a missing log. `TestReadRoundTripsWhatTheWatchLoopWrites` in `history_test.go` runs the real watch loop into the real alert log and reads it back.
+- `internal/adapters/web/timeline_test.go` and `timeline_gaps_test.go`: escaping, bounds, determinism, wording, filters and the existing secure-header checks, with store and history fakes.
+- `cmd/jb/serve_timeline_test.go`: an end-to-end test through `jb hunt`, `jb watch --once` and `jb serve`. `/timeline` shows the finding and the cycle with no marker, then draws a marker after 3 intervals. It rewrites the cycle time in the log by hand to move it near the real clock.
+- `internal/archtest`: `TestWebAdapterHasNoRawHTMLOrScriptEscapeHatch` covers the new `.templ` and `.go` files with no change.
+- Browser smoke test: run once with Playwright on 2026-11-07 (see Reference implementations).
+- Docs: `docs/config/serve.md` (`## Timeline`) describes the page.
+
+Not done:
+
+- A root end-to-end test in `jb/dashboard_test.go` with `seedDash` and a real `jb watch --once` against the fake source. `grep -i timeline jb/dashboard_test.go` finds nothing. `cmd/jb/serve_timeline_test.go` and `TestReadRoundTripsWhatTheWatchLoopWrites` cover the same ground.
+- A new archtest rule that `internal/watchrun` history imports no `net/http`. The existing rule that confines `net/http` to the remote adapters and the dashboard already fails for that package (see Changes).
+- A doc-parity test that `docs/config/serve.md` names the route: not checked.
 
 ## Reference implementations
 
@@ -328,10 +328,10 @@ Shipped (2026-11-07, unreleased):
 - `internal/adapters/duckdb/dashboard.go`: `FindingsBetween`.
 - `internal/watchrun/history.go`: `History` (`Watchers`, `Read`), `Gaps`; `internal/watchrun/status.go`: `Overdue`, the one strict comparison that `jb watch status` and the marker share.
 - `internal/adapters/web/timeline.go`, `timeline.templ`, `web.go` (route, `Deps.History`), `layout.templ` (nav).
-- `dashboard.go` (root): wiring. No exported identifier of package `jb` is added.
-- `docs/CONFIG.md`: the page.
+- `jb/dashboard.go`: wiring. No exported identifier of package `jb` is added.
+- `docs/config/serve.md`: the page (`## Timeline`).
 
-Measured on a synthetic log written by the real watch loop (6000 quiet cycles, `alertlog.Sink`, one read of the 262144 byte bound with no alert lines between the cycle lines):
+Measured 2026-11-07 (not re-run) on a synthetic log written by the real watch loop (6000 quiet cycles, `alertlog.Sink`, one read of the 262144 byte bound with no alert lines between the cycle lines):
 
 | Watcher | Bytes per cycle line | Cycles in one read |
 |---|---|---|
@@ -369,3 +369,4 @@ Decided on 2026-11-07 by the maintainer, in a grilling session, with the draft's
   - No archtest rule was added for `internal/watchrun` and `net/http`: the existing rule that confines `net/http` to the remote adapters and the dashboard already fails for that package (checked by planting an import).
   - The draft says the unnamed watcher and hunts are told apart by the run id. The page labels them `(unnamed)` and `(hunt)`; the parentheses cannot occur in a watcher name.
 - 2026-11-07: added the `gaps=1` only-gaps view (render only; no new query or route; the notices and the retention section are shown in both views).
+- 2026-11-09: straightened against the code. Status set to `implemented`; the four deviations above stay. Conformance rewritten: it lists the tests that exist, and lists the root `jb/dashboard_test.go` end-to-end test and the archtest rule as not done. Paths updated (`jb/dashboard.go`, `docs/config/serve.md`, `core.ParseWatchLogLine`). The `cycleRE` and `hash_keys` references corrected. The byte table is marked as measured 2026-11-07 and not re-run.

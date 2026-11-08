@@ -5,7 +5,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 ## [Unreleased]
 
 ### Fixed
-- Keycloak: a client-registration policy rejection (`KC-SERVICES0099 ... client-registration service`) maps to an event with `event_type=CLIENT_REGISTRATION_REJECTED` and `outcome=error` instead of counting as unparsable. No detector counts it yet.
+- Keycloak: the client-registration rejection mapping added in 0.12.0 (`CLIENT_REGISTRATION_REJECTED`, `outcome=error`) matched any `KC-SERVICES0099` line that named the client-registration service. It now needs the phrase ` rejected request to client-registration service` on a single line; any other such line stays unparsable. A corpus case pins it. An event with no `client_ip` counts toward the whole population in `authspike` but belongs to no key (documented). No detector counts the rejection by type yet.
 
 ## [0.12.0] - 2026-11-08
 

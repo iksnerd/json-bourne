@@ -1,5 +1,5 @@
 # RFC 0001: Estate v2
-Status: accepted
+Status: implemented
 Scope: a `jb.estate/v2` file format that carries per-host facts and separate assessments, and a dashboard that shows them with live overlays from the evidence store.
 Accepted: 2026-11-06 by the maintainer
 
@@ -43,7 +43,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 ## The design
 
-Everything in this section is a proposal. None of it is implemented. The Reference implementations section lists what exists today.
+This section describes the shipped format. The Reference implementations section lists where each part lives.
 
 ### File
 
@@ -78,13 +78,13 @@ Two facts of one node MAY share a `key`, because a host has many open ports. Onl
 
 Facts SHOULD NOT hold judgements. A key such as `classification` or `verdict` belongs in an assessment. The loader cannot enforce this, and Drawbacks says so.
 
-The following keys are RECOMMENDED so that tools agree. They are examples of the vocabulary, not a closed list: `port.open`, `os`, `tls.cn`, `cpe`, `vuln`, `tech`. Only `tls.cn` has a source on the list today (`ct-log` records certificate names). The others wait for open question 1.
+The following keys are RECOMMENDED so that tools agree. They are examples of the vocabulary, not a closed list: `port.open`, `os`, `tls.cn`, `cpe`, `vuln`, `tech`. `tls.cn` can come from `ct-log`. The others, such as `port.open` and `vuln`, come from the `scan-cache` source through `jb estate facts import FILE`.
 
 ### Sources
 
-The source list of v1 applies to every claim in v2: `rdap`, `rdns`, `dns`, `whois`, `crt.sh`, `ct-log`, `bgp`, `passive-dns`. Any other source is refused, as in v1. The v1 error lists the allowed sources.
+The source list applies to every claim in v2. It has nine entries (`casefile.EstateSources`): `rdap`, `rdns`, `dns`, `whois`, `crt.sh`, `ct-log`, `bgp`, `passive-dns` and `scan-cache`. Any other source is refused, as in v1. The v1 error lists the allowed sources.
 
-Facts such as open ports and known vulnerabilities usually come from a cached third-party database, not from the eight sources above. Whether such a database counts as passive, and what name it would get on the list, is a change to [POLICY.md](../POLICY.md), not to the code (the comment on `EstateSources` in `internal/casefile/estate.go` says the same). This RFC does not decide it. See Open questions.
+Facts such as open ports and known vulnerabilities usually come from a cached third-party database, not from the eight passive sources. The maintainer decided on 2026-11-06 that such a store is passive when the target observes nothing from `jb`. It is the ninth source, `scan-cache`, defined in [POLICY.md](../POLICY.md). `jb` reads it only from a file the operator holds, through `jb estate facts import FILE`.
 
 ### Assessments
 
@@ -126,11 +126,11 @@ A fact is a claim, so `diff` compares facts as it compares other claims. Two fac
 
 Assessments are opinion and are not compared.
 
-The collectors write no facts, so `refresh` carries the facts of the baseline file through unchanged and does not re-ask them. A later RFC may add a collector.
+The collectors write no facts, so `refresh` carries the facts of the baseline file through unchanged and does not re-ask them. It also carries each assessment whose subject and basis references still resolve in the snapshot. A later RFC may add a collector.
 
 ### Dashboard
 
-The Estate page MUST show facts and assessments in the record sheet. Assessments MUST sit in their own section with the heading `Assessments (opinion)` and a fixed notice that an assessment is its author's opinion and not an observation. Each shows `by`, `decided` and its basis. The graph MUST draw corroboration as line weight and age as a dashed line, and MUST offer a filter by node kind. The filter is an htmx fragment, like the findings filter. The page MUST escape the text of every new field like all stored text, and MUST show at most 300 characters of one stored string, as it does today ([RFC 0003](0003-dashboard-security-model.md)).
+The Estate page MUST show facts and assessments in the record sheet. Assessments MUST sit in their own section with the heading `Assessments (opinion)` and a fixed notice that an assessment is its author's opinion and not an observation. Each shows `by`, `decided` and its basis. The graph MUST draw corroboration as line weight and age as a dashed line, and MUST offer a filter by node kind. The filter is an htmx fragment, like the findings filter. A repeatable `confidence` query parameter (`stated` or `inferred`, the values of `EdgeConfidences`) filters edges the same way and combines with the kind filter. The page MUST escape the text of every new field like all stored text, and MUST show at most 300 characters of one stored string, as it does today ([RFC 0003](0003-dashboard-security-model.md)).
 
 ## Non-goals
 
@@ -143,7 +143,7 @@ The Estate page MUST show facts and assessments in the record sheet. Assessments
 
 ## Drawbacks
 
-- Every existing v1 file must be edited to v2. That is one line per file, and there are two example files and the case's own estate files.
+- Every existing v1 file must be edited to v2. That is one line per file, and there is one example file (`examples/case/estate/example-estate.yaml`) and the case's own estate files.
 - The snapshot format changes with it (`jb.estate-snapshot/v2`), and any snapshot already written has to be regenerated or rewritten.
 - Facts need sources. Most useful facts about a host come from tools `jb` does not run. The provenance rule makes that visible, and it does not make the facts true.
 - A list of assessments next to a list of facts invites readers to merge them. The separation is a convention, held only by the schema, the viewer and the caveat.
@@ -164,7 +164,7 @@ The Estate page MUST show facts and assessments in the record sheet. Assessments
 `jb` and one other program are the only users and nothing is public, so there is no compatibility path. This section says what breaks and what each user changes.
 
 - The v1 loader, `docs/schemas/estate.schema.json`, the v1 corpus and the v1 tests are replaced by the v2 ones.
-- A file with `apiVersion: jb.estate/v1` is refused with an error that names both versions and says to rewrite it. An older `jb` that meets a v2 file stops at its own `apiVersion` check with its existing error: `unsupported apiVersion "jb.estate/v2": this build reads only jb.estate/v1`.
+- A file with `apiVersion: jb.estate/v1` is refused with an error that names both versions and says to rewrite it. An older `jb` that meets a v2 file stops at its own `apiVersion` check. Its message belongs to that older build and is not fixed here.
 - `jb case check` loads every file in `estate/` (CASE-SPEC section 9) and checks them as v2.
 - A snapshot (`jb.estate-snapshot/v1`) is replaced by `jb.estate-snapshot/v2`. A baseline file and its snapshots are rewritten by changing the `apiVersion` lines, or regenerated with `jb estate refresh`.
 - Migrating a file: change `apiVersion` to `jb.estate/v2`. The file stays valid. Add facts and assessments when you have them.
@@ -181,19 +181,17 @@ The Estate page MUST show facts and assessments in the record sheet. Assessments
 
 ## Conformance
 
-Proposed. None of these exist yet.
+Shipped. Each item names its test.
 
-- `docs/schemas/estate-v2.schema.json`, kept equal to the loader by tests that mirror `TestEstateSchemaMatchesStruct` and `TestEstateSchemaMatchesLoaderRules`.
-- A corpus of synthetic files under `internal/casefile/testdata/estate-v2/`: valid files, and one invalid file for each rule above. Each invalid file names a substring that the error MUST contain. The tests compare the substring, not the whole message.
-- A test that a v1 file with only the `apiVersion` changed loads as v2 with the same nodes and edges.
-- A test that a file with `apiVersion: jb.estate/v1` is refused with the rewrite message.
-- Drift tests: a gained value, a lost value and a group present on one side only, for facts, and a test that an assessment change is not drift.
-- A test that every assessment `basis` reference resolves, and that an assessment without `by` or `basis` fails.
-- Dashboard tests, three of them. An assessment renders under the "opinion" heading and not in the node table. Every new field is escaped: the existing hostile-text tests cover the new fields. An overlay is absent, with a note, when the store cannot be read.
-- Weight tests: an edge claimed by one, two and three or more distinct sources gets the thin, medium and thick classes; two claims by the same source count once; an edge whose newest claim is older than 90 days is dashed and one exactly at the boundary is not; the file carries no weight.
-- Overlay tests: no store is read when the map loads; opening a record queries once; a result, `none in the last 30 days`, `never looked up` and `could not read the store` render as four distinct texts; an overlay carries its source and time and no verdict colour class; a slow query hits the time limit and shows the could-not-read state.
-- A node-kind filter test: the htmx fragment lists only the chosen kinds, escapes every value, and the unfiltered page is unchanged.
-- A test that the viewer shows the fixed assessment notice whatever the `caveat` says.
+- `docs/schemas/estate.schema.json`, kept equal to the loader by `TestEstateSchemaMatchesStruct` and `TestEstateSchemaMatchesLoaderRules` (`internal/casefile/estate_test.go`).
+- A corpus of synthetic files under `internal/casefile/testdata/estate/`: 11 valid files in `valid/` and 36 invalid files in `invalid/`, one for each rule. Each invalid file names a substring that the error must contain. `TestEstateCorpus` compares the substring, not the whole message.
+- `TestV1FileWithOnlyTheVersionChangedLoadsAsV2`, and the `v1 is refused` case of the loader table test, which checks the rewrite message.
+- Caps at N and N+1: `TestEstateCapsAreExact`.
+- Drift tests for facts (`internal/app/estate_facts_test.go`): `TestDiffFactGainedValue`, `TestDiffFactLostValue`, `TestDiffFactGroupOnOneSideOnlyIsListedNotDrift`, and `TestDiffIgnoresAssessments`.
+- Dashboard: `TestEstateShowsFactsAndMarksAssessmentsAsOpinion` (assessments under the opinion heading, with the fixed notice).
+- Weight (`internal/estategraph/weight_test.go`): `TestWeightIsTheNumberOfDistinctSourcesCappedAtThree`, `TestStaleMeansNewestClaimOlderThanNinetyDays`, and `TestTheFileStoresNoWeightAndTheCodeHasNoStrengthTable` in `internal/adapters/web/estate_v2_test.go`.
+- Overlays (`internal/adapters/web/estate_v2_test.go`): `TestMapLoadAndRecordOpenMakeNoOverlayQuery`, `TestIPRecordOpensTheOverlayLazilyAndOtherKindsDoNot`, `TestOverlayHasFourDistinctTextsThatAreNeverMerged`, `TestSlowOverlayQueryHitsTheTimeLimitAndShowsCouldNotRead`, and `TestOverlayCarriesNoVerdictColourAndEscapesStoredText`.
+- Kind filter: `TestKindFilterFragmentListsOnlyTheChosenKinds` and `TestKindFilterFragmentEscapesEveryValue`. Confidence filter: `TestConfidenceFilterWorksWithKindFilterAndLayers` (`internal/adapters/web/estate_legend_test.go`).
 
 ### Examples
 
@@ -211,7 +209,7 @@ nodes:
     observed: 2026-11-06T10:00:00Z
 ```
 
-The examples are test vectors for the proposed loader. They are not run today.
+The examples are test vectors for the loader. The corpus tests above cover each rule they show.
 
 | File | Result |
 |---|---|
@@ -245,19 +243,19 @@ Shipped:
 
 Proposed:
 
-- Nothing from this section remains. Open questions 3 and 7 still stand.
+- Nothing from this section remains. Open questions 2, 3, 6 and 7 still stand.
 
 ## Open questions
 
-1. **Details of the neutral import file.** Decided on 2026-11-06 by the maintainer: `jb estate facts import FILE` reads one small documented JSON shape (node, key, values, source note, observed time, method), refuses unknown keys, and caps file size and fact count. The operator converts a vendor export with a script they control, and `jb` reads no vendor format. Still open: the exact key names and the caps. Decides: the author, with a test corpus.
+1. **Details of the neutral import file.** Decided. On 2026-11-06 the maintainer decided that `jb estate facts import FILE` reads one small documented JSON shape, refuses unknown keys, and caps file size and fact count. Shipped as `jb.estate-facts/v1` (CASE-SPEC section 4.5.2) with a 1 MiB cap and 5000 facts. The operator converts a vendor export with a script they control, and `jb` reads no vendor format.
 2. **Edges in `basis`.** Edges have no ids. Should an assessment be able to cite an edge, and by what address? Decides: the maintainer, with the author.
 3. **The corroboration and age thresholds.** Are three classes by distinct sources, and 90 days as the age cutoff, right for the real case? Decides: the maintainer, after using the map on it.
-4. **Set comparison for facts.** Is comparing the set of values per group right for keys where order or multiplicity matters? Decides: the author, after a test on a synthetic port history.
-5. **Free text in `by`.** Is a role or handle enough, or should the format limit it further? Decides: the maintainer.
+4. **Set comparison for facts.** Decided. `diff` compares the set of values per node, key, source and method (CASE-SPEC section 4.5.1, `internal/app/estate_diff.go`). Order and multiplicity are not compared.
+5. **Free text in `by`.** Decided. `by` is a role or a handle, one line, at most 128 bytes. The loader cannot tell a name from a handle, and Drawbacks says so.
 6. **A published format to compare with.** Which one should the next draft read? Decides: the reviewer.
 7. **The overlay key.** The last-seen overlay uses `--key-field`. Is one field enough for a case whose events carry the address in more than one? Decides: the author, after a test on a synthetic case with two fields.
 
-8. **Which facts ship first.** The format can ship before open question 1 is decided, and only facts from the eight listed sources can be written until then. Should the format wait for the decision? Decides: the maintainer.
+8. **Which facts ship first.** Decided. Overtaken by question 1: the format and the `scan-cache` import shipped together.
 
 ## Changes
 
@@ -266,3 +264,4 @@ Proposed:
 - 2026-11-06: revised for one current format: v1 is removed, drift covers facts, and the compatibility section lists what the two users change. This follows the owner's decision that `jb` has no backward compatibility before a public release.
 - 2026-11-06: revised after a clean-room read: the loader rules that v1 already defines are stated, the contradictions in the wording are removed, and the proposal is separated from the present throughout.
 - 2026-11-06: accepted by the maintainer after three Hashimoto-rigor grills. Code may start; the status becomes `implemented` when the Reference implementations section is moved from proposed to shipped.
+- 2026-11-09: straightened to the shipped design and set to `implemented`: proposal wording removed, the source list now has nine entries including `scan-cache`, refresh carries assessments that still resolve, the confidence filter is stated, Conformance lists the tests that exist, and open questions 1, 4, 5 and 8 are marked decided.

@@ -69,7 +69,7 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 
 | RFC | Title | Status |
 |---|---|---|
-| [0001](0001-estate-v2.md) | Estate v2 | accepted |
+| [0001](0001-estate-v2.md) | Estate v2 | implemented |
 | [0002](0002-mapper-plugin-protocol-v1.md) | Mapper plugin protocol v1 | implemented |
 | [0003](0003-dashboard-security-model.md) | Dashboard security model | implemented |
 | [0004](0004-stability-policy.md) | Stability policy | withdrawn |
@@ -87,4 +87,4 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0016](0016-own-cloud-inventory.md) | Inventory of the operator's own cloud | draft (parked) |
 | [0017](0017-public-api-owns-its-types.md) | Public API owns its types | accepted |
 | [0018](0018-stability-policy.md) | Stability policy for 1.0 | accepted |
-| [0019](0019-serve-timeline.md) | Timeline page for `jb serve` | accepted |
+| [0019](0019-serve-timeline.md) | Timeline page for `jb serve` | implemented |
