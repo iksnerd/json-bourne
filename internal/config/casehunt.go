@@ -26,7 +26,7 @@ type CasePlan struct {
 
 // PlanCase loads the case, refuses when the evidence guard fails, and chooses the
 // config and the default window. Nothing here reads the environment or evidence/.
-// command names the jb command asking (one of CaseCommands); it picks the config when
+// command names the jb command asking (one of the closed set in casecommands.go); it picks the config when
 // cfgFlag is empty. windowSet says the caller already has a window, so the case's
 // default is not used.
 func PlanCase(dir, cfgFlag, command string, windowSet bool) (*CasePlan, error) {
@@ -146,7 +146,7 @@ func chooseDeclared(c *casefile.Case, command string) (string, error) {
 }
 
 // ChooseCaseConfig returns the absolute path of the config command (one of
-// CaseCommands) should use. flag names one of the case's configs, or a file inside the
+// casecommands.go) should use. flag names one of the case's configs, or a file inside the
 // case, and wins. Empty flag: the one listed config that declares command under
 // `commands:`; else, when the case lists one config, that one; else a usage error that
 // lists every config with its commands. command is not consulted when flag is set, so

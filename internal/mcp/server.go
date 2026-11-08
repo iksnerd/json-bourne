@@ -476,17 +476,6 @@ func errorResult(msg string) toolResult {
 	return toolResult{Content: []textBlock{{Type: "text", Text: cleanString(msg, maxErrorText)}}, IsError: true}
 }
 
-// Sanitize rewrites the JSON document raw for the MCP projection: every string value
-// loses its control characters (C0, DEL and C1, newlines included) and is cut at
-// [MaxString] characters with a marker. Keys, numbers and structure are unchanged.
-func Sanitize(raw []byte) ([]byte, error) {
-	v, err := sanitizeValue(raw)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(v)
-}
-
 func sanitizeValue(raw []byte) (any, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()

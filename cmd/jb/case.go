@@ -67,12 +67,6 @@ func newCaseCheckCmd() *cobra.Command {
 	return cmd
 }
 
-// inspectCase loads the case. `jb db` needs only the case, not the checks of `case check`.
-func inspectCase(dir string) (*casefile.Case, *jb.CaseGuard, error) {
-	c, err := casefile.Load(dir)
-	return c, nil, err
-}
-
 func writeCaseJSON(w io.Writer, r *jb.CaseCheckResult) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

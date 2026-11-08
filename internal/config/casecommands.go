@@ -16,9 +16,6 @@ import (
 // `jb doctor` is not in it: without --config it checks every listed config.
 var caseCommands = []string{"activity", "actor", "estate", "hunt", "intel", "rename-source", "serve", "watch"}
 
-// CaseCommands returns the closed set of command names, sorted.
-func CaseCommands() []string { return slices.Clone(caseCommands) }
-
 // checkCommands refuses a name outside the closed set, an empty name and a repeat.
 func checkCommands(list []string) error {
 	seen := map[string]bool{}

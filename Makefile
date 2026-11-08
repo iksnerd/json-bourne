@@ -16,7 +16,7 @@ else
   TW_SHA256 := dc61b3ac6b8c9ca874c0cc4c57b2409791a64c5540404ca5f5367360babc313a
 endif
 
-.PHONY: ui tools ui-check
+.PHONY: ui tools ui-check deadcode
 
 ui: tools
 	templ generate -path $(WEB)
@@ -42,3 +42,12 @@ tools:
 # ui-check fails when the committed generated files are stale.
 ui-check: ui
 	git diff --exit-code -- $(WEB)
+
+# deadcode lists the functions no command reaches. It is informational, not a gate: the
+# exported Go API (package jb) has no caller inside this module by design, and a few helpers
+# exist only for tests. Read the list: a function that is neither public API nor used by a
+# test is dead, and should be deleted.
+DEADCODE_VERSION := v0.52.0
+
+deadcode:
+	go run golang.org/x/tools/cmd/deadcode@$(DEADCODE_VERSION) ./...

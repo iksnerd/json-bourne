@@ -30,25 +30,9 @@ func planCase(stderr io.Writer, dir, cfgFlag, command string, windowSet bool) (*
 	return &casePlan{c: p.Case, configPath: p.ConfigPath, window: p.Window}, nil
 }
 
-// chooseCaseConfig returns the absolute path of the hunt config to use.
-func chooseCaseConfig(c *casefile.Case, flag, command string) (string, error) {
-	return config.ChooseCaseConfig(c, flag, command)
-}
-
 // placeStore decides where the evidence database goes (config.PlaceCaseStore).
 func (p *casePlan) placeStore(stderr io.Writer, cfg *config.File) {
 	if note := config.PlaceCaseStore(p.c, cfg); note != "" {
 		fmt.Fprintln(stderr, note)
 	}
-}
-
-func insideDir(dir, p string) bool { return config.InsideDir(dir, p) }
-
-// keepOut is what a --no-store scratch store must not be inside: the case and its
-// evidence directory. A nil plan (no --case) has none.
-func (p *casePlan) keepOut() []string {
-	if p == nil {
-		return nil
-	}
-	return []string{p.c.Dir, p.c.EvidenceDir()}
 }

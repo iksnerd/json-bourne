@@ -43,7 +43,7 @@ func errEnvNotSet(name string) error {
 
 // File is the parsed, validated configuration. Credentials are not resolved yet.
 type File struct {
-	// Commands names the jb commands this file is for (see CaseCommands), so a case
+	// Commands names the jb commands this file is for (see casecommands.go), so a case
 	// that lists several configs can choose the one that answers a command. Optional.
 	Commands  []string        `yaml:"commands"`
 	Sources   []SourceEntry   `yaml:"sources"`

@@ -12,19 +12,6 @@ import (
 // can read its data files; without one (hunt --config) the config is used as written.
 // The environment is read only by Build, after the config and the store have been
 // settled, so a refused case never touches a credential.
-// loadCaseConfig is openCase without Build: it loads the config, places the store and
-// gives the detectors the case. It reads no environment variable, so a command that
-// only reads stored evidence never touches a credential.
-func loadCaseConfig(stderr io.Writer, plan *casePlan) (*config.File, error) {
-	cfg, err := config.Load(plan.configPath)
-	if err != nil {
-		return nil, err
-	}
-	plan.placeStore(stderr, cfg)
-	cfg.UseCase(plan.c)
-	return cfg, nil
-}
-
 func openCase(stderr io.Writer, env config.Env, cfgPath string, plan *casePlan) (*config.File, *config.Runtime, error) {
 	return openCaseSearch(stderr, env, cfgPath, plan, nil, "")
 }
