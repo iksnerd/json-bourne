@@ -66,7 +66,17 @@ For every user agent of every actor the fingerprint detector names, the time of 
 jb watch --case DIR [--config FILE] [--name NAME] [--every 5m] [--window DURATION] [--ttl 3h] [--keep 48h] [--repeat 30m] [--once [--output table|json]]
 ```
 
-Run the case's hunt every `--every` (at least 5s) and alert on what is new. A tag alerted within `--ttl` is held back unless its severity rises (`<case>/evidence/watch-state.json`); alerts go to stdout and are appended to `<case>/evidence/watch.log`. A cycle where a source or detector did not finish raises its own alert and ends `CYCLE INCOMPLETE`, never quiet; the same unchanged outage alerts again at most every `--repeat`, a changed failure or a recovery at once, and findings never wait. After each cycle the watch runs older than `--keep` are deleted from the store (and counted on the cycle line). `--window` must be at least `--every`. `--once` exits 0 when the cycle was complete and 1 when incomplete or failed; `--once --output json` prints the cycle report as one JSON document ([fields](config/watch.md#watch-output)) and moves the alert lines to stderr, and `--output json` without `--once` is a usage error. An `alerts:` webhook (docs/CONFIG.md) delivers findings and outages of at least `min_severity` in addition to the log; a webhook failure fails the cycle and `--once` exits 1, and never loses the alert. `--name NAME` makes it one of several watchers on a case: own state, log, lock and run ids (`watch-NAME-<time>`), retention that prunes only its own runs, and a lock that refuses a second watcher of the same name (naming its PID); the same finding alerts once per watcher. A source or detector with `enabled: false` is neither read nor run and is listed as `DISABLED` on the banner and every cycle line. Full description: [CASE-SPEC.md section 9](CASE-SPEC.md), [CONFIG.md](config/watch.md#several-watchers-on-one-case).
+Run the case's hunt every `--every` (at least 5s) and alert on what is new.
+
+- **Alerting.** A tag alerted within `--ttl` is held back unless its severity rises (`<case>/evidence/watch-state.json`). Alerts go to stdout and are appended to `<case>/evidence/watch.log`.
+- **Outages.** A cycle where a source or detector did not finish raises its own alert and ends `CYCLE INCOMPLETE`, never quiet. The same unchanged outage alerts again at most every `--repeat`; a changed failure or a recovery alerts at once, and findings never wait.
+- **Retention.** After each cycle the watch runs older than `--keep` are deleted from the store (and counted on the cycle line).
+- **Flags.** `--window` must be at least `--every`. `--once` exits 0 when the cycle was complete and 1 when incomplete or failed. `--once --output json` prints the cycle report as one JSON document ([fields](config/watch.md#watch-output)) and moves the alert lines to stderr. `--output json` without `--once` is a usage error.
+- **Webhook.** An `alerts:` webhook (docs/CONFIG.md) delivers findings and outages of at least `min_severity` in addition to the log. A webhook failure fails the cycle, and `--once` exits 1; the alert is never lost.
+- **Several watchers.** `--name NAME` makes it one of several watchers on a case: own state, log, lock and run ids (`watch-NAME-<time>`), retention that prunes only its own runs, and a lock that refuses a second watcher of the same name (naming its PID). The same finding alerts once per watcher.
+- **Disabled components.** A source or detector with `enabled: false` is neither read nor run and is listed as `DISABLED` on the banner and every cycle line.
+
+Full description: [CASE-SPEC.md section 9](CASE-SPEC.md), [CONFIG.md](config/watch.md#several-watchers-on-one-case).
 
 ## `jb watch status`
 

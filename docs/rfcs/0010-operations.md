@@ -173,7 +173,7 @@ There is no compatibility path, because `jb` and one other program are the only 
 
 ## Conformance
 
-Proposed. None of these exists yet.
+Built, except the last item. Tests: `internal/ops` (load check, reflector, tool projection), `cmd/jb/opflags_test.go` (command equals operation), `jb/operations_all_test.go` (round trip), `internal/mcp` and `cmd/jb/mcp_test.go` (read-only holds), `cmd/jb/mcptools_test.go` (tool list and the `docs/operations.json` golden).
 
 - **Load check.** A test that every operation passes the check, and that each rule fails on a planted fault.
 - **Reflector tests.** A struct with each of the four shapes maps to the expected schema. A field of another type, an untagged exported field and a bad name each fail.
@@ -181,7 +181,7 @@ Proposed. None of these exists yet.
 - **Round trip.** For every operation, a test calls the handler with a sample on synthetic data and checks that the result marshals to the keys the parity tests pin.
 - **Read-only holds.** A test lists the tools of `jb mcp` and asserts that no mutating operation appears without `--allow`, and that a call to a mutating operation without `apply` changes nothing.
 - **Golden file.** `docs/operations.json` equals the output of `jb operations`.
-- **Defaults.** `TestLibraryDefaultsAreTheCLIDefaults` is deleted, because the defaults live in one place.
+- **Defaults.** `TestLibraryDefaultsAreTheCLIDefaults` is to be deleted, because the defaults live in one place. Not done: the test is still in `cmd/jb/defaults_test.go`.
 
 ## Reference implementations
 

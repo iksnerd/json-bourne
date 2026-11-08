@@ -92,7 +92,7 @@ There is no compatibility path, because `jb` and one other program are the only 
 
 ## Conformance
 
-Proposed.
+Required of the implementation. The consumer tests live in `contract/` and the package tests in `jb/`.
 
 - **One test per function** on synthetic data: the result, and the completeness contract where the operation can be incomplete.
 - **JSON parity.** For each command, a test compares the CLI's `--output json` with the marshalled library value and with a recorded shape, so no key is renamed or dropped.
@@ -104,7 +104,7 @@ Proposed.
 
 Shipped before this RFC: `Hunt`, `HuntCase`, `Activity`, `Watch`, `WatchStatus`, `CaseShow`, `LoadConfig`, `IsUsage`.
 
-Proposed, in groups that can be built apart:
+Built in these groups (all shipped 2026-11-06, see Changes):
 
 0. Group 4: `DashboardHandler` and `Serve`. The owner named `serve` a must-have on 2026-11-06.
 1. Group 1 part A: `CaseCheck`, `Doctor`, `ActorStatus`.
