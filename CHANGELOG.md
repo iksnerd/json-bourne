@@ -4,6 +4,8 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-08
+
 ### Breaking
 - The public Go package moved from the module root to its own directory: import `github.com/iksnerd/json-bourne/jb` (the package name is still `jb`). The module path and `go get github.com/iksnerd/json-bourne` are unchanged; only the import line changes. The repo root now holds no Go files. The API surface goldens moved to `jb/testdata/api/` (`go test ./jb -run TestAPISurface -update-api`).
 - Layout: `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md` and `SECURITY.md` moved to `.github/`; `schemas/` to `docs/schemas/`; the example plugins to `examples/plugins/` (import path `github.com/iksnerd/json-bourne/examples/plugins/<name>`); `docs/CONFIG.md` is an index and its sections are pages under `docs/config/`; the README reference moved to `docs/COMMANDS.md`, `docs/LIBRARY.md`, `docs/MCP.md` and `docs/COMPONENTS.md`.
