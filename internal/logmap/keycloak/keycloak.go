@@ -13,6 +13,10 @@
 //
 // Rules, each of which answers a way this log can mislead:
 //
+//   - One exception to the key="value" form: Keycloak's single-line client-registration policy
+//     rejection (KC-SERVICES0099 ... rejected request to client-registration service) maps to
+//     event_type CLIENT_REGISTRATION_REJECTED with outcome "error" and no other field, instead of
+//     being unparsable. The type is a constant; nothing from the text reaches a field.
 //   - There is no HTTP status in a Keycloak event. None is invented: the mapper
 //     emits the event type and the error string, and "outcome" derived from them.
 //   - Keycloak does not escape values. A value an attacker controls (the username
@@ -77,7 +81,8 @@ func unparsable(format string, a ...any) error {
 // error (when present), client_ip (canonical form of ipAddress, when present),
 // username and email (only when present and not empty, "-" or "null"), realm
 // (realmName, else realmId) and client_id (clientId). Time is @timestamp; Raw is
-// the input bytes.
+// the input bytes. The one line that is not a key="value" list and still maps is a client-registration
+// policy rejection: only event_type (CLIENT_REGISTRATION_REJECTED) and outcome ("error") are set.
 func Map(doc []byte) (core.Event, error) {
 	if len(doc) > MaxDocBytes {
 		return core.Event{}, unparsable("document is %d bytes, limit %d", len(doc), MaxDocBytes)
@@ -102,7 +107,7 @@ func Map(doc []byte) (core.Event, error) {
 	if len(msg) > MaxMessageBytes {
 		return core.Event{}, unparsable("message is %d bytes, limit %d", len(msg), MaxMessageBytes)
 	}
-	msg = strings.TrimRight(msg, " 	\r\n")
+	msg = strings.TrimRight(msg, " \t\r\n")
 	if isClientRegReject(msg) {
 		// A policy rejection is a real event with no key="value" pairs; emit it typed instead of
 		// counting it unparsable. The type is a constant: nothing from the text reaches a field,
@@ -162,10 +167,13 @@ func present(v string) bool { return v != "" && v != "-" && v != "null" }
 //	rejected request to client-registration service. Details: Host not trusted.
 //
 // It is Keycloak's own single-line service message, not a key="value" event line. The prefix and
-// the service name are both required so an unrelated KC-SERVICES0099 line stays unparsable.
+// the rejection phrase are both required, and the message must be one line, so an unrelated
+// KC-SERVICES0099 line (a failure that only names the service, or text with a second line) stays
+// unparsable.
 func isClientRegReject(msg string) bool {
 	return strings.HasPrefix(msg, "KC-SERVICES0099:") &&
-		strings.Contains(msg, "client-registration service")
+		strings.Contains(msg, " rejected request to client-registration service") &&
+		!strings.Contains(msg, "\n")
 }
 
 func validType(s string) bool {

@@ -1,4 +1,8 @@
 {
+ "client_registration_rejected": {
+  "reason": "Keycloak's client-registration policy rejection (KC-SERVICES0099) is one service message with no key=\"value\" pairs. The built-in maps it to CLIENT_REGISTRATION_REJECTED; kvlines finds no type and marks it unparsable.",
+  "unparsable": true
+ },
  "duplicate_key_first_wins": {
   "reason": "Duplicate-key policy: the built-in keeps the first occurrence (Keycloak writes its own keys first); kvlines marks the whole line unparsable rather than choose a winner. kvlines is stricter and loses the event; the built-in keeps it with the header values.",
   "unparsable": true

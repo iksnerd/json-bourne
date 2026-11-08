@@ -1,0 +1,4 @@
+{
+ "@timestamp": "2026-11-07T09:06:55Z",
+ "message": "KC-SERVICES0099: Operation 'before register client' rejected. Policy 'Trusted Hosts' rejected request to client-registration service. Details: Host not trusted."
+}

@@ -182,6 +182,23 @@ func TestClientRegistrationRejected(t *testing.T) {
 	}
 }
 
+// The matcher is narrow: the prefix, the rejection phrase and a single line. A KC-SERVICES0099 line
+// that only mentions the service, or that carries a second line, stays unparsable.
+func TestClientRegistrationRejectIsNarrow(t *testing.T) {
+	for name, msg := range map[string]string{
+		"failed, not rejected": "KC-SERVICES0099: Operation 'register' failed for client-registration service",
+		"multi-line":           "KC-SERVICES0099: Operation 'before register client' rejected. Policy 'Trusted Hosts' rejected request to client-registration service.\nsecond line",
+	} {
+		doc, err := json.Marshal(map[string]string{"@timestamp": "2026-11-07T09:06:55Z", "message": msg})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Map(doc); !errors.Is(err, ErrUnparsable) {
+			t.Errorf("%s: err = %v, want ErrUnparsable", name, err)
+		}
+	}
+}
+
 func TestClientRegistrationRejectNeedsTheServiceName(t *testing.T) {
 	doc := []byte(`{"@timestamp":"2026-11-07T09:06:55Z","message":"KC-SERVICES0099: something else"}`)
 	if _, err := Map(doc); !errors.Is(err, ErrUnparsable) {

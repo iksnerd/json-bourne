@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Fixed
+- Keycloak: a client-registration policy rejection (`KC-SERVICES0099 ... client-registration service`) maps to an event with `event_type=CLIENT_REGISTRATION_REJECTED` and `outcome=error` instead of counting as unparsable. No detector counts it yet.
+
 ## [0.12.0] - 2026-11-08
 
 ### Breaking
