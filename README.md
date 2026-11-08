@@ -45,6 +45,24 @@ jb: hunt incomplete, no clean result: 2 component(s) did not finish: [...]
 
 To see a hunt that finds something without a Kibana, run the end-to-end test, which serves synthetic events from a local test server: `go test -count=1 ./cmd/jb -run TestHuntEndToEnd -v`.
 
+## Set it up with your agent
+
+Paste this into a coding agent (Claude Code, Codex, Cursor) in a checkout of this repo:
+
+```text
+Set up json-bourne (jb) for my Kibana. Read README.md and docs/CONFIG.md first.
+1. Build it: go build -o bin/jb ./cmd/jb (needs Go 1.25+ and a C compiler).
+2. Copy examples/jb.example.yaml to jb.yaml and ask me for the Kibana url and the
+   index pattern. Put the API key in an environment variable named by api_key_env;
+   never write a key into any file.
+3. Run bin/jb doctor --config jb.yaml and fix what it reports.
+4. Run bin/jb hunt --config jb.yaml --window 60m and show me the table.
+   If it prints INCOMPLETE, say which component did not finish and why. Do not
+   describe an INCOMPLETE run as clean.
+```
+
+To let an agent run `jb` itself afterwards, see [Using jb from an agent (MCP)](#using-jb-from-an-agent-mcp).
+
 ## Commands
 
 | Command | What it does |
