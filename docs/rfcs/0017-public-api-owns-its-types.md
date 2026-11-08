@@ -8,7 +8,7 @@ Accepted: 2026-11-07 by the maintainer
 
 Package `jb` exports 42 type aliases of internal types (counted below). A change inside `internal/` therefore changes the public Go API with no edit to `jb` and no review of that edge. This RFC proposes that every public type is defined in package `jb` with explicit fields, that the root package converts at the boundary, and that a golden of the exported surface fails the build when the surface changes without a deliberate edit.
 
-`--output json` stays byte for byte the same. The change adds no command, port, file format or config key. Several Go-API changes are breaking and are allowed before 1.0 ([CONTRIBUTING.md](../../CONTRIBUTING.md), "Compatibility before 1.0").
+`--output json` stays byte for byte the same. The change adds no command, port, file format or config key. Several Go-API changes are breaking and are allowed before 1.0 ([CONTRIBUTING.md](../../.github/CONTRIBUTING.md), "Compatibility before 1.0").
 
 ## Scope of acceptance
 

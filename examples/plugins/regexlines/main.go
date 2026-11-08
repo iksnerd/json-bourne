@@ -107,7 +107,7 @@ func main() {
 	err := sdk.Serve(os.Stdin, os.Stdout, sdk.Plugin{
 		Name:         "regexlines",
 		Version:      "0.1.0",
-		ConfigSchema: "pattern (RE2, named groups), line_field, max_line_bytes, time{doc_field|from,layout}, required[], fields{name:{from,type,layout,omit,required}}; see plugins/regexlines/README.md",
+		ConfigSchema: "pattern (RE2, named groups), line_field, max_line_bytes, time{doc_field|from,layout}, required[], fields{name:{from,type,layout,omit,required}}; see examples/plugins/regexlines/README.md",
 		New:          newMapper,
 	})
 	if err != nil {

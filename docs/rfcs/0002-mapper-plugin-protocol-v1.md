@@ -98,7 +98,7 @@ The limits can be set through `plugin.Limits` in the Go API of the host. The `jb
 
 - **Only the host starts processes.** Only `internal/adapters/plugin` and `internal/casefile` (the git guard) MAY import `os/exec`. Held by `TestOSExecIsConfined`.
 - **Plugins are inert.** Example plugins and the `sdk` package MUST import the standard library and `sdk` only, and MUST NOT import `os/exec`, `net`, `net/http`, `syscall`, `plugin` or `unsafe`. Held by `TestPluginsAreStdlibOnlyAndInert`.
-- **Nothing links a plugin.** No package outside `plugins/` MAY import a package under `plugins/`. Held by `TestNothingImportsThePlugins`.
+- **Nothing links a plugin.** No package outside `examples/plugins/` MAY import a package under `examples/plugins/`. Held by `TestNothingImportsThePlugins`.
 - **The host has no network and no log.** `internal/adapters/plugin` MUST NOT import `net` or `log`. Held by the dependency rule for that package in `internal/archtest/archtest_test.go`.
 
 ## Non-goals
@@ -187,7 +187,7 @@ Not checked by a test: the default values of the limits as constants, and the 64
 - Config wiring: `internal/config/register_kibana.go`.
 - Doctor section: `cmd/jb/doctor.go`.
 - Plugin side: `sdk/serve.go` and `sdk/mapping.go`.
-- Example plugins: `plugins/kvlines`, `plugins/regexlines`, `plugins/jsondoc`.
+- Example plugins: `examples/plugins/kvlines`, `examples/plugins/regexlines`, `examples/plugins/jsondoc`.
 - Specification: [docs/PLUGINS.md](../PLUGINS.md).
 - Corpus: `internal/conformance`.
 

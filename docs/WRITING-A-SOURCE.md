@@ -102,7 +102,7 @@ func (s mySpec) build(env Env) (core.Source, error) {
 
 The error names the variable and never the value. Validate the variable name at load (the Kibana registration refuses anything that is not upper-case letters, digits and underscore, so a pasted key is rejected without being echoed). Refuse plain `http` URLs except to loopback.
 
-Add the archtest rule for your package (adapters depend on `core` only and never on each other), test against a local `httptest` server or recorded synthetic JSON, and follow [CONTRIBUTING.md](../CONTRIBUTING.md).
+Add the archtest rule for your package (adapters depend on `core` only and never on each other), test against a local `httptest` server or recorded synthetic JSON, and follow [CONTRIBUTING.md](../.github/CONTRIBUTING.md).
 
 ## Mapper contract
 

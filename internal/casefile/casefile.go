@@ -1,6 +1,6 @@
 // Package casefile loads and validates a case directory: the data that defines one
 // investigation, kept outside the tool's repository. The format is specified in
-// docs/CASE-SPEC.md and schemas/case.schema.json.
+// docs/CASE-SPEC.md anddocs/schemas/case.schema.json.
 //
 // The loader is strict. An unknown key, an apiVersion other than APIVersion, a path
 // that leaves the case directory, a credential-shaped value, or passive_only set to

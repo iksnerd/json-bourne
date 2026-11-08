@@ -8,7 +8,7 @@ An RFC is a written design that the maintainer accepts before the code is built.
 
 ## Freeze
 
-Since v0.7.0 `jb` takes no new command, port, file format or config key before 1.0 ([CONTRIBUTING.md](../../CONTRIBUTING.md), "Feature freeze"); `jb serve` is the exception. A new draft RFC for a feature is parked, not built, until the maintainer lifts the freeze. RFC 0016 is parked. The stability policy for 1.0, and what 1.0 means, is [RFC 0018](0018-stability-policy.md).
+Since v0.7.0 `jb` takes no new command, port, file format or config key before 1.0 ([CONTRIBUTING.md](../../.github/CONTRIBUTING.md), "Feature freeze"); `jb serve` is the exception. A new draft RFC for a feature is parked, not built, until the maintainer lifts the freeze. RFC 0016 is parked. The stability policy for 1.0, and what 1.0 means, is [RFC 0018](0018-stability-policy.md).
 
 Accepted RFCs stay `accepted` here when only part of them is built (for example RFC 0017, steps 1 and 6); the Reference implementations section of each file says what exists.
 

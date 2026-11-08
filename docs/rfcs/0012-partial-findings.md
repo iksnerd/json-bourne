@@ -98,7 +98,7 @@ Host behaviour, in `internal/app/partial_test.go`: `TestHuntKeepsFindingsReturne
 
 End to end with the real `behaviour` detector, in `cmd/jb/partial_e2e_test.go`: `TestHuntReportsTheFindingOfAnIncompleteDetector` (one action fires, one is truncated per RFC 0011; the finding is in the output, the run exits 1) and `TestActivityIsActiveAndIncompleteForAnIncompleteDetectorWithAFinding`. The detector side is `TestTruncatedActionDoesNotHideAnotherActionsFinding` in `internal/adapters/detectors/behaviour/floor_test.go`.
 
-Review of the built-in detectors (read in the code, not by a test): `authspike`, `fingerprint`, `newkey`, `signature` and `signup` return `nil` findings on every error path, and `out, nil` only at the end. Only `behaviour` returns findings with an error, and its incomplete action never sets a finding (`outcome.incomplete` is set only where `finding` stays nil). No file under `plugins/` implements `Detect`.
+Review of the built-in detectors (read in the code, not by a test): `authspike`, `fingerprint`, `newkey`, `signature` and `signup` return `nil` findings on every error path, and `out, nil` only at the end. Only `behaviour` returns findings with an error, and its incomplete action never sets a finding (`outcome.incomplete` is set only where `finding` stays nil). No file under `examples/plugins/` implements `Detect`.
 
 ## Reference implementations
 

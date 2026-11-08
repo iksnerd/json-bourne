@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 			panic(err)
 		}
 		_ = os.Chmod(dir, 0o755)
-		cmd := exec.Command("go", "build", "-o", filepath.Join(dir, p), "./plugins/"+p)
+		cmd := exec.Command("go", "build", "-o", filepath.Join(dir, p), "./examples/plugins/"+p)
 		cmd.Dir = root
 		if out, err := cmd.CombinedOutput(); err != nil {
 			os.Stderr.Write(out)

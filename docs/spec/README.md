@@ -10,9 +10,9 @@ The specs stay in the files where they already are. This page is the index.
 
 | Spec | Text | Loaded or run by | Schema | Tests that hold it |
 |---|---|---|---|---|
-| Case (`jb.case/v1`) | [CASE-SPEC.md](../CASE-SPEC.md) sections 3 to 9 | `internal/casefile` | `schemas/case.schema.json` | `TestSchemaMatchesStruct`, `TestSchemaMatchesLoaderRules` in `internal/casefile` |
-| Actor file (`jb.actor/v1`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.4 | `internal/casefile` | `schemas/actor.schema.json` | `TestActorSchemaMatchesStruct`, `TestActorSchemaMatchesLoaderRules` |
-| Estate file (`jb.estate/v2`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.5 | `internal/casefile/estate.go` | `schemas/estate.schema.json` | `TestEstateSchemaMatchesStruct`, `TestEstateSchemaMatchesLoaderRules`, `TestEstateAllowlistMatchesPolicyDoc`, and the corpus `TestEstateCorpus` over `internal/casefile/testdata/estate/` (valid files, and one invalid file per rule with the substring its error must contain) |
+| Case (`jb.case/v1`) | [CASE-SPEC.md](../CASE-SPEC.md) sections 3 to 9 | `internal/casefile` | `docs/schemas/case.schema.json` | `TestSchemaMatchesStruct`, `TestSchemaMatchesLoaderRules` in `internal/casefile` |
+| Actor file (`jb.actor/v1`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.4 | `internal/casefile` | `docs/schemas/actor.schema.json` | `TestActorSchemaMatchesStruct`, `TestActorSchemaMatchesLoaderRules` |
+| Estate file (`jb.estate/v2`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.5 | `internal/casefile/estate.go` | `docs/schemas/estate.schema.json` | `TestEstateSchemaMatchesStruct`, `TestEstateSchemaMatchesLoaderRules`, `TestEstateAllowlistMatchesPolicyDoc`, and the corpus `TestEstateCorpus` over `internal/casefile/testdata/estate/` (valid files, and one invalid file per rule with the substring its error must contain) |
 | Estate snapshot (`jb.estate-snapshot/v2`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.5.1 | `internal/casefile/estate_snapshot.go` | none (the loader is the spec) | the snapshot tests in `internal/casefile` |
 | Facts import (`jb.estate-facts/v1`) | [CASE-SPEC.md](../CASE-SPEC.md) section 4.5.2 | `internal/casefile/estate_facts_import.go` | none (the loader is the spec) | `TestParseFactsImportRefusals`, `TestParseFactsImportCaps`, `TestApplyFactsImport` in `internal/casefile` |
 | Mapper plugin protocol (`v` 1) | [PLUGINS.md](../PLUGINS.md) | `internal/adapters/plugin`, `sdk` | none | `internal/conformance` |

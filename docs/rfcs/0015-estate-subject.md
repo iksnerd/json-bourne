@@ -31,7 +31,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 ### The key
 
-`jb.estate/v2` gets an optional top-level `subject`. Values: `operated` (the nodes are infrastructure the case owner operates) and `adversary` (the nodes are infrastructure of an attacker or a third party seen in the evidence). Absent means unclassified. Any other value is a load error that names the two valid ones. `schemas/estate.schema.json` gets the key with the two-value enum, and the schema tests keep it equal to the loader.
+`jb.estate/v2` gets an optional top-level `subject`. Values: `operated` (the nodes are infrastructure the case owner operates) and `adversary` (the nodes are infrastructure of an attacker or a third party seen in the evidence). Absent means unclassified. Any other value is a load error that names the two valid ones. `docs/schemas/estate.schema.json` gets the key with the two-value enum, and the schema tests keep it equal to the loader.
 
 ### Rules
 

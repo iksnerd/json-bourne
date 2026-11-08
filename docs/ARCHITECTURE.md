@@ -170,7 +170,7 @@ How `jb` relates to the maintainer's draft plugin specifications (independent, o
 
 A `kibana` source can name `mapper: plugin:<name>`. `internal/config` resolves the name in the operator's allowlist, builds one `internal/adapters/plugin.Host` for that source and sets it as the source's `core.BatchMapper`. The source maps each page of new documents in one `MapBatch` call; the host speaks the plugin protocol to a long-lived child process and returns exactly one `core.MapResult` per document, or an error that fails the source. The source cannot import the host (adapters never import each other), which is why the port, `core.BatchMapper`, is in `core`. `config.Runtime.Close` ends the child; the commands defer it. `docs/PLUGINS.md` has the protocol, the limits and the trust model.
 
-`internal/adapters/plugin` is the one package that may import `os/exec` for plugins (`internal/casefile` imports it for the git guard); `TestOSExecIsConfined` enforces both. The example plugins under `plugins/` are separate programs that import the standard library and `sdk` only, and nothing in `jb` imports them (`TestPluginsAreStdlibOnlyAndInert`, `TestNothingImportsThePlugins`).
+`internal/adapters/plugin` is the one package that may import `os/exec` for plugins (`internal/casefile` imports it for the git guard); `TestOSExecIsConfined` enforces both. The example plugins under `examples/plugins/` are separate programs that import the standard library and `sdk` only, and nothing in `jb` imports them (`TestPluginsAreStdlibOnlyAndInert`, `TestNothingImportsThePlugins`).
 
 ## Evidence store
 

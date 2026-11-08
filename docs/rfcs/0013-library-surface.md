@@ -56,7 +56,7 @@ Group 5 is not a separate step in the code: each function in groups 1 to 3 moves
 ### Not in this RFC
 
 - A reader for stored runs and findings needs its own design.
-- Loaders and types for the case, actor and estate file formats stay internal. The JSON schemas in `schemas/` serve outside readers.
+- Loaders and types for the case, actor and estate file formats stay internal. The JSON schemas in `docs/schemas/` serve outside readers.
 
 ## Non-goals
 

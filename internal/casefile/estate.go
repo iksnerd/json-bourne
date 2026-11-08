@@ -19,7 +19,7 @@ import (
 )
 
 // EstateAPIVersion is the only estate file format this build reads. The format is
-// specified in docs/CASE-SPEC.md section 4.5 and schemas/estate.schema.json.
+// specified in docs/CASE-SPEC.md section 4.5 anddocs/schemas/estate.schema.json.
 const EstateAPIVersion = "jb.estate/v2"
 
 // estateV1APIVersion is refused with a message that says how to migrate. There is no

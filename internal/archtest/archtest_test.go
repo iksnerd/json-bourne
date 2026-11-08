@@ -59,7 +59,7 @@ var rules = []rule{
 	{pkg: "internal/safefile", stdlibOnly: true, forbid: []string{mod + "/internal", "net", "os/exec"}, why: "the bounded local-file reader is shared by the file adapters, so it depends on the standard library alone and knows nothing of the domain"},
 	{pkg: "internal/piiguard", stdlibOnly: true, why: "the shared personal-field list and key digest is imported by detectors, so it depends on the standard library alone"},
 	{pkg: "internal/severityfloor", forbid: []string{mod + "/internal/adapters", mod + "/internal/casefile", mod + "/internal/config", mod + "/internal/app", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "net/http", "os"}, why: "the shared severity floor (min_severity and note) is imported by detectors, so it depends on core and the standard library only"},
-	{pkg: "internal/adapters/plugin", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", mod + "/plugins", "github.com/spf13/cobra", "github.com/duckdb", "net", "log"}, why: "the plugin host depends on core, yaml and the standard library only; it is the one package that starts a process (TestOSExecIsConfined) and it opens no network connection and writes no log, so nothing it holds can leave the machine"},
+	{pkg: "internal/adapters/plugin", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", mod + "/examples/plugins", "github.com/spf13/cobra", "github.com/duckdb", "net", "log"}, why: "the plugin host depends on core, yaml and the standard library only; it is the one package that starts a process (TestOSExecIsConfined) and it opens no network connection and writes no log, so nothing it holds can leave the machine"},
 	{pkg: "internal/casefile", forbid: []string{mod + "/internal", "github.com/spf13/cobra", "net/http", "github.com/duckdb"}, why: "the case format is data: it imports the standard library and yaml only (os/exec is confined to guard.go, which a package-level test cannot see)"},
 	{pkg: "internal/app", forbid: []string{mod + "/internal/adapters", mod + "/internal/config", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "net/http", "database/sql"}, why: "use cases see ports, never adapters, config, transport or storage"},
 	{pkg: "internal/config", forbid: []string{mod + "/internal/app", "github.com/spf13/cobra"}, why: "config builds adapters; it does not run use cases or know the CLI"},
@@ -532,7 +532,7 @@ func badPluginImports(imports []string) []string {
 }
 
 func TestPluginsAreStdlibOnlyAndInert(t *testing.T) {
-	out, err := exec.Command("go", "list", "-f", `{{.ImportPath}} {{join .Imports " "}} {{join .TestImports " "}}`, mod+"/plugins/...", mod+"/sdk").Output()
+	out, err := exec.Command("go", "list", "-f", `{{.ImportPath}} {{join .Imports " "}} {{join .TestImports " "}}`, mod+"/examples/plugins/...", mod+"/sdk").Output()
 	if err != nil {
 		t.Fatalf("go list: %v", err)
 	}
@@ -571,12 +571,12 @@ func TestNothingImportsThePlugins(t *testing.T) {
 	n := 0
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		f := strings.Fields(line)
-		if strings.HasPrefix(f[0], mod+"/plugins") {
+		if strings.HasPrefix(f[0], mod+"/examples/plugins") {
 			continue
 		}
 		n++
 		for _, imp := range f[1:] {
-			if strings.HasPrefix(imp, mod+"/plugins") {
+			if strings.HasPrefix(imp, mod+"/examples/plugins") {
 				t.Errorf("%s imports %s: plugins are child processes, never linked into jb", f[0], imp)
 			}
 		}

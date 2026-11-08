@@ -84,7 +84,7 @@ A source with `mapper: plugin:<name>` starts the executable you allowlisted for 
 
 - **Only you allow a plugin.** The allowlist is `$JB_PLUGINS_FILE` or `~/.jb/plugins.yaml`, jb's own file. A case names a plugin by name and can never add a path, a command or an entry. An optional sha256 pin is checked before every launch, and a file or directory writable by group or others, or a symlink out of the plugin directory, is refused.
 - **The child gets almost nothing.** Its environment is empty but `PATH`, `HOME`, `LANG` and `TMPDIR`; no API key of jb's reaches it. Its working directory is its own.
-- **jb does not sandbox it and does not stop it using the network.** The OS is not asked to enforce anything. If the plugin must not call out, enforce that outside jb. The examples in `plugins/` import no network code, and archtest fails the build if they do.
+- **jb does not sandbox it and does not stop it using the network.** The OS is not asked to enforce anything. If the plugin must not call out, enforce that outside jb. The examples in `examples/plugins/` import no network code, and archtest fails the build if they do.
 - **A plugin cannot make a result look clean.** A timeout, a crash, bad output, a wrong result count or a refused launch fails the source, so the run is INCOMPLETE (exit 1).
 
 Details and the list of what is not enforced: [PLUGINS.md](PLUGINS.md).

@@ -163,7 +163,7 @@ The Estate page MUST show facts and assessments in the record sheet. Assessments
 
 `jb` and one other program are the only users and nothing is public, so there is no compatibility path. This section says what breaks and what each user changes.
 
-- The v1 loader, `schemas/estate.schema.json`, the v1 corpus and the v1 tests are replaced by the v2 ones.
+- The v1 loader, `docs/schemas/estate.schema.json`, the v1 corpus and the v1 tests are replaced by the v2 ones.
 - A file with `apiVersion: jb.estate/v1` is refused with an error that names both versions and says to rewrite it. An older `jb` that meets a v2 file stops at its own `apiVersion` check with its existing error: `unsupported apiVersion "jb.estate/v2": this build reads only jb.estate/v1`.
 - `jb case check` loads every file in `estate/` (CASE-SPEC section 9) and checks them as v2.
 - A snapshot (`jb.estate-snapshot/v1`) is replaced by `jb.estate-snapshot/v2`. A baseline file and its snapshots are rewritten by changing the `apiVersion` lines, or regenerated with `jb estate refresh`.
@@ -183,7 +183,7 @@ The Estate page MUST show facts and assessments in the record sheet. Assessments
 
 Proposed. None of these exist yet.
 
-- `schemas/estate-v2.schema.json`, kept equal to the loader by tests that mirror `TestEstateSchemaMatchesStruct` and `TestEstateSchemaMatchesLoaderRules`.
+- `docs/schemas/estate-v2.schema.json`, kept equal to the loader by tests that mirror `TestEstateSchemaMatchesStruct` and `TestEstateSchemaMatchesLoaderRules`.
 - A corpus of synthetic files under `internal/casefile/testdata/estate-v2/`: valid files, and one invalid file for each rule above. Each invalid file names a substring that the error MUST contain. The tests compare the substring, not the whole message.
 - A test that a v1 file with only the `apiVersion` changed loads as v2 with the same nodes and edges.
 - A test that a file with `apiVersion: jb.estate/v1` is refused with the rewrite message.
@@ -232,7 +232,7 @@ The examples are test vectors for the proposed loader. They are not run today.
 
 Shipped:
 
-- The v2 file format: `internal/casefile/estate.go` (strict loader, `service` nodes, `facts`, `assessments`; `jb.estate/v1` is refused with the rewrite message), `schemas/estate.schema.json` (rewritten in place to v2, kept equal to the loader by `TestEstateSchemaMatchesStruct` and `TestEstateSchemaMatchesLoaderRules`), and the corpus `internal/casefile/testdata/estate/` (valid files, and one invalid file per rule with the substring its error must contain; `TestEstateCorpus`). The caps are tested at N and N+1 in `internal/casefile/estate_v2_test.go`. The examples and every estate file in the repository are v2.
+- The v2 file format: `internal/casefile/estate.go` (strict loader, `service` nodes, `facts`, `assessments`; `jb.estate/v1` is refused with the rewrite message), `docs/schemas/estate.schema.json` (rewritten in place to v2, kept equal to the loader by `TestEstateSchemaMatchesStruct` and `TestEstateSchemaMatchesLoaderRules`), and the corpus `internal/casefile/testdata/estate/` (valid files, and one invalid file per rule with the substring its error must contain; `TestEstateCorpus`). The caps are tested at N and N+1 in `internal/casefile/estate_v2_test.go`. The examples and every estate file in the repository are v2.
 - The snapshot format `jb.estate-snapshot/v2` and the drift check for facts: `internal/casefile/estate_snapshot.go`, `internal/app/estate_diff.go` (facts compared as a set per node, key, source and method; a group on one side only is listed as not comparable; assessments are not compared) and `internal/app/estate_refresh.go` (a refresh carries the baseline's facts, and the assessments that still resolve, into the snapshot). `jb estate refresh|diff|promote` and `EstateRefresh`, `EstateDiff`, `EstatePromote` use them.
 - The Estate page of the dashboard shows facts in the node record and assessments under the heading `Assessments (opinion)` with a fixed notice that does not depend on the caveat (`internal/adapters/web`, `internal/estategraph` draws `service` nodes like any node).
 - The role `scan-cache` in `docs/POLICY.md` and `casefile.EstateSources`, and `jb estate facts import FILE` (`jb.EstateFactsImport`, `internal/casefile/estate_facts_import.go`): one neutral JSON shape (`jb.estate-facts/v1`, CASE-SPEC section 4.5.2), unknown keys refused, 1 MiB and 5000 facts, no network, a dry run unless `--apply`.

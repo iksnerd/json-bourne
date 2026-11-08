@@ -185,7 +185,7 @@ func main() {
 	err := sdk.Serve(os.Stdin, os.Stdout, sdk.Plugin{
 		Name:         "kvlines",
 		Version:      "0.1.0",
-		ConfigSchema: "line_field, max_line_bytes, separators, time{doc_field|from,layout}, required[], fields{name:{from,type,layout,omit,required}}; see plugins/kvlines/README.md",
+		ConfigSchema: "line_field, max_line_bytes, separators, time{doc_field|from,layout}, required[], fields{name:{from,type,layout,omit,required}}; see examples/plugins/kvlines/README.md",
 		New:          newMapper,
 	})
 	if err != nil {

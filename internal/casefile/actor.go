@@ -17,7 +17,7 @@ import (
 )
 
 // ActorAPIVersion is the only actor file format this build reads. The format is
-// specified in docs/CASE-SPEC.md section 4.4 and schemas/actor.schema.json.
+// specified in docs/CASE-SPEC.md section 4.4 anddocs/schemas/actor.schema.json.
 const ActorAPIVersion = "jb.actor/v1"
 
 // ActorRequiredKeys are the top-level keys that must be present.

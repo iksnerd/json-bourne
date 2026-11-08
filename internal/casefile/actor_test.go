@@ -295,7 +295,7 @@ func TestExampleActor(t *testing.T) {
 
 func loadActorSchema(t *testing.T) schemaNode {
 	t.Helper()
-	b, err := os.ReadFile("../../schemas/actor.schema.json")
+	b, err := os.ReadFile("../../docs/schemas/actor.schema.json")
 	if err != nil {
 		t.Fatal(err)
 	}

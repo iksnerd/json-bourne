@@ -377,7 +377,7 @@ func TestEstatePathDefaultAndDistinct(t *testing.T) {
 
 func loadEstateSchema(t *testing.T) schemaNode {
 	t.Helper()
-	b, err := os.ReadFile("../../schemas/estate.schema.json")
+	b, err := os.ReadFile("../../docs/schemas/estate.schema.json")
 	if err != nil {
 		t.Fatal(err)
 	}

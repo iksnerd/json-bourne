@@ -1,9 +1,9 @@
 # Example plugins
 
-Three mapper plugins for `jb`, each a separate `package main`, standard library only. None knows a product: the operator's `mapper_config` says what to read and what to emit. The protocol, the limits and the trust model are in [docs/PLUGINS.md](../docs/PLUGINS.md).
+Three mapper plugins for `jb`, each a separate `package main`, standard library only. None knows a product: the operator's `mapper_config` says what to read and what to emit. The protocol, the limits and the trust model are in [docs/PLUGINS.md](../../docs/PLUGINS.md).
 
-    go build ./plugins/...                          # builds all three (and discards the binaries)
-    go build -o /opt/jb-plugins/kvlines/kvlines ./plugins/kvlines
+    go build ./examples/plugins/...                          # builds all three (and discards the binaries)
+    go build -o /opt/jb-plugins/kvlines/kvlines ./examples/plugins/kvlines
 
 | Plugin | Reads |
 |---|---|

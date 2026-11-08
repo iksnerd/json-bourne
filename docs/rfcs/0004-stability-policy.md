@@ -4,7 +4,7 @@ Scope: what `jb` promises not to break before 1.0, how a change is announced, an
 
 ## Summary
 
-Withdrawn on 2026-11-06. The owner decided that `jb` has no backward compatibility before a public release: `jb` and one other program are the only users and nothing is public, so a policy of tiers and notice periods costs more than it buys. The pre-1.0 rule is in [CONTRIBUTING.md](../../CONTRIBUTING.md). The text below is kept as written, so the reasons stay readable.
+Withdrawn on 2026-11-06. The owner decided that `jb` has no backward compatibility before a public release: `jb` and one other program are the only users and nothing is public, so a policy of tiers and notice periods costs more than it buys. The pre-1.0 rule is in [CONTRIBUTING.md](../../.github/CONTRIBUTING.md). The text below is kept as written, so the reasons stay readable.
 
 Programs and people build on `jb`: a wrapper that calls the Go functions, a pipeline that parses the JSON output, a case repository that holds configs and actor files. Each needs to know which parts of `jb` stay put when it upgrades. Today the answer is scattered. One page says the Go API "may change between minor versions". The case format is frozen by its spec. Nothing says what a patch release may contain, how a flag is retired, or what 1.0 means.
 

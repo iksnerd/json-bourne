@@ -62,7 +62,7 @@ func main() {
 	err := sdk.Serve(os.Stdin, os.Stdout, sdk.Plugin{
 		Name:         "jsondoc",
 		Version:      "0.1.0",
-		ConfigSchema: "max_doc_bytes, time{doc_field|from,layout}, required[], fields{name:{from(json path),type,layout,omit,required}}; see plugins/jsondoc/README.md",
+		ConfigSchema: "max_doc_bytes, time{doc_field|from,layout}, required[], fields{name:{from(json path),type,layout,omit,required}}; see examples/plugins/jsondoc/README.md",
 		New:          newMapper,
 	})
 	if err != nil {

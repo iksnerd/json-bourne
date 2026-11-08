@@ -12,7 +12,7 @@ go vet ./...
 go test -race -count=1 ./...
 ```
 
-The consumer contract tests are a separate Go module, so the commands above do not run them. Run them with `cd contract && go test -race -count=1 ./...` (see [contract/README.md](contract/README.md)).
+The consumer contract tests are a separate Go module, so the commands above do not run them. Run them with `cd contract && go test -race -count=1 ./...` (see [contract/README.md](../contract/README.md)).
 
 CI and release run only when a version tag (`v1.2.3`) is pushed: the workflow tests on Linux and macOS (the root module and `contract/`), builds `jb` for `linux-amd64` and `darwin-arm64`, and publishes a GitHub release (`.github/workflows/ci.yml`). Nothing runs on branch pushes or pull requests, so run the three commands above before you tag.
 
@@ -25,7 +25,7 @@ make ui         # installs the pinned templ CLI and Tailwind standalone CLI (che
 make ui-check   # fails if the committed generated files are stale
 ```
 
-Rules that tests enforce: no script except the vendored files, no inline script or style, no `templ.Raw` or other raw-HTML escape hatch, GET only. Vendored libraries are the exact files published to npm, pinned by hash in `internal/adapters/web/web_ui_test.go`; to update one, verify the npm tarball's integrity, replace the file and its licence, and change the pin in the same commit. See [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md).
+Rules that tests enforce: no script except the vendored files, no inline script or style, no `templ.Raw` or other raw-HTML escape hatch, GET only. Vendored libraries are the exact files published to npm, pinned by hash in `internal/adapters/web/web_ui_test.go`; to update one, verify the npm tarball's integrity, replace the file and its licence, and change the pin in the same commit. See [docs/THIRD-PARTY.md](../docs/THIRD-PARTY.md).
 
 ### The archtest trap
 
@@ -35,11 +35,11 @@ Rules that tests enforce: no script except the vendored files, no inline script 
 go test -count=1 ./internal/archtest
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md).
 
 ### The API surface golden
 
-`TestAPISurface` walks the exported Go API of package `jb` and of `sdk` (types, fields, tags and methods, following aliases into `internal/`) and compares it with `testdata/api/jb.txt` and `testdata/api/sdk.txt`. A change to the surface, or to an internal type that the surface reaches, fails the test. If the change is deliberate, run `go test -count=1 -run TestAPISurface -update-api .`, read the diff and commit it with the change. The same test fails on a new `/internal/` type reachable from the API and on a stale line in `testdata/api/known-leaks.txt`, which only shrinks. See [RFC 0017](docs/rfcs/0017-public-api-owns-its-types.md).
+`TestAPISurface` walks the exported Go API of package `jb` and of `sdk` (types, fields, tags and methods, following aliases into `internal/`) and compares it with `testdata/api/jb.txt` and `testdata/api/sdk.txt`. A change to the surface, or to an internal type that the surface reaches, fails the test. If the change is deliberate, run `go test -count=1 -run TestAPISurface -update-api .`, read the diff and commit it with the change. The same test fails on a new `/internal/` type reachable from the API and on a stale line in `testdata/api/known-leaks.txt`, which only shrinks. See [RFC 0017](../docs/rfcs/0017-public-api-owns-its-types.md).
 
 ### Timing and clocks in tests
 
@@ -53,7 +53,7 @@ Exception, decided 2026-11-07: the freeze is lifted for `jb serve` (the dashboar
 
 ## Compatibility before 1.0
 
-The stability policy for 1.0 (the supported surfaces, what is breaking on each, and what 1.0 means) is [RFC 0018](docs/rfcs/0018-stability-policy.md). It applies from 1.0; the rule below applies now.
+The stability policy for 1.0 (the supported surfaces, what is breaking on each, and what 1.0 means) is [RFC 0018](../docs/rfcs/0018-stability-policy.md). It applies from 1.0; the rule below applies now.
 
 `jb` has two users, both ours, and nothing is public. There is no backward compatibility. Change or remove a flag, a config key, a file format, an exported identifier or the plugin protocol when the design needs it. Write no shim, no alias and no dual loader.
 
@@ -70,13 +70,13 @@ Three things keep this safe:
 - **Never commit real data.** No real logs, IP addresses, hostnames, account names, personal data, API keys, or database files. If you find any in the repository or its history, report it through [SECURITY.md](SECURITY.md) instead of opening an issue.
 - **Counts come from commands.** Do not write a number in docs that you did not obtain by running something.
 - **Credentials from the environment.** Config names a variable, never holds a value, and errors never contain one.
-- **Passive only.** See [docs/POLICY.md](docs/POLICY.md).
+- **Passive only.** See [docs/POLICY.md](../docs/POLICY.md).
 - **No clean-looking empty results.** Zero records is `core.ErrNoRecords`.
 - Match the existing style; `gofmt` clean.
 
 ## Proposing a source or detector
 
-While the feature freeze stands, a new source or detector waits until the maintainer lifts it. Open a feature issue first (use the template). Say what it reads or detects, what its false positives look like, which real failure it would have caught, and what the baseline is for a detector. Then follow [docs/WRITING-A-SOURCE.md](docs/WRITING-A-SOURCE.md) or [docs/WRITING-A-DETECTOR.md](docs/WRITING-A-DETECTOR.md). A new adapter needs its archtest rule, config registration, documented keys in `docs/CONFIG.md`, and tests.
+While the feature freeze stands, a new source or detector waits until the maintainer lifts it. Open a feature issue first (use the template). Say what it reads or detects, what its false positives look like, which real failure it would have caught, and what the baseline is for a detector. Then follow [docs/WRITING-A-SOURCE.md](../docs/WRITING-A-SOURCE.md) or [docs/WRITING-A-DETECTOR.md](../docs/WRITING-A-DETECTOR.md). A new adapter needs its archtest rule, config registration, documented keys in `docs/CONFIG.md`, and tests.
 
 ## Pull requests
 

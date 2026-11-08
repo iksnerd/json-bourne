@@ -18,7 +18,7 @@ In scope:
 - Reading or writing outside what the config names; the read-only evidence path being writable.
 - Config parsing that accepts input it should refuse (for example sending a key over clear HTTP to a non-loopback host).
 - Dependency vulnerabilities that are reachable from `jb`.
-- Anything that makes `jb` send traffic to a host other than the ones in your config, which [docs/POLICY.md](docs/POLICY.md) forbids.
+- Anything that makes `jb` send traffic to a host other than the ones in your config, which [docs/POLICY.md](../docs/POLICY.md) forbids.
 
 Out of scope: the security of the log store you point `jb` at, and findings that depend on an attacker who already has your API key or write access to your config file or evidence database.
 

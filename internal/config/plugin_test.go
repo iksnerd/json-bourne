@@ -21,7 +21,7 @@ var (
 	binErr  error
 )
 
-// regexlinesBinary builds plugins/regexlines once into a 0755 directory of its own.
+// regexlinesBinary builds examples/plugins/regexlines once into a 0755 directory of its own.
 func regexlinesBinary(t *testing.T) string {
 	t.Helper()
 	binOnce.Do(func() {
@@ -33,7 +33,7 @@ func regexlinesBinary(t *testing.T) string {
 		d, _ = filepath.EvalSymlinks(d)
 		_ = os.Chmod(d, 0o755)
 		binPath = filepath.Join(d, "regexlines")
-		cmd := exec.Command("go", "build", "-o", binPath, "./plugins/regexlines")
+		cmd := exec.Command("go", "build", "-o", binPath, "./examples/plugins/regexlines")
 		cmd.Dir = filepath.Join("..", "..")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			binErr = fmt.Errorf("%v\n%s", err, out)

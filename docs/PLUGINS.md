@@ -59,7 +59,7 @@ A case can never add a path, a command, an argument or an allowlist entry. In a 
 ### Allowing a plugin
 
 ```sh
-go build -o /opt/jb-plugins/kvlines/kvlines ./plugins/kvlines
+go build -o /opt/jb-plugins/kvlines/kvlines ./examples/plugins/kvlines
 chmod 755 /opt/jb-plugins/kvlines /opt/jb-plugins/kvlines/kvlines
 shasum -a 256 /opt/jb-plugins/kvlines/kvlines          # put this in the allowlist as sha256
 $EDITOR ~/.jb/plugins.yaml && chmod 600 ~/.jb/plugins.yaml
@@ -131,7 +131,7 @@ An error names the plugin, what went wrong, and the last of its stderr with cont
 
 ## Writing a plugin
 
-A plugin is any program that speaks the protocol above on standard input and output. In Go, use [`sdk`](../sdk), which is the stdio loop and the mapping code; the three plugins under `plugins/` are complete examples.
+A plugin is any program that speaks the protocol above on standard input and output. In Go, use [`sdk`](../sdk), which is the stdio loop and the mapping code; the three plugins under `examples/plugins/` are complete examples.
 
 Rules for a plugin you write:
 
@@ -144,13 +144,13 @@ Rules for a plugin you write:
 
 ## The examples
 
-`plugins/` holds three plugins that know no product. Each is configured entirely by `mapper_config`, and each has a README with the config reference and a sample.
+`examples/plugins/` holds three plugins that know no product. Each is configured entirely by `mapper_config`, and each has a README with the config reference and a sample.
 
 | Plugin | Reads | Config maps |
 |---|---|---|
-| [`kvlines`](../plugins/kvlines/README.md) | `key=value` and `key="quoted value"` lines | source keys to event fields; types; the time key or the document timestamp; required keys |
-| [`regexlines`](../plugins/regexlines/README.md) | lines matched by an RE2 pattern with named groups | groups to event fields, same options |
-| [`jsondoc`](../plugins/jsondoc/README.md) | a JSON document | JSON paths to event fields, same options |
+| [`kvlines`](../examples/plugins/kvlines/README.md) | `key=value` and `key="quoted value"` lines | source keys to event fields; types; the time key or the document timestamp; required keys |
+| [`regexlines`](../examples/plugins/regexlines/README.md) | lines matched by an RE2 pattern with named groups | groups to event fields, same options |
+| [`jsondoc`](../examples/plugins/jsondoc/README.md) | a JSON document | JSON paths to event fields, same options |
 
 They share `sdk` (`github.com/iksnerd/json-bourne/sdk`, public: write your own plugin with it), which is the stdio loop and the mapping code, and import the standard library only. `internal/archtest` fails the build if a plugin imports anything else, the network, `os/exec`, or `syscall`, and if `jb` itself imports a plugin.
 

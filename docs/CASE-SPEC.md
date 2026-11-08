@@ -7,7 +7,7 @@ Status: v1; the loaders and commands in the table below are implemented, the row
 | Part | State |
 |---|---|
 | `case.yaml` loader, validation, path confinement, credential refusal, `Guard` (`internal/casefile`) | **Implemented** |
-| JSON Schema (`schemas/case.schema.json`), kept equal to the loader by a test | **Implemented** |
+| JSON Schema (`docs/schemas/case.schema.json`), kept equal to the loader by a test | **Implemented** |
 | Conformance corpus (`internal/casefile/testdata`) | **Implemented** |
 | `jb case check --case DIR` | **Implemented** (`cmd/jb/case.go`). Section 9. |
 | `jb case show --case DIR` | **Implemented** (`cmd/jb/caseshow.go`, `internal/config/describe.go`). Section 9. |
@@ -15,10 +15,10 @@ Status: v1; the loaders and commands in the table below are implemented, the row
 | `jb watch --case DIR`: the same hunt on an interval, with dedupe memory, an alert log and retention | **Implemented** (`cmd/jb/watch.go`, `internal/app/watch.go`). Sections 3 and 9. |
 | `jb hunt --search`, `jb activity --case DIR`, `jb actor status --case DIR` | **Implemented** (`cmd/jb/hunt.go`, `cmd/jb/activity.go`, `cmd/jb/actor.go`, `internal/app/activity.go`). Section 9. |
 | `--window NAME`, assets as detector ignore lists | **Proposed.** `--window` is still a duration; only `windows.default` is read. |
-| `jb.actor/v1` file format: strict loader, size cap, path confinement (`internal/casefile/actor.go`), JSON Schema (`schemas/actor.schema.json`) kept equal to the loader by a test | **Implemented.** Section 4.4. |
+| `jb.actor/v1` file format: strict loader, size cap, path confinement (`internal/casefile/actor.go`), JSON Schema (`docs/schemas/actor.schema.json`) kept equal to the loader by a test | **Implemented.** Section 4.4. |
 | `jb case check` loads every file in `actors/` and builds each listed config's detectors | **Implemented.** Section 9. |
 | `jb.estate-snapshot/v2` snapshots and the estate drift check, facts included (`jb estate refresh`, `diff`, `promote`; `internal/casefile/estate_snapshot.go`, `internal/app/estate_diff.go`, `estate_refresh.go`) | **Implemented.** Section 4.5.1. No JSON Schema yet (the loader is the specification). |
-| `jb.estate/v2` file format: strict loader, size cap, path confinement, source allowlist, `service` nodes, facts and assessments (`internal/casefile/estate.go`), JSON Schema (`schemas/estate.schema.json`) kept equal to the loader by a test; `jb case check` loads every file in `estate/`. `jb.estate/v1` is removed. | **Implemented.** Sections 4.5 and 9. [RFC 0001](rfcs/0001-estate-v2.md). |
+| `jb.estate/v2` file format: strict loader, size cap, path confinement, source allowlist, `service` nodes, facts and assessments (`internal/casefile/estate.go`), JSON Schema (`docs/schemas/estate.schema.json`) kept equal to the loader by a test; `jb case check` loads every file in `estate/`. `jb.estate/v1` is removed. | **Implemented.** Sections 4.5 and 9. [RFC 0001](rfcs/0001-estate-v2.md). |
 | `jb estate facts import FILE`: facts from an export file you hold, source `scan-cache` (`internal/casefile/estate_facts_import.go`, `estate_facts_import.go`) | **Implemented.** Section 4.5.2. |
 | `jb estate --case DIR IP...`: passive reverse-DNS and RDAP collector that merges into an estate file | **Implemented** (`cmd/jb/estate.go`, `internal/app/estate.go`, `internal/adapters/rdap`, `internal/adapters/dnsptr`). Section 9. |
 | `type: fingerprint` detector reading actor files (`docs/CONFIG.md`) | **Implemented** (`internal/adapters/detectors/fingerprint`). |
@@ -145,7 +145,7 @@ Things that MUST never be reported as suspects: the gateway, scanners, staff net
 
 ### 4.4 `actors/` (`jb.actor/v1`, implemented)
 
-One file per actor, `.yaml` or `.yml`, directly inside `paths.actors`. The loader is `casefile.LoadActors` / `LoadActorFile`; `schemas/actor.schema.json` mirrors it. Keys are lower-case except `apiVersion`; an unknown key is an error, at any depth.
+One file per actor, `.yaml` or `.yml`, directly inside `paths.actors`. The loader is `casefile.LoadActors` / `LoadActorFile`; `docs/schemas/actor.schema.json` mirrors it. Keys are lower-case except `apiVersion`; an unknown key is an error, at any depth.
 
 | Key | Type | Required | Rules |
 |---|---|---|---|
@@ -181,7 +181,7 @@ The `fingerprint` detector (`docs/CONFIG.md`) turns an actor file into findings.
 
 ### 4.5 `estate/` (`jb.estate/v2`, implemented)
 
-An estate file is the case's map of infrastructure: which addresses, hosts, domains, networks and organisations relate to which, as public registries and DNS describe them. It is data. Drawing it is not core's job: a viewer reads the file. One file per map, `.yaml` or `.yml`, directly inside `paths.estate`. The loader is `casefile.LoadEstates` / `LoadEstateFile`; `schemas/estate.schema.json` mirrors it. An unknown key is an error, at any depth. `jb.estate/v1` is removed: a v1 file is refused with an error that names both versions and says to rewrite it. The migration is one line, changing `apiVersion` to `jb.estate/v2`; the file stays valid.
+An estate file is the case's map of infrastructure: which addresses, hosts, domains, networks and organisations relate to which, as public registries and DNS describe them. It is data. Drawing it is not core's job: a viewer reads the file. One file per map, `.yaml` or `.yml`, directly inside `paths.estate`. The loader is `casefile.LoadEstates` / `LoadEstateFile`; `docs/schemas/estate.schema.json` mirrors it. An unknown key is an error, at any depth. `jb.estate/v1` is removed: a v1 file is refused with an error that names both versions and says to rewrite it. The migration is one line, changing `apiVersion` to `jb.estate/v2`; the file stays valid.
 
 | Key | Type | Required | Rules |
 |---|---|---|---|

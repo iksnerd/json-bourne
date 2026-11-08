@@ -27,7 +27,7 @@ func cleanupPluginBins() {
 	}
 }
 
-// pluginBinary builds ./plugins/<name> into its own 0755 directory, once per test run.
+// pluginBinary builds ./examples/plugins/<name> into its own 0755 directory, once per test run.
 func pluginBinary(t *testing.T, name string) string {
 	t.Helper()
 	pluginBinMu.Lock()
@@ -48,7 +48,7 @@ func pluginBinary(t *testing.T, name string) string {
 		t.Fatal(err)
 	}
 	_ = os.Chmod(dir, 0o755)
-	cmd := exec.Command("go", "build", "-o", bin, "./plugins/"+name)
+	cmd := exec.Command("go", "build", "-o", bin, "./examples/plugins/"+name)
 	cmd.Dir = filepath.Join("..", "..")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build plugin %s: %v\n%s", name, err, out)

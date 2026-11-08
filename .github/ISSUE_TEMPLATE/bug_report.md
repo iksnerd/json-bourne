@@ -4,7 +4,7 @@ about: jb did something wrong, or said something wrong
 labels: bug
 ---
 
-Do not paste real logs, hostnames, addresses, personal data or credentials. Replace them with placeholders. For a security problem, use a private advisory (see SECURITY.md).
+Do not paste real logs, hostnames, addresses, personal data or credentials. Replace them with placeholders. For a security problem, use a private advisory (see .github/SECURITY.md).
 
 **What happened**
 

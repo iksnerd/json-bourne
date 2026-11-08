@@ -4,7 +4,7 @@
 # group or others (chmod 600). See docs/PLUGINS.md.
 #
 # Build and pin an example plugin:
-#   go build -o /opt/jb-plugins/regexlines/regexlines ./plugins/regexlines
+#   go build -o /opt/jb-plugins/regexlines/regexlines ./examples/plugins/regexlines
 #   chmod 755 /opt/jb-plugins/regexlines /opt/jb-plugins/regexlines/regexlines
 #   shasum -a 256 /opt/jb-plugins/regexlines/regexlines
 

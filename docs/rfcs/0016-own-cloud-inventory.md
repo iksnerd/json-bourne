@@ -88,7 +88,7 @@ It writes only an estate file whose `subject` is `operated` ([RFC 0015](0015-est
 
 #### The `own-cloud` role and the `operated` marker
 
-`own-cloud` is added to `casefile.EstateSources`, to `schemas/estate.schema.json` and to the list between the `estate-sources` markers in [POLICY.md](../POLICY.md), in one commit. `TestEstateSourcesMatchPolicy` and the schema enum tests keep the three equal. The policy text for it: "`own-cloud`: assets that the operator's own cloud accounts report about themselves, read from an export file the operator holds. `jb` has no network code for it; `jb estate inventory import FILE` reads the file from disk and nothing leaves the machine."
+`own-cloud` is added to `casefile.EstateSources`, to `docs/schemas/estate.schema.json` and to the list between the `estate-sources` markers in [POLICY.md](../POLICY.md), in one commit. `TestEstateSourcesMatchPolicy` and the schema enum tests keep the three equal. The policy text for it: "`own-cloud`: assets that the operator's own cloud accounts report about themselves, read from an export file the operator holds. `jb` has no network code for it; `jb estate inventory import FILE` reads the file from disk and nothing leaves the machine."
 
 By the test in POLICY.md ("a source is passive when the target observes nothing from `jb`"), it passes trivially: no target is contacted, and the question went to the operator's own provider, outside `jb`.
 
@@ -200,7 +200,7 @@ What leaves the machine, per tool, is a matter for the outward runner's policy a
 
 Proposed. None of these exist yet.
 
-- `schemas/estate-inventory.schema.json`, kept equal to the loader by tests that mirror `TestEstateSchemaMatchesStruct` and `TestEstateSchemaMatchesLoaderRules`.
+- `docs/schemas/estate-inventory.schema.json`, kept equal to the loader by tests that mirror `TestEstateSchemaMatchesStruct` and `TestEstateSchemaMatchesLoaderRules`.
 - `TestInventoryCorpus`: synthetic files under `internal/casefile/testdata/inventory/`, valid ones and one invalid file per rule (unknown key, second JSON value, number for string, bad `kind`, bad name, credential-shaped string, oversize file, 5001 assets, empty `assets`, missing `complete`), each with the substring its error must contain.
 - `TestInventoryCreatesNodesAndMarks`: golden result for a synthetic file (`www.example.com`, `192.0.2.10`, `192.0.2.11`, `service: ec2`): the nodes, the `operated`, `cloud.account` and `cloud.service` facts, the `hosted_on` edge, and the sources.
 - `TestInventoryKeepsFirstSource`: a node already present from `dns` keeps source `dns` and gains the facts; two accounts give two `operated` facts.
@@ -220,7 +220,7 @@ Proposed:
 
 - `jb estate inventory import`, `jb.EstateInventoryImport`, and the operation `estate_inventory_import`.
 - The loader and schema for `jb.estate-inventory/v1` in `internal/casefile`, and the use case in `internal/app`.
-- The role `own-cloud` in `casefile.EstateSources`, `schemas/estate.schema.json` and [POLICY.md](../POLICY.md); the relation `hosted_on` and the fact keys `operated`, `cloud.account`, `cloud.service` and `cloud.region` in [CASE-SPEC.md](../CASE-SPEC.md) 4.5 and a new subsection after 4.5.2.
+- The role `own-cloud` in `casefile.EstateSources`, `docs/schemas/estate.schema.json` and [POLICY.md](../POLICY.md); the relation `hosted_on` and the fact keys `operated`, `cloud.account`, `cloud.service` and `cloud.region` in [CASE-SPEC.md](../CASE-SPEC.md) 4.5 and a new subsection after 4.5.2.
 
 ## Open questions
 

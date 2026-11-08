@@ -140,7 +140,7 @@ func detectorTypes() map[string]func(*yaml.Node) (detectorSpec, error) {
 }
 ```
 
-Then add an archtest rule, document the keys in [CONFIG.md](CONFIG.md), and follow [CONTRIBUTING.md](../CONTRIBUTING.md): write the failing test first and watch it fail.
+Then add an archtest rule, document the keys in [CONFIG.md](CONFIG.md), and follow [CONTRIBUTING.md](../.github/CONTRIBUTING.md): write the failing test first and watch it fail.
 
 ## A detector that reads case data
 

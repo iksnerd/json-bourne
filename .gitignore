@@ -5,7 +5,7 @@
 .env
 .DS_Store
 .idea/
-# Evidence never belongs in the repo. See CONTRIBUTING.md.
+# Evidence never belongs in the repo. See .github/CONTRIBUTING.md.
 /evidence/
 
 # Cases are data, kept in their own private repo (docs/CASE-SPEC.md). Never here.

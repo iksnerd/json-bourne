@@ -22,7 +22,7 @@ type schemaNode struct {
 
 func loadSchema(t *testing.T) schemaNode {
 	t.Helper()
-	b, err := os.ReadFile("../../schemas/case.schema.json")
+	b, err := os.ReadFile("../../docs/schemas/case.schema.json")
 	if err != nil {
 		t.Fatal(err)
 	}
