@@ -3,6 +3,7 @@ Status: accepted
 Scope: decide which types of package `jb` are public contract, make package `jb` define them instead of aliasing internal types, and add a test that fails when the exported surface changes by accident.
 
 Accepted: 2026-11-07 by the maintainer
+Update: 2026-11-08. Package `jb` now lives in `jb/` (import path `github.com/iksnerd/json-bourne/jb`). Where this RFC says "the root package" or names a root file (`jb.go`, `activity.go`, a `*_test.go` at the root), it means that package and its files, which were at the module root when this was written. The text below is otherwise unchanged.
 
 ## Summary
 
@@ -176,7 +177,7 @@ Shipped, and the gate for this RFC:
 
 Proposed:
 
-- **Surface golden** (`api_surface_test.go`, `testdata/api/jb.txt`): the section 4 walk, with the `/internal/` rule.
+- **Surface golden** (`jb/api_surface_test.go`, `jb/testdata/api/jb.txt`): the section 4 walk, with the `/internal/` rule.
 - **Byte golden per result type** that the parity tests do not already cover (estate, db, intel, reputation, caseshow): one synthetic value per type, marshalled, compared byte for byte with a file recorded before the move. Recorded first, then the type moves.
 - **Enum values test**: each public constant equals its internal constant.
 - **Usage error test**: a usage failure from every group is `jb.IsUsage` and exits 2.
@@ -184,7 +185,7 @@ Proposed:
 
 ## Reference implementations
 
-Shipped: step 1, the surface golden (`api_surface_test.go`, `testdata/api/jb.txt`, `testdata/api/sdk.txt`, `testdata/api/known-leaks.txt`, `-update-api`). The walk follows only types of this module; standard-library and third-party types appear by name, so the golden does not depend on the Go version.
+Shipped: step 1, the surface golden (`jb/api_surface_test.go`, `jb/testdata/api/jb.txt`, `jb/testdata/api/sdk.txt`, `jb/testdata/api/known-leaks.txt`, `-update-api`). The walk follows only types of this module; standard-library and third-party types appear by name, so the golden does not depend on the Go version.
 
 Shipped: step 6. `Config` is `struct{ f *config.File }` with no exported field or method (`TestConfigIsOpaque`, and the surface golden). `EstatePorts` and `EstateOptions.Ports` are removed; the module's own tests and `cmd/jb` set the doubles on the call's context through `internal/estateseam`, which is not public API. The golden shrank from 1093 to 918 lines and `known-leaks.txt` from 92 to 55 types.
 

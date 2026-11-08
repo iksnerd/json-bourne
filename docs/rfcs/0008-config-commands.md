@@ -2,6 +2,7 @@
 Status: accepted
 Scope: a new optional `commands` key in the config file, and the rule by which a command chooses one of a case's configs.
 Accepted: 2026-11-06 by the maintainer
+Update: 2026-11-08. Package `jb` now lives in `jb/` (import path `github.com/iksnerd/json-bourne/jb`). Where this RFC says "the root package" or names a root file (`jb.go`, `activity.go`, a `*_test.go` at the root), it means that package and its files, which were at the module root when this was written. The text below is otherwise unchanged.
 
 ## Summary
 

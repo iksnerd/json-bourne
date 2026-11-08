@@ -2,6 +2,7 @@
 Status: accepted
 Scope: define each `jb` operation once, from its Go option struct, so that the command line, the JSON output, the Go function and an MCP tool come from one definition and one check of the arguments.
 Accepted: 2026-11-06 by the maintainer
+Update: 2026-11-08. Package `jb` now lives in `jb/` (import path `github.com/iksnerd/json-bourne/jb`). Where this RFC says "the root package" or names a root file (`jb.go`, `activity.go`, a `*_test.go` at the root), it means that package and its files, which were at the module root when this was written. The text below is otherwise unchanged.
 
 ## Summary
 

@@ -2,6 +2,7 @@
 Status: accepted
 Scope: one typed usage error shared by the CLI and the Go package, `--output` on every command that prints a result, and the wording of the error for an unset credential.
 Accepted: 2026-11-06 by the maintainer
+Update: 2026-11-08. Package `jb` now lives in `jb/` (import path `github.com/iksnerd/json-bourne/jb`). Where this RFC says "the root package" or names a root file (`jb.go`, `activity.go`, a `*_test.go` at the root), it means that package and its files, which were at the module root when this was written. The text below is otherwise unchanged.
 
 ## Summary
 
