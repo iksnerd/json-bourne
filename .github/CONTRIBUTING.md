@@ -76,7 +76,7 @@ Three things keep this safe:
 
 ## Proposing a source or detector
 
-While the feature freeze stands, a new source or detector waits until the maintainer lifts it. Open a feature issue first (use the template). Say what it reads or detects, what its false positives look like, which real failure it would have caught, and what the baseline is for a detector. Then follow [docs/WRITING-A-SOURCE.md](../docs/WRITING-A-SOURCE.md) or [docs/WRITING-A-DETECTOR.md](../docs/WRITING-A-DETECTOR.md). A new adapter needs its archtest rule, config registration, documented keys in `docs/CONFIG.md`, and tests.
+While the feature freeze stands, a new source or detector waits until the maintainer lifts it. Open a feature issue first (use the template). Say what it reads or detects, what its false positives look like, which real failure it would have caught, and what the baseline is for a detector. Then follow [docs/WRITING-A-SOURCE.md](../docs/WRITING-A-SOURCE.md) or [docs/WRITING-A-DETECTOR.md](../docs/WRITING-A-DETECTOR.md). A new adapter needs its archtest rule, config registration, documented keys in `docs/CONFIG.md` and its pages under `docs/config/`, and tests.
 
 ## Pull requests
 

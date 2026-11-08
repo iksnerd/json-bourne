@@ -45,7 +45,7 @@ func newWatchCmdWith(d deps) *cobra.Command {
 			"every --every, and surfaces findings that are new: a tag that was alerted within --ttl is\n" +
 			"held back unless its severity rose. The dedupe memory is <case>/<evidence>/watch-state.json;\n" +
 			"alerts go to stdout and are appended to <case>/<evidence>/watch.log, which stays the source of\n" +
-			"truth. Config `alerts:` adds a webhook (docs/CONFIG.md): it gets findings and outages of at least\n" +
+			"truth. Config `alerts:` adds a webhook (docs/config/alerts.md): it gets findings and outages of at least\n" +
 			"min_severity, capped per cycle. A webhook failure fails the cycle but never loses the alert, which\n" +
 			"is already in the log.\n\n" +
 			"A cycle in which a source or detector did not finish raises an alert of its own and ends\n" +
@@ -75,7 +75,7 @@ func newWatchCmdWith(d deps) *cobra.Command {
 			"was incomplete or failed. Without --once, watch runs until interrupted.\n\n" +
 			"--output json (only with --once) prints the cycle report as one JSON document on stdout, and the\n" +
 			"alert lines go to stderr instead, so stdout stays parseable; the log and any webhook get them as\n" +
-			"ever. The fields are listed in docs/CONFIG.md (Watch output). A cycle that is not healthy still\n" +
+			"ever. The fields are listed in docs/config/watch.md (Watch output). A cycle that is not healthy still\n" +
 			"prints its report, then exits 1.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

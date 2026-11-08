@@ -53,11 +53,11 @@ The store's identity for an event is `(source, ts, kind, doc_sha256)` plus its o
 
 ### Name your sources before you backfill
 
-The source **label** is part of the identity above for events without a document identity: rows stored before schema 4, and events from a source that names no document scope. A source with no `name:` stores under `kibana:<index>`; the same documents stored later under an explicit `name:` are, for those rows, a second set, and a detector that reads both counts each document twice (77 documents read as 154 in the case that found this). Documents stored by schema 4 or later under two labels of one cluster are read once. The label still decides which source a `sources:` scope reads, so give every source its `name:` **before** the first backfill, and do not rename it afterwards. If it has happened, `jb hunt`, `activity`, `watch` and `doctor` warn and print the fix; `jb db rename-source --case DIR OLD NEW --merge` is a dry run that shows the counts, and `--apply` relabels the stored history (docs/CONFIG.md, [Source labels and double counting](CONFIG.md#source-labels-and-double-counting)). A backfill hunts a past window in a store a live `jb watch` may be writing: the open waits for the writer up to 15 s (`JB_DB_LOCK_WAIT`) instead of failing.
+The source **label** is part of the identity above for events without a document identity: rows stored before schema 4, and events from a source that names no document scope. A source with no `name:` stores under `kibana:<index>`; the same documents stored later under an explicit `name:` are, for those rows, a second set, and a detector that reads both counts each document twice (77 documents read as 154 in the case that found this). Documents stored by schema 4 or later under two labels of one cluster are read once. The label still decides which source a `sources:` scope reads, so give every source its `name:` **before** the first backfill, and do not rename it afterwards. If it has happened, `jb hunt`, `activity`, `watch` and `doctor` warn and print the fix; `jb db rename-source --case DIR OLD NEW --merge` is a dry run that shows the counts, and `--apply` relabels the stored history (docs/config/store.md, [Source labels and double counting](config/store.md#source-labels-and-double-counting)). A backfill hunts a past window in a store a live `jb watch` may be writing: the open waits for the writer up to 15 s (`JB_DB_LOCK_WAIT`) instead of failing.
 
 ## Day by day
 
-A day of a busy index is millions of documents. Backfill through a config whose source has a server-side `filter` (docs/CONFIG.md, [Filter](CONFIG.md#filter)), narrowed to what the detectors need, and keep it a superset of what they match:
+A day of a busy index is millions of documents. Backfill through a config whose source has a server-side `filter` (docs/config/sources.md, [Filter](config/sources.md#filter)), narrowed to what the detectors need, and keep it a superset of what they match:
 
 ```yaml
 # config/hunt-filtered.yaml (example.com, made-up values)
@@ -94,7 +94,7 @@ jb db prune --case DIR --kind hunt-until,activity-until --older-than 1d   # dry 
 jb db prune --case DIR --kind hunt-until,activity-until --older-than 1d --apply
 ```
 
-Findings stay by default (they are the conclusions); the newest run of each kind is always kept. The file only shrinks after `jb db compact` and a swap (docs/CONFIG.md, [Store maintenance](CONFIG.md#store-maintenance)).
+Findings stay by default (they are the conclusions); the newest run of each kind is always kept. The file only shrinks after `jb db compact` and a swap (docs/config/store.md, [Store maintenance](config/store.md#store-maintenance)).
 
 ## Replaying known windows as a regression check
 

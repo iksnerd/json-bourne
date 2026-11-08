@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -169,13 +170,31 @@ func firstLineDiff(want, got string) string {
 	return ""
 }
 
-// Every key of the golden is named in docs/CONFIG.md, so a key cannot be added without
-// being documented. The reverse (a documented key that no longer exists) is not checked.
-func TestEveryConfigKeyIsDocumented(t *testing.T) {
-	doc, err := os.ReadFile("../../docs/CONFIG.md")
-	if err != nil {
-		t.Fatal(err)
+// readConfigDocs returns the config reference: the index docs/CONFIG.md and every topic
+// page under docs/config, joined.
+func readConfigDocs(t *testing.T) []byte {
+	t.Helper()
+	pages, err := filepath.Glob("../../docs/config/*.md")
+	if err != nil || len(pages) == 0 {
+		t.Fatalf("no config pages under docs/config: %v", err)
 	}
+	var doc []byte
+	for _, p := range append([]string{"../../docs/CONFIG.md"}, pages...) {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc = append(doc, b...)
+		doc = append(doc, '\n')
+	}
+	return doc
+}
+
+// Every key of the golden is named in docs/CONFIG.md or a page under docs/config, so a
+// key cannot be added without being documented. The reverse (a documented key that no
+// longer exists) is not checked.
+func TestEveryConfigKeyIsDocumented(t *testing.T) {
+	doc := readConfigDocs(t)
 	seen := map[string]bool{}
 	for _, line := range strings.Split(configKeySet(t), "\n") {
 		if line == "" || strings.HasPrefix(line, "##") {
@@ -189,7 +208,7 @@ func TestEveryConfigKeyIsDocumented(t *testing.T) {
 		}
 		seen[key] = true
 		if !strings.Contains(string(doc), key) {
-			t.Errorf("docs/CONFIG.md never mentions the key %q", key)
+			t.Errorf("docs/CONFIG.md and docs/config/*.md never mention the key %q", key)
 		}
 	}
 }

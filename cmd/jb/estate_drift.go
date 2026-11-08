@@ -39,7 +39,7 @@ func newEstateRefreshCmd(d deps) *cobra.Command {
 			"<estate>/snapshots/<UTC time>.yaml (docs/CASE-SPEC.md section 4.5.1). The estate file is not touched: a\n" +
 			"snapshot becomes the baseline only when you run `jb estate promote`. An existing snapshot is never overwritten.\n\n" +
 			"It is passive. Reverse DNS and RDAP for addresses always run; BGP, DNS and certificate transparency run only\n" +
-			"for services listed under `estate.external` in the case's config (docs/CONFIG.md). A service that is not\n" +
+			"for services listed under `estate.external` in the case's config (docs/config/estate.md). A service that is not\n" +
 			"enabled is SKIPPED and listed, and nothing is sent for it. The run is bounded: --max-targets counts distinct\n" +
 			"targets, and a longer list is refused, not truncated; each service keeps its request spacing and caps.\n\n" +
 			"Any lookup that failed, timed out, was rate limited, was cut at a cap or was not asked makes the run\n" +

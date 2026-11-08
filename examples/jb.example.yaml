@@ -77,7 +77,7 @@ detectors:
   #       path_pattern: /oauth/(token|introspect)
   #       min_events: 50
 # Reputation lookups for `jb intel` (optional; hunt never reads this). The result is
-# context about an address, not attribution; see docs/CONFIG.md.
+# context about an address, not attribution; see docs/config/reputation.md.
 # feeds:
 #   - type: greynoise
 #     api_key_env: JB_GREYNOISE_API_KEY   # omit for the small keyless quota
@@ -126,7 +126,7 @@ detectors:
 # window. `empty_is_quiet: true` makes an hour with nothing to judge a quiet answer
 # instead of `no records`; it needs a `filter` on every source the detector reads, so
 # that the liveness check proves the index alive. Events that exist but cannot be read
-# are still `no records`. See docs/CONFIG.md, "Quiet hours".
+# are still `no records`. See docs/config/detector-scoping.md, "Quiet hours".
 #
 # sources:
 #   - {type: kibana, name: ingress, url: "https://kibana.example.com", api_key_env: JB_KIBANA_API_KEY,
@@ -207,7 +207,7 @@ detectors:
 
 # External services for `jb estate asn|dns|ct` (optional). Each sends the question (an AS
 # number, an address, a domain name) to something that is not your machine, so each is
-# off until it is listed here. See docs/CONFIG.md and docs/POLICY.md.
+# off until it is listed here. See docs/config/estate.md and docs/POLICY.md.
 # estate:
 #   external: [bgp, crt.sh, dns]
 #   bgp_url: https://stat.ripe.net

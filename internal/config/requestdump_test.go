@@ -247,13 +247,13 @@ func TestSignatureAndNewkeyUAFilterRejectBadInputAtLoad(t *testing.T) {
 
 // The documented gateway and signature configs are what people will copy: they must load.
 func TestDocumentedGatewayExamplesLoad(t *testing.T) {
-	doc, err := os.ReadFile(filepath.Join("..", "..", "docs", "CONFIG.md"))
+	doc, err := os.ReadFile(filepath.Join("..", "..", "docs", "config", "detector-scoping.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, after, ok := strings.Cut(string(doc), "### Example: gateway and signature")
+	_, after, ok := strings.Cut(string(doc), "## Example: gateway and signature")
 	if !ok {
-		t.Fatal("CONFIG.md lost its gateway example")
+		t.Fatal("docs/config/detector-scoping.md lost its gateway example")
 	}
 	_, block, _ := strings.Cut(after, "```yaml\n")
 	block, _, _ = strings.Cut(block, "```")

@@ -340,7 +340,7 @@ func writePruneBody(w io.Writer, r core.EventPruneResult, applied bool) error {
 		fmt.Fprintf(w, "; %d run record(s) marked pruned; findings kept", r.Marked)
 	}
 	fmt.Fprintln(w, " (equal to the plan, checked inside the transaction before it committed)")
-	fmt.Fprintln(w, "reminder: the file does not shrink when rows are deleted. Run `jb db compact --to FILE` to write a smaller copy, then swap it in by hand (docs/CONFIG.md, Store maintenance).")
+	fmt.Fprintln(w, "reminder: the file does not shrink when rows are deleted. Run `jb db compact --to FILE` to write a smaller copy, then swap it in by hand (docs/config/store.md, Store maintenance).")
 	return nil
 }
 

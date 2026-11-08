@@ -673,7 +673,7 @@ func estateExternal(ctx context.Context, service, caseDir string, targets []stri
 	}
 	if cfg == nil || !cfg.EstateEnabled(service) {
 		return nil, usagef("the %q service is not enabled, so nothing was sent. It is off by default because %s would leave this machine. "+
-			"List it under `estate: {external: [%s]}` in the case's config to allow it (docs/CONFIG.md)", service, svc.what, service)
+			"List it under `estate: {external: [%s]}` in the case's config to allow it (docs/config/estate.md)", service, svc.what, service)
 	}
 	ports := estateseam.From(ctx)
 	collect, deps, dest, err := svc.build(cfg, ports, opts.now(), extBuild{timeout: timeout, resolver: opts.Resolver, maxNames: maxNames, targets: targets})
