@@ -12,7 +12,7 @@ import (
 	jb "github.com/iksnerd/json-bourne"
 )
 
-// The compile-time table: every function of the README command-to-function table is
+// The compile-time table: every function of the command-to-function table in docs/LIBRARY.md is
 // assigned to a variable of its documented type. A changed parameter, result or
 // receiver stops this package from compiling.
 var (
@@ -63,11 +63,11 @@ var documented = map[string]bool{
 	"EstateFactsImport": true, "DashboardHandler": true, "Serve": true,
 }
 
-// TestEveryFunctionOfTheREADMETableIsInTheCompileTable fails when the README documents a
+// TestEveryFunctionOfTheLibraryTableIsInTheCompileTable fails when docs/LIBRARY.md documents a
 // function this module does not pin (a new function needs a line above), and when this
-// module pins one the README no longer documents.
-func TestEveryFunctionOfTheREADMETableIsInTheCompileTable(t *testing.T) {
-	b, err := os.ReadFile("../README.md")
+// module pins one that page no longer documents.
+func TestEveryFunctionOfTheLibraryTableIsInTheCompileTable(t *testing.T) {
+	b, err := os.ReadFile("../docs/LIBRARY.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,24 +90,24 @@ func TestEveryFunctionOfTheREADMETableIsInTheCompileTable(t *testing.T) {
 		}
 	}
 	if len(cell) == 0 {
-		t.Fatal("the README command-to-function table was not found")
+		t.Fatal("the command-to-function table of docs/LIBRARY.md was not found")
 	}
 	paren := regexp.MustCompile(`\([^)]*\)`)
 	ident := regexp.MustCompile("`([A-Z][A-Za-z]*)`")
-	inREADME := map[string]bool{}
+	inLibrary := map[string]bool{}
 	for _, c := range cell {
 		for _, m := range ident.FindAllStringSubmatch(paren.ReplaceAllString(c, ""), -1) {
-			inREADME[m[1]] = true
+			inLibrary[m[1]] = true
 		}
 	}
-	for name := range inREADME {
+	for name := range inLibrary {
 		if !documented[name] {
-			t.Errorf("README documents %s but the compile table does not cover it", name)
+			t.Errorf("docs/LIBRARY.md documents %s but the compile table does not cover it", name)
 		}
 	}
 	for name := range documented {
-		if !inREADME[name] {
-			t.Errorf("the compile table covers %s but the README table does not list it", name)
+		if !inLibrary[name] {
+			t.Errorf("the compile table covers %s but the docs/LIBRARY.md table does not list it", name)
 		}
 	}
 }

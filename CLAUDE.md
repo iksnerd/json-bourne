@@ -25,7 +25,7 @@ Evidence-first incident response for when you are being attacked. Go, DuckDB, co
 - `internal/watchrun`: builds the ports of `app.Watch`/`app.Hunt` from a case config; shared by `cmd/jb` and `jb`. Also reads the watcher history that the Timeline page shows.
 - `internal/severityfloor`: the one parse-and-apply of a detector's `min_severity` and `note` (`behaviour`, `newkey`).
 - `internal/estateseam`: test doubles for the estate network adapters, on the call's context. Not public API (`jb.EstatePorts` is gone).
-- `contract/`: a separate Go module of consumer tests that import only `jb` and `sdk`. It parses the README command-to-function table, so keep that table's format. `go test` at the root does not run it; CI runs it on tags (`cd contract && go test -race -count=1 ./...`).
+- `contract/`: a separate Go module of consumer tests that import only `jb` and `sdk`. It parses the command-to-function table of `docs/LIBRARY.md`, so keep that table's format. `go test` at the root does not run it; CI runs it on tags (`cd contract && go test -race -count=1 ./...`).
 - `docs/schemas/`: JSON Schemas for the case, actor and estate files, kept equal to the loaders by tests in `internal/casefile`.
 - `testdata/api/`: the API surface golden for `jb` and `sdk` (`TestAPISurface`; update with `-update-api` and read the diff). Other goldens pin flags, exit codes, config keys, the plugin wire, the MCP tool list and the store schema.
 - `internal/archtest` enforces these rules. A rule is not done until you have seen it fail.

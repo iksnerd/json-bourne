@@ -43,7 +43,7 @@ func TestOperationsAgreeWithTheCommittedList(t *testing.T) {
 		t.Fatalf("%d operations, docs/operations.json lists %d", len(got), len(want))
 	}
 	if len(got) != 22 {
-		t.Errorf("%d operations; the README says 22 (everything but watch and serve)", len(got))
+		t.Errorf("%d operations; docs/LIBRARY.md and the README say 22 (everything but watch and serve)", len(got))
 	}
 	for i, w := range want {
 		g := got[i]
