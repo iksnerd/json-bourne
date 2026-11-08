@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // An INCOMPLETE is never a clean result: whatever went wrong, Complete() is false and

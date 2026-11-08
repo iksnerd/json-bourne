@@ -6,7 +6,7 @@ package jb
 // go/types, loaded from source, and compares the result with testdata/api/jb.txt and
 // testdata/api/sdk.txt. A deliberate change is made by running
 //
-//	go test -count=1 -run TestAPISurface -update-api .
+//	go test -count=1 ./jb -run TestAPISurface -update-api
 //
 // and reading the diff. The golden is written only through -update-api.
 //
@@ -333,7 +333,7 @@ func readKnownLeaks(t *testing.T) map[string]bool {
 func TestAPISurface(t *testing.T) {
 	for _, c := range []struct{ pattern, file string }{
 		{".", "testdata/api/jb.txt"},
-		{"./sdk", "testdata/api/sdk.txt"},
+		{"../sdk", "testdata/api/sdk.txt"},
 	} {
 		t.Run(c.file, func(t *testing.T) {
 			got, leaks := apiSurface(t, c.pattern)

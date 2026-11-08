@@ -10,7 +10,7 @@ Evidence-first incident response for when you are being attacked. Go, DuckDB, co
 
 ## Layout
 
-- `jb.go` (package `jb`, repo root): the one public Go API, a facade over `app` and `config`. The `.go` files at the repo root are that one public package `jb` (its import path is the module path), so they cannot move into a subdirectory. Everything else stays under `internal/` so it can change freely.
+- `jb/` (package `jb`, import path `github.com/iksnerd/json-bourne/jb`; `jb/jb.go` is the entry): the one public Go API, a facade over `app` and `config`. The repo root holds no Go files. Everything else stays under `internal/` so it can change freely.
 - `internal/core`: domain types and ports. Standard library only.
 - `internal/app`: use cases. Depends on `core` only.
 - `internal/adapters/*`: Elasticsearch, nginx, DuckDB, feeds. Implement `core` ports.
@@ -27,7 +27,7 @@ Evidence-first incident response for when you are being attacked. Go, DuckDB, co
 - `internal/estateseam`: test doubles for the estate network adapters, on the call's context. Not public API (`jb.EstatePorts` is gone).
 - `contract/`: a separate Go module of consumer tests that import only `jb` and `sdk`. It parses the command-to-function table of `docs/LIBRARY.md`, so keep that table's format. `go test` at the root does not run it; CI runs it on tags (`cd contract && go test -race -count=1 ./...`).
 - `docs/schemas/`: JSON Schemas for the case, actor and estate files, kept equal to the loaders by tests in `internal/casefile`.
-- `testdata/api/`: the API surface golden for `jb` and `sdk` (`TestAPISurface`; update with `-update-api` and read the diff). Other goldens pin flags, exit codes, config keys, the plugin wire, the MCP tool list and the store schema.
+- `jb/testdata/api/`: the API surface golden for `jb` and `sdk` (`TestAPISurface`; update with `-update-api` and read the diff). Other goldens pin flags, exit codes, config keys, the plugin wire, the MCP tool list and the store schema.
 - `internal/archtest` enforces these rules. A rule is not done until you have seen it fail.
 
 ## What you would get wrong

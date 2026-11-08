@@ -1,0 +1,920 @@
+func github.com/iksnerd/json-bourne/jb.Activity(context.Context, string, github.com/iksnerd/json-bourne/jb.ActivityOptions) (*github.com/iksnerd/json-bourne/internal/app.ActivityResult, error)
+type github.com/iksnerd/json-bourne/jb.ActivityOptions
+alias github.com/iksnerd/json-bourne/jb.ActivityResult = github.com/iksnerd/json-bourne/internal/app.ActivityResult
+type github.com/iksnerd/json-bourne/jb.ActorMatch
+func github.com/iksnerd/json-bourne/jb.ActorStatus(context.Context, string, github.com/iksnerd/json-bourne/jb.ActorStatusOptions) (*github.com/iksnerd/json-bourne/jb.ActorStatusResult, error)
+type github.com/iksnerd/json-bourne/jb.ActorStatusOptions
+type github.com/iksnerd/json-bourne/jb.ActorStatusResult
+alias github.com/iksnerd/json-bourne/jb.AlertDescription = github.com/iksnerd/json-bourne/internal/config.AlertDescription
+func github.com/iksnerd/json-bourne/jb.Call(context.Context, string, map[string]any, github.com/iksnerd/json-bourne/internal/config.Env) (any, error)
+func github.com/iksnerd/json-bourne/jb.CallTool(context.Context, string, map[string]any, github.com/iksnerd/json-bourne/internal/config.Env) (any, error)
+func github.com/iksnerd/json-bourne/jb.CaseCheck(string) (*github.com/iksnerd/json-bourne/jb.CaseCheckResult, error)
+type github.com/iksnerd/json-bourne/jb.CaseCheckResult
+type github.com/iksnerd/json-bourne/jb.CaseConfigCheck
+type github.com/iksnerd/json-bourne/jb.CaseFilesCheck
+type github.com/iksnerd/json-bourne/jb.CaseGuard
+type github.com/iksnerd/json-bourne/jb.CaseHuntOptions
+func github.com/iksnerd/json-bourne/jb.CaseShow(string, github.com/iksnerd/json-bourne/jb.CaseShowOptions) (*github.com/iksnerd/json-bourne/internal/config.CaseShow, error)
+type github.com/iksnerd/json-bourne/jb.CaseShowOptions
+alias github.com/iksnerd/json-bourne/jb.CaseShowResult = github.com/iksnerd/json-bourne/internal/config.CaseShow
+const github.com/iksnerd/json-bourne/jb.CheckFail github.com/iksnerd/json-bourne/internal/app.CheckStatus = "fail"
+const github.com/iksnerd/json-bourne/jb.CheckOK github.com/iksnerd/json-bourne/internal/app.CheckStatus = "ok"
+const github.com/iksnerd/json-bourne/jb.CheckSkipped github.com/iksnerd/json-bourne/internal/app.CheckStatus = "skipped"
+alias github.com/iksnerd/json-bourne/jb.CheckStatus = github.com/iksnerd/json-bourne/internal/app.CheckStatus
+const github.com/iksnerd/json-bourne/jb.CheckWarn github.com/iksnerd/json-bourne/internal/app.CheckStatus = "warn"
+alias github.com/iksnerd/json-bourne/jb.CompactResult = github.com/iksnerd/json-bourne/internal/core.CompactResult
+type github.com/iksnerd/json-bourne/jb.Config
+const github.com/iksnerd/json-bourne/jb.CycleFailed github.com/iksnerd/json-bourne/internal/app.CycleStatus = "failed"
+const github.com/iksnerd/json-bourne/jb.CycleFindings github.com/iksnerd/json-bourne/internal/app.CycleStatus = "findings"
+const github.com/iksnerd/json-bourne/jb.CycleIncomplete github.com/iksnerd/json-bourne/internal/app.CycleStatus = "incomplete"
+const github.com/iksnerd/json-bourne/jb.CycleQuiet github.com/iksnerd/json-bourne/internal/app.CycleStatus = "quiet"
+alias github.com/iksnerd/json-bourne/jb.CycleReport = github.com/iksnerd/json-bourne/internal/app.CycleReport
+alias github.com/iksnerd/json-bourne/jb.CycleStatus = github.com/iksnerd/json-bourne/internal/app.CycleStatus
+func github.com/iksnerd/json-bourne/jb.DBCompact(context.Context, string, github.com/iksnerd/json-bourne/jb.DBCompactOptions) (*github.com/iksnerd/json-bourne/jb.DBCompactResult, error)
+type github.com/iksnerd/json-bourne/jb.DBCompactOptions
+type github.com/iksnerd/json-bourne/jb.DBCompactResult
+type github.com/iksnerd/json-bourne/jb.DBOptions
+func github.com/iksnerd/json-bourne/jb.DBPrune(context.Context, string, github.com/iksnerd/json-bourne/jb.DBPruneOptions) (*github.com/iksnerd/json-bourne/jb.DBPruneResult, error)
+type github.com/iksnerd/json-bourne/jb.DBPruneOptions
+type github.com/iksnerd/json-bourne/jb.DBPruneResult
+func github.com/iksnerd/json-bourne/jb.DBRenameSource(context.Context, string, github.com/iksnerd/json-bourne/jb.DBRenameSourceOptions) (*github.com/iksnerd/json-bourne/jb.DBRenameSourceResult, error)
+type github.com/iksnerd/json-bourne/jb.DBRenameSourceOptions
+type github.com/iksnerd/json-bourne/jb.DBRenameSourceResult
+func github.com/iksnerd/json-bourne/jb.DBStatus(context.Context, string, github.com/iksnerd/json-bourne/jb.DBOptions) (*github.com/iksnerd/json-bourne/jb.DBStatusResult, error)
+type github.com/iksnerd/json-bourne/jb.DBStatusResult
+func github.com/iksnerd/json-bourne/jb.DBUsage(context.Context, string, github.com/iksnerd/json-bourne/jb.DBOptions) (*github.com/iksnerd/json-bourne/jb.DBUsageResult, error)
+type github.com/iksnerd/json-bourne/jb.DBUsageOverlap
+type github.com/iksnerd/json-bourne/jb.DBUsageResult
+func github.com/iksnerd/json-bourne/jb.DashboardHandler(github.com/iksnerd/json-bourne/jb.DashboardOptions) (net/http.Handler, *github.com/iksnerd/json-bourne/jb.DashboardInfo, error)
+type github.com/iksnerd/json-bourne/jb.DashboardInfo
+type github.com/iksnerd/json-bourne/jb.DashboardOptions
+const github.com/iksnerd/json-bourne/jb.DefaultActivityWindow time.Duration = 86400000000000
+const github.com/iksnerd/json-bourne/jb.DefaultPruneKeepLatest untyped int = 1
+const github.com/iksnerd/json-bourne/jb.DefaultReputationRows untyped int = 1000
+const github.com/iksnerd/json-bourne/jb.DefaultServeAddr untyped string = "127.0.0.1:8090"
+const github.com/iksnerd/json-bourne/jb.DefaultWatchEvery time.Duration = 300000000000
+const github.com/iksnerd/json-bourne/jb.DefaultWindow time.Duration = 3600000000000
+alias github.com/iksnerd/json-bourne/jb.Description = github.com/iksnerd/json-bourne/internal/config.Description
+alias github.com/iksnerd/json-bourne/jb.DetectorDescription = github.com/iksnerd/json-bourne/internal/config.DetectorDescription
+alias github.com/iksnerd/json-bourne/jb.DetectorResult = github.com/iksnerd/json-bourne/internal/app.DetectorResult
+func github.com/iksnerd/json-bourne/jb.Doctor(context.Context, github.com/iksnerd/json-bourne/jb.DoctorOptions) (*github.com/iksnerd/json-bourne/jb.DoctorResult, error)
+alias github.com/iksnerd/json-bourne/jb.DoctorCheck = github.com/iksnerd/json-bourne/internal/app.Check
+const github.com/iksnerd/json-bourne/jb.DoctorLockWait time.Duration = 3000000000
+type github.com/iksnerd/json-bourne/jb.DoctorOptions
+const github.com/iksnerd/json-bourne/jb.DoctorReachTimeout time.Duration = 4000000000
+type github.com/iksnerd/json-bourne/jb.DoctorResult
+alias github.com/iksnerd/json-bourne/jb.DoctorService = github.com/iksnerd/json-bourne/internal/app.ServiceReport
+alias github.com/iksnerd/json-bourne/jb.Env = github.com/iksnerd/json-bourne/internal/config.Env
+var github.com/iksnerd/json-bourne/jb.ErrNoRecords error
+var github.com/iksnerd/json-bourne/jb.ErrNoSuchSource error
+var github.com/iksnerd/json-bourne/jb.ErrSourceOverlap error
+var github.com/iksnerd/json-bourne/jb.ErrWatcherRunning error
+func github.com/iksnerd/json-bourne/jb.EstateASN(context.Context, string, []string, github.com/iksnerd/json-bourne/jb.EstateExternalOptions) (*github.com/iksnerd/json-bourne/jb.EstateExternalResult, error)
+type github.com/iksnerd/json-bourne/jb.EstateAdded
+alias github.com/iksnerd/json-bourne/jb.EstateAlertDelivery = github.com/iksnerd/json-bourne/internal/app.DriftDelivery
+func github.com/iksnerd/json-bourne/jb.EstateCT(context.Context, string, []string, github.com/iksnerd/json-bourne/jb.EstateExternalOptions) (*github.com/iksnerd/json-bourne/jb.EstateExternalResult, error)
+alias github.com/iksnerd/json-bourne/jb.EstateChange = github.com/iksnerd/json-bourne/internal/app.EstateChange
+type github.com/iksnerd/json-bourne/jb.EstateChangeCounts
+alias github.com/iksnerd/json-bourne/jb.EstateComparison = github.com/iksnerd/json-bourne/internal/app.EstateDiff
+func github.com/iksnerd/json-bourne/jb.EstateDNS(context.Context, string, []string, github.com/iksnerd/json-bourne/jb.EstateExternalOptions) (*github.com/iksnerd/json-bourne/jb.EstateExternalResult, error)
+const github.com/iksnerd/json-bourne/jb.EstateDefaultFile untyped string = "estate.yaml"
+const github.com/iksnerd/json-bourne/jb.EstateDefaultMax untyped int = 20
+const github.com/iksnerd/json-bourne/jb.EstateDefaultTimeout time.Duration = 10000000000
+func github.com/iksnerd/json-bourne/jb.EstateDiff(context.Context, string, github.com/iksnerd/json-bourne/jb.EstateDiffOptions) (*github.com/iksnerd/json-bourne/jb.EstateDiffResult, error)
+type github.com/iksnerd/json-bourne/jb.EstateDiffOptions
+type github.com/iksnerd/json-bourne/jb.EstateDiffResult
+type github.com/iksnerd/json-bourne/jb.EstateDriftFinding
+const github.com/iksnerd/json-bourne/jb.EstateDriftNote untyped string = "Drift is a difference between two passive observations of the estate, not proof of compromise and not attribution: an address, prefix or origin AS that belongs to a CDN, proxy or shared host changes for reasons that say nothing about ownership. Only observations made by the same source and the same method are compared; anything else is listed as not comparable. A name on a certificate is a candidate, not a live host. An estate map shows infrastructure, not who typed the commands."
+const github.com/iksnerd/json-bourne/jb.EstateExternalDefaultMax untyped int = 10
+func github.com/iksnerd/json-bourne/jb.EstateExternalDefaults(string) (time.Duration, time.Duration)
+type github.com/iksnerd/json-bourne/jb.EstateExternalFailure
+const github.com/iksnerd/json-bourne/jb.EstateExternalMax untyped int = 50
+const github.com/iksnerd/json-bourne/jb.EstateExternalNote untyped string = "These are candidates and observations, not proof. A name on a certificate may not be live. An address, prefix or origin AS that belongs to a CDN, proxy or shared host says nothing about who runs the site or the visitor behind it. An estate map shows infrastructure, not who typed the commands. No target host was contacted: the question went to the service named below."
+type github.com/iksnerd/json-bourne/jb.EstateExternalOptions
+type github.com/iksnerd/json-bourne/jb.EstateExternalResult
+func github.com/iksnerd/json-bourne/jb.EstateFactsImport(string, string, github.com/iksnerd/json-bourne/jb.EstateFactsImportOptions) (*github.com/iksnerd/json-bourne/jb.EstateFactsImportResult, error)
+const github.com/iksnerd/json-bourne/jb.EstateFactsImportNote untyped string = "Imported facts are observations by a store someone else built (source scan-cache), as the operator's export states them. They are not proof, and the viewer shows each with its source and time. Nothing was sent anywhere: the import was read from the file or stream you gave."
+type github.com/iksnerd/json-bourne/jb.EstateFactsImportOptions
+type github.com/iksnerd/json-bourne/jb.EstateFactsImportResult
+func github.com/iksnerd/json-bourne/jb.EstateIP(context.Context, string, []string, github.com/iksnerd/json-bourne/jb.EstateIPOptions) (*github.com/iksnerd/json-bourne/jb.EstateIPResult, error)
+type github.com/iksnerd/json-bourne/jb.EstateIPFailure
+type github.com/iksnerd/json-bourne/jb.EstateIPOptions
+type github.com/iksnerd/json-bourne/jb.EstateIPResult
+const github.com/iksnerd/json-bourne/jb.EstateMax untyped int = 100
+const github.com/iksnerd/json-bourne/jb.EstateMaxNames untyped int = 2000
+alias github.com/iksnerd/json-bourne/jb.EstateNotComparable = github.com/iksnerd/json-bourne/internal/app.NotComparable
+const github.com/iksnerd/json-bourne/jb.EstateNote untyped string = "An estate map shows who holds and runs infrastructure, not who typed the commands. A CDN or proxy edge address's ownership says nothing about the visitor behind it. Lookups went to a DNS resolver and an RDAP service only; no address was contacted."
+type github.com/iksnerd/json-bourne/jb.EstateOptions
+func github.com/iksnerd/json-bourne/jb.EstatePromote(string, string, github.com/iksnerd/json-bourne/jb.EstateOptions) (*github.com/iksnerd/json-bourne/jb.EstatePromoteResult, error)
+type github.com/iksnerd/json-bourne/jb.EstatePromoteResult
+func github.com/iksnerd/json-bourne/jb.EstateRefresh(context.Context, string, github.com/iksnerd/json-bourne/jb.EstateRefreshOptions) (*github.com/iksnerd/json-bourne/jb.EstateRefreshResult, error)
+type github.com/iksnerd/json-bourne/jb.EstateRefreshOptions
+type github.com/iksnerd/json-bourne/jb.EstateRefreshResult
+alias github.com/iksnerd/json-bourne/jb.EstateService = github.com/iksnerd/json-bourne/internal/casefile.SnapshotService
+alias github.com/iksnerd/json-bourne/jb.EstateSnapshotFailure = github.com/iksnerd/json-bourne/internal/casefile.SnapshotFailure
+alias github.com/iksnerd/json-bourne/jb.EventPruneResult = github.com/iksnerd/json-bourne/internal/core.EventPruneResult
+alias github.com/iksnerd/json-bourne/jb.Finding = github.com/iksnerd/json-bourne/internal/core.Finding
+func github.com/iksnerd/json-bourne/jb.Hunt(context.Context, *github.com/iksnerd/json-bourne/jb.Config, github.com/iksnerd/json-bourne/jb.HuntOptions) (*github.com/iksnerd/json-bourne/internal/app.Result, error)
+func github.com/iksnerd/json-bourne/jb.HuntCase(context.Context, string, github.com/iksnerd/json-bourne/jb.CaseHuntOptions) (*github.com/iksnerd/json-bourne/internal/app.Result, error)
+type github.com/iksnerd/json-bourne/jb.HuntOptions
+func github.com/iksnerd/json-bourne/jb.Intel(context.Context, string, []string, github.com/iksnerd/json-bourne/jb.IntelOptions) (*github.com/iksnerd/json-bourne/jb.IntelResult, error)
+type github.com/iksnerd/json-bourne/jb.IntelFailure
+const github.com/iksnerd/json-bourne/jb.IntelNote untyped string = "A reputation snapshot is context, not attribution. It describes an address as a third-party feed saw it; a CDN or proxy edge address says nothing about the visitor behind it. It never changes a finding or a severity."
+type github.com/iksnerd/json-bourne/jb.IntelOptions
+type github.com/iksnerd/json-bourne/jb.IntelResult
+type github.com/iksnerd/json-bourne/jb.IntelRow
+func github.com/iksnerd/json-bourne/jb.IsUsage(error) bool
+alias github.com/iksnerd/json-bourne/jb.KindUsage = github.com/iksnerd/json-bourne/internal/core.KindUsage
+alias github.com/iksnerd/json-bourne/jb.LabelUsage = github.com/iksnerd/json-bourne/internal/core.LabelUsage
+func github.com/iksnerd/json-bourne/jb.LoadConfig(string) (*github.com/iksnerd/json-bourne/jb.Config, error)
+const github.com/iksnerd/json-bourne/jb.MaxHistoricalWindow time.Duration = 2678400000000000
+const github.com/iksnerd/json-bourne/jb.MaxPruneRunIDs untyped int = 20
+const github.com/iksnerd/json-bourne/jb.MaxReputationIndicators untyped int = 100
+const github.com/iksnerd/json-bourne/jb.MaxReputationRows untyped int = 10000
+alias github.com/iksnerd/json-bourne/jb.Operation = github.com/iksnerd/json-bourne/internal/ops.Operation
+func github.com/iksnerd/json-bourne/jb.Operations() []github.com/iksnerd/json-bourne/internal/ops.Operation
+alias github.com/iksnerd/json-bourne/jb.PruneRun = github.com/iksnerd/json-bourne/internal/core.PruneRun
+alias github.com/iksnerd/json-bourne/jb.PruneTotals = github.com/iksnerd/json-bourne/internal/core.PruneTotals
+func github.com/iksnerd/json-bourne/jb.Reputation(context.Context, string, github.com/iksnerd/json-bourne/jb.ReputationOptions) (*github.com/iksnerd/json-bourne/jb.ReputationResult, error)
+type github.com/iksnerd/json-bourne/jb.ReputationOptions
+type github.com/iksnerd/json-bourne/jb.ReputationResult
+type github.com/iksnerd/json-bourne/jb.ReputationRow
+alias github.com/iksnerd/json-bourne/jb.Result = github.com/iksnerd/json-bourne/internal/app.Result
+alias github.com/iksnerd/json-bourne/jb.RunKind = github.com/iksnerd/json-bourne/internal/core.RunKind
+const github.com/iksnerd/json-bourne/jb.RunKindActivity github.com/iksnerd/json-bourne/internal/core.RunKind = "activity"
+const github.com/iksnerd/json-bourne/jb.RunKindActivityUntil github.com/iksnerd/json-bourne/internal/core.RunKind = "activity-until"
+const github.com/iksnerd/json-bourne/jb.RunKindHunt github.com/iksnerd/json-bourne/internal/core.RunKind = "hunt"
+const github.com/iksnerd/json-bourne/jb.RunKindHuntUntil github.com/iksnerd/json-bourne/internal/core.RunKind = "hunt-until"
+const github.com/iksnerd/json-bourne/jb.RunKindSearch github.com/iksnerd/json-bourne/internal/core.RunKind = "search"
+const github.com/iksnerd/json-bourne/jb.RunKindSearchUntil github.com/iksnerd/json-bourne/internal/core.RunKind = "search-until"
+func github.com/iksnerd/json-bourne/jb.Serve(context.Context, github.com/iksnerd/json-bourne/jb.ServeOptions) error
+type github.com/iksnerd/json-bourne/jb.ServeInfo
+type github.com/iksnerd/json-bourne/jb.ServeOptions
+const github.com/iksnerd/json-bourne/jb.SevActivity github.com/iksnerd/json-bourne/internal/core.Severity = 2
+const github.com/iksnerd/json-bourne/jb.SevCheck github.com/iksnerd/json-bourne/internal/core.Severity = 1
+const github.com/iksnerd/json-bourne/jb.SevCritical github.com/iksnerd/json-bourne/internal/core.Severity = 4
+const github.com/iksnerd/json-bourne/jb.SevHigh github.com/iksnerd/json-bourne/internal/core.Severity = 3
+const github.com/iksnerd/json-bourne/jb.SevInfo github.com/iksnerd/json-bourne/internal/core.Severity = 0
+alias github.com/iksnerd/json-bourne/jb.Severity = github.com/iksnerd/json-bourne/internal/core.Severity
+alias github.com/iksnerd/json-bourne/jb.SourceDescription = github.com/iksnerd/json-bourne/internal/config.SourceDescription
+alias github.com/iksnerd/json-bourne/jb.SourceResult = github.com/iksnerd/json-bourne/internal/app.SourceResult
+alias github.com/iksnerd/json-bourne/jb.Status = github.com/iksnerd/json-bourne/internal/app.Status
+const github.com/iksnerd/json-bourne/jb.StatusCanceled github.com/iksnerd/json-bourne/internal/app.Status = "canceled"
+const github.com/iksnerd/json-bourne/jb.StatusError github.com/iksnerd/json-bourne/internal/app.Status = "error"
+const github.com/iksnerd/json-bourne/jb.StatusNoRecords github.com/iksnerd/json-bourne/internal/app.Status = "no_records"
+const github.com/iksnerd/json-bourne/jb.StatusOK github.com/iksnerd/json-bourne/internal/app.Status = "ok"
+const github.com/iksnerd/json-bourne/jb.StatusUnavailable github.com/iksnerd/json-bourne/internal/app.Status = "unavailable"
+alias github.com/iksnerd/json-bourne/jb.StoreDescription = github.com/iksnerd/json-bourne/internal/config.StoreDescription
+alias github.com/iksnerd/json-bourne/jb.StoreUsage = github.com/iksnerd/json-bourne/internal/core.StoreUsage
+alias github.com/iksnerd/json-bourne/jb.TableCount = github.com/iksnerd/json-bourne/internal/core.TableCount
+alias github.com/iksnerd/json-bourne/jb.UsageError = github.com/iksnerd/json-bourne/internal/core.UsageError
+alias github.com/iksnerd/json-bourne/jb.Verdict = github.com/iksnerd/json-bourne/internal/app.Verdict
+const github.com/iksnerd/json-bourne/jb.VerdictActive github.com/iksnerd/json-bourne/internal/app.Verdict = "ACTIVE"
+const github.com/iksnerd/json-bourne/jb.VerdictIncomplete github.com/iksnerd/json-bourne/internal/app.Verdict = "INCOMPLETE"
+const github.com/iksnerd/json-bourne/jb.VerdictQuiet github.com/iksnerd/json-bourne/internal/app.Verdict = "QUIET"
+func github.com/iksnerd/json-bourne/jb.Watch(context.Context, string, github.com/iksnerd/json-bourne/jb.WatchOptions) (*github.com/iksnerd/json-bourne/internal/app.CycleReport, error)
+const github.com/iksnerd/json-bourne/jb.WatchHeartbeatFactor untyped int = 3
+type github.com/iksnerd/json-bourne/jb.WatchOptions
+func github.com/iksnerd/json-bourne/jb.WatchStatus(string, github.com/iksnerd/json-bourne/jb.WatchStatusOptions) (*github.com/iksnerd/json-bourne/internal/watchrun.StatusResult, error)
+type github.com/iksnerd/json-bourne/jb.WatchStatusOptions
+alias github.com/iksnerd/json-bourne/jb.WatchStatusResult = github.com/iksnerd/json-bourne/internal/watchrun.StatusResult
+const github.com/iksnerd/json-bourne/jb.WatcherRunning github.com/iksnerd/json-bourne/internal/watchrun.State = "running"
+const github.com/iksnerd/json-bourne/jb.WatcherStale github.com/iksnerd/json-bourne/internal/watchrun.State = "stale"
+alias github.com/iksnerd/json-bourne/jb.WatcherState = github.com/iksnerd/json-bourne/internal/watchrun.State
+alias github.com/iksnerd/json-bourne/jb.WatcherStatus = github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus
+const github.com/iksnerd/json-bourne/jb.WatcherStopped github.com/iksnerd/json-bourne/internal/watchrun.State = "stopped"
+const github.com/iksnerd/json-bourne/jb.WatcherUnknown github.com/iksnerd/json-bourne/internal/watchrun.State = "unknown"
+alias github.com/iksnerd/json-bourne/jb.Window = github.com/iksnerd/json-bourne/internal/core.Window
+type github.com/iksnerd/json-bourne/internal/app.ActivityDetector struct
+field github.com/iksnerd/json-bourne/internal/app.ActivityDetector#000 Name string
+field github.com/iksnerd/json-bourne/internal/app.ActivityDetector#001 Status github.com/iksnerd/json-bourne/internal/app.Status
+field github.com/iksnerd/json-bourne/internal/app.ActivityDetector#002 Err error
+field github.com/iksnerd/json-bourne/internal/app.ActivityDetector#003 Report github.com/iksnerd/json-bourne/internal/core.ActivityReport
+field github.com/iksnerd/json-bourne/internal/app.ActivityDetector#004 Findings int
+method github.com/iksnerd/json-bourne/internal/app.ActivityDetector value Counts() github.com/iksnerd/json-bourne/internal/app.DetectorCounts
+method github.com/iksnerd/json-bourne/internal/app.ActivityDetector value UnparsableShare() float64
+type github.com/iksnerd/json-bourne/internal/app.ActivityResult struct
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#000 Run string
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#001 Window github.com/iksnerd/json-bourne/internal/core.Window
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#002 Baseline github.com/iksnerd/json-bourne/internal/core.Window
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#003 Until time.Time
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#004 Sources []github.com/iksnerd/json-bourne/internal/app.SourceResult
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#005 Detectors []github.com/iksnerd/json-bourne/internal/app.ActivityDetector
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#006 Verdict github.com/iksnerd/json-bourne/internal/app.Verdict
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#007 Disabled []github.com/iksnerd/json-bourne/internal/app.Disabled
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#008 Stored bool
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#009 Reasons []string
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#010 Current int
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#011 Previous int
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#012 CommonCurrent int
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#013 CommonPrevious int
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#014 Flagged []string
+field github.com/iksnerd/json-bourne/internal/app.ActivityResult#015 Notes []string "json:\"-\""
+method github.com/iksnerd/json-bourne/internal/app.ActivityResult value Complete() bool
+method github.com/iksnerd/json-bourne/internal/app.ActivityResult value Last() (time.Time, bool)
+method github.com/iksnerd/json-bourne/internal/app.ActivityResult value MarshalJSON() ([]byte, error)
+method github.com/iksnerd/json-bourne/internal/app.ActivityResult value SourceEvents() int64
+type github.com/iksnerd/json-bourne/internal/app.Check struct
+field github.com/iksnerd/json-bourne/internal/app.Check#000 Group string "json:\"group\""
+field github.com/iksnerd/json-bourne/internal/app.Check#001 Name string "json:\"name\""
+field github.com/iksnerd/json-bourne/internal/app.Check#002 Status github.com/iksnerd/json-bourne/internal/app.CheckStatus "json:\"status\""
+field github.com/iksnerd/json-bourne/internal/app.Check#003 Detail string "json:\"detail,omitempty\""
+type github.com/iksnerd/json-bourne/internal/app.CheckStatus string
+type github.com/iksnerd/json-bourne/internal/app.CycleReport struct
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#000 Run string
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#001 Window github.com/iksnerd/json-bourne/internal/core.Window
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#002 Status github.com/iksnerd/json-bourne/internal/app.CycleStatus
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#003 Result github.com/iksnerd/json-bourne/internal/app.Result
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#004 Surfaced []github.com/iksnerd/json-bourne/internal/core.Alert
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#005 New int
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#006 Suppressed int
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#007 Failed []string
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#008 Gap string
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#009 Err error
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#010 OptionalFailed int
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#011 Repeated int
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#012 Recovered int
+field github.com/iksnerd/json-bourne/internal/app.CycleReport#013 Pruned *github.com/iksnerd/json-bourne/internal/core.PruneResult
+type github.com/iksnerd/json-bourne/internal/app.CycleStatus string
+method github.com/iksnerd/json-bourne/internal/app.CycleStatus value Healthy() bool
+type github.com/iksnerd/json-bourne/internal/app.DetectorCounts struct
+field github.com/iksnerd/json-bourne/internal/app.DetectorCounts#000 Read int
+field github.com/iksnerd/json-bourne/internal/app.DetectorCounts#001 Current int
+field github.com/iksnerd/json-bourne/internal/app.DetectorCounts#002 Previous int
+field github.com/iksnerd/json-bourne/internal/app.DetectorCounts#003 CommonCurrent int
+field github.com/iksnerd/json-bourne/internal/app.DetectorCounts#004 CommonPrevious int
+type github.com/iksnerd/json-bourne/internal/app.DetectorResult struct
+field github.com/iksnerd/json-bourne/internal/app.DetectorResult#000 Name string
+field github.com/iksnerd/json-bourne/internal/app.DetectorResult#001 Status github.com/iksnerd/json-bourne/internal/app.Status
+field github.com/iksnerd/json-bourne/internal/app.DetectorResult#002 Findings int
+field github.com/iksnerd/json-bourne/internal/app.DetectorResult#003 Err error
+type github.com/iksnerd/json-bourne/internal/app.Disabled struct
+field github.com/iksnerd/json-bourne/internal/app.Disabled#000 Kind string
+field github.com/iksnerd/json-bourne/internal/app.Disabled#001 Name string
+type github.com/iksnerd/json-bourne/internal/app.DriftDelivery struct
+field github.com/iksnerd/json-bourne/internal/app.DriftDelivery#000 New int
+field github.com/iksnerd/json-bourne/internal/app.DriftDelivery#001 Suppressed int
+field github.com/iksnerd/json-bourne/internal/app.DriftDelivery#002 OptionalFailed int
+type github.com/iksnerd/json-bourne/internal/app.DriftSide struct
+field github.com/iksnerd/json-bourne/internal/app.DriftSide#000 Ref string "json:\"ref\""
+field github.com/iksnerd/json-bourne/internal/app.DriftSide#001 Path string "json:\"path\""
+field github.com/iksnerd/json-bourne/internal/app.DriftSide#002 Snapshot string "json:\"snapshot,omitempty\""
+field github.com/iksnerd/json-bourne/internal/app.DriftSide#003 Taken string "json:\"taken,omitempty\""
+field github.com/iksnerd/json-bourne/internal/app.DriftSide#004 Observed string "json:\"latest_observed\""
+field github.com/iksnerd/json-bourne/internal/app.DriftSide#005 Nodes int "json:\"nodes\""
+field github.com/iksnerd/json-bourne/internal/app.DriftSide#006 Edges int "json:\"edges\""
+field github.com/iksnerd/json-bourne/internal/app.DriftSide#007 Absences int "json:\"absences\""
+field github.com/iksnerd/json-bourne/internal/app.DriftSide#008 Facts int "json:\"facts\""
+type github.com/iksnerd/json-bourne/internal/app.EstateChange struct
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#000 Kind string "json:\"kind\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#001 Type string "json:\"type\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#002 Subject string "json:\"subject\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#003 From string "json:\"from,omitempty\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#004 To string "json:\"to,omitempty\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#005 Relation string "json:\"relation,omitempty\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#006 Source string "json:\"source\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#007 Method string "json:\"method\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#008 FromObserved string "json:\"from_observed\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#009 ToObserved string "json:\"to_observed\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#010 Detail string "json:\"detail,omitempty\""
+field github.com/iksnerd/json-bourne/internal/app.EstateChange#011 Value string "json:\"value,omitempty\""
+type github.com/iksnerd/json-bourne/internal/app.EstateDiff struct
+field github.com/iksnerd/json-bourne/internal/app.EstateDiff#000 From github.com/iksnerd/json-bourne/internal/app.DriftSide "json:\"from\""
+field github.com/iksnerd/json-bourne/internal/app.EstateDiff#001 To github.com/iksnerd/json-bourne/internal/app.DriftSide "json:\"to\""
+field github.com/iksnerd/json-bourne/internal/app.EstateDiff#002 Compared int "json:\"questions_compared\""
+field github.com/iksnerd/json-bourne/internal/app.EstateDiff#003 Changes []github.com/iksnerd/json-bourne/internal/app.EstateChange "json:\"changes\""
+field github.com/iksnerd/json-bourne/internal/app.EstateDiff#004 NotComparable []github.com/iksnerd/json-bourne/internal/app.NotComparable "json:\"not_comparable\""
+field github.com/iksnerd/json-bourne/internal/app.EstateDiff#005 NodesNotCompared int "json:\"nodes_not_compared\""
+method github.com/iksnerd/json-bourne/internal/app.EstateDiff value Count(string, string) int
+type github.com/iksnerd/json-bourne/internal/app.Failure struct
+field github.com/iksnerd/json-bourne/internal/app.Failure#000 Name string
+field github.com/iksnerd/json-bourne/internal/app.Failure#001 Status github.com/iksnerd/json-bourne/internal/app.Status
+field github.com/iksnerd/json-bourne/internal/app.Failure#002 Err error
+type github.com/iksnerd/json-bourne/internal/app.NotComparable struct
+field github.com/iksnerd/json-bourne/internal/app.NotComparable#000 Source string "json:\"source\""
+field github.com/iksnerd/json-bourne/internal/app.NotComparable#001 Method string "json:\"method\""
+field github.com/iksnerd/json-bourne/internal/app.NotComparable#002 Side string "json:\"side\""
+field github.com/iksnerd/json-bourne/internal/app.NotComparable#003 Claims int "json:\"claims\""
+field github.com/iksnerd/json-bourne/internal/app.NotComparable#004 Observed string "json:\"observed\""
+field github.com/iksnerd/json-bourne/internal/app.NotComparable#005 Reason string "json:\"reason\""
+field github.com/iksnerd/json-bourne/internal/app.NotComparable#006 Subject string "json:\"subject,omitempty\""
+type github.com/iksnerd/json-bourne/internal/app.Result struct
+field github.com/iksnerd/json-bourne/internal/app.Result#000 Run string
+field github.com/iksnerd/json-bourne/internal/app.Result#001 Window github.com/iksnerd/json-bourne/internal/core.Window
+field github.com/iksnerd/json-bourne/internal/app.Result#002 Baseline github.com/iksnerd/json-bourne/internal/core.Window
+field github.com/iksnerd/json-bourne/internal/app.Result#003 Until time.Time
+field github.com/iksnerd/json-bourne/internal/app.Result#004 Sources []github.com/iksnerd/json-bourne/internal/app.SourceResult
+field github.com/iksnerd/json-bourne/internal/app.Result#005 Detectors []github.com/iksnerd/json-bourne/internal/app.DetectorResult
+field github.com/iksnerd/json-bourne/internal/app.Result#006 Findings []github.com/iksnerd/json-bourne/internal/core.Finding
+field github.com/iksnerd/json-bourne/internal/app.Result#007 Disabled []github.com/iksnerd/json-bourne/internal/app.Disabled
+field github.com/iksnerd/json-bourne/internal/app.Result#008 Stored bool
+field github.com/iksnerd/json-bourne/internal/app.Result#009 Search []string
+field github.com/iksnerd/json-bourne/internal/app.Result#010 Notes []string "json:\"-\""
+method github.com/iksnerd/json-bourne/internal/app.Result value Complete() bool
+method github.com/iksnerd/json-bourne/internal/app.Result value Failed() []string
+method github.com/iksnerd/json-bourne/internal/app.Result value Failures() []github.com/iksnerd/json-bourne/internal/app.Failure
+method github.com/iksnerd/json-bourne/internal/app.Result value MarshalJSON() ([]byte, error)
+method github.com/iksnerd/json-bourne/internal/app.Result value SearchAbsent() bool
+method github.com/iksnerd/json-bourne/internal/app.Result value Unparsable() int
+method github.com/iksnerd/json-bourne/internal/app.Result value UnparsableNote() string
+type github.com/iksnerd/json-bourne/internal/app.ServiceReport struct
+field github.com/iksnerd/json-bourne/internal/app.ServiceReport#000 Config string "json:\"config,omitempty\""
+field github.com/iksnerd/json-bourne/internal/app.ServiceReport#001 Kind string "json:\"kind\""
+field github.com/iksnerd/json-bourne/internal/app.ServiceReport#002 Type string "json:\"type\""
+field github.com/iksnerd/json-bourne/internal/app.ServiceReport#003 Name string "json:\"name\""
+field github.com/iksnerd/json-bourne/internal/app.ServiceReport#004 State string "json:\"state\""
+field github.com/iksnerd/json-bourne/internal/app.ServiceReport#005 EnvVars []string "json:\"env_vars,omitempty\""
+field github.com/iksnerd/json-bourne/internal/app.ServiceReport#006 Leaves string "json:\"leaves\""
+type github.com/iksnerd/json-bourne/internal/app.SourceResult struct
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#000 Name string
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#001 Status github.com/iksnerd/json-bourne/internal/app.Status
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#002 Events int64
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#003 Unparsable int
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#004 IndexAlive bool
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#005 IndexDocs int64
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#006 Kept int64
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#007 Duplicates int64
+field github.com/iksnerd/json-bourne/internal/app.SourceResult#008 Err error
+method github.com/iksnerd/json-bourne/internal/app.SourceResult value HighUnparsable() bool
+method github.com/iksnerd/json-bourne/internal/app.SourceResult value NoMatch() bool
+method github.com/iksnerd/json-bourne/internal/app.SourceResult value NoMatchText() string
+method github.com/iksnerd/json-bourne/internal/app.SourceResult value Outcome() string
+method github.com/iksnerd/json-bourne/internal/app.SourceResult value UnparsableShare() float64
+type github.com/iksnerd/json-bourne/internal/app.Status string
+type github.com/iksnerd/json-bourne/internal/app.Verdict string
+type github.com/iksnerd/json-bourne/internal/casefile.SnapshotFailure struct
+field github.com/iksnerd/json-bourne/internal/casefile.SnapshotFailure#000 Target string "yaml:\"target\""
+field github.com/iksnerd/json-bourne/internal/casefile.SnapshotFailure#001 Lookup string "yaml:\"lookup\""
+field github.com/iksnerd/json-bourne/internal/casefile.SnapshotFailure#002 Reason string "yaml:\"reason\""
+type github.com/iksnerd/json-bourne/internal/casefile.SnapshotService struct
+field github.com/iksnerd/json-bourne/internal/casefile.SnapshotService#000 Name string "yaml:\"name\""
+field github.com/iksnerd/json-bourne/internal/casefile.SnapshotService#001 State string "yaml:\"state\""
+field github.com/iksnerd/json-bourne/internal/casefile.SnapshotService#002 Targets int "yaml:\"targets\""
+field github.com/iksnerd/json-bourne/internal/casefile.SnapshotService#003 Reason string "yaml:\"reason,omitempty\""
+type github.com/iksnerd/json-bourne/internal/config.AlertDescription struct
+field github.com/iksnerd/json-bourne/internal/config.AlertDescription#000 Type string "json:\"type\""
+field github.com/iksnerd/json-bourne/internal/config.AlertDescription#001 CredentialEnv string "json:\"credential_env,omitempty\""
+field github.com/iksnerd/json-bourne/internal/config.AlertDescription#002 Options map[string]any "json:\"options,omitempty\""
+type github.com/iksnerd/json-bourne/internal/config.CaseShow struct
+field github.com/iksnerd/json-bourne/internal/config.CaseShow#000 Case string "json:\"case\""
+field github.com/iksnerd/json-bourne/internal/config.CaseShow#001 Config string "json:\"config\""
+field github.com/iksnerd/json-bourne/internal/config.CaseShow#002 Notes []string "json:\"notes,omitempty\""
+field github.com/iksnerd/json-bourne/internal/config.CaseShow#003 Description github.com/iksnerd/json-bourne/internal/config.Description (embedded)
+type github.com/iksnerd/json-bourne/internal/config.Description struct
+field github.com/iksnerd/json-bourne/internal/config.Description#000 Sources []github.com/iksnerd/json-bourne/internal/config.SourceDescription "json:\"sources\""
+field github.com/iksnerd/json-bourne/internal/config.Description#001 Detectors []github.com/iksnerd/json-bourne/internal/config.DetectorDescription "json:\"detectors\""
+field github.com/iksnerd/json-bourne/internal/config.Description#002 Store github.com/iksnerd/json-bourne/internal/config.StoreDescription "json:\"store\""
+field github.com/iksnerd/json-bourne/internal/config.Description#003 Alerts []github.com/iksnerd/json-bourne/internal/config.AlertDescription "json:\"alerts\""
+type github.com/iksnerd/json-bourne/internal/config.DetectorDescription struct
+field github.com/iksnerd/json-bourne/internal/config.DetectorDescription#000 Type string "json:\"type\""
+field github.com/iksnerd/json-bourne/internal/config.DetectorDescription#001 Name string "json:\"name\""
+field github.com/iksnerd/json-bourne/internal/config.DetectorDescription#002 Enabled bool "json:\"enabled\""
+field github.com/iksnerd/json-bourne/internal/config.DetectorDescription#003 Sources []string "json:\"sources,omitempty\""
+field github.com/iksnerd/json-bourne/internal/config.DetectorDescription#004 Reads []string "json:\"reads,omitempty\""
+field github.com/iksnerd/json-bourne/internal/config.DetectorDescription#005 Options map[string]any "json:\"options,omitempty\""
+type github.com/iksnerd/json-bourne/internal/config.Env func(string) (string, bool)
+type github.com/iksnerd/json-bourne/internal/config.SourceDescription struct
+field github.com/iksnerd/json-bourne/internal/config.SourceDescription#000 Type string "json:\"type\""
+field github.com/iksnerd/json-bourne/internal/config.SourceDescription#001 Name string "json:\"name\""
+field github.com/iksnerd/json-bourne/internal/config.SourceDescription#002 Enabled bool "json:\"enabled\""
+field github.com/iksnerd/json-bourne/internal/config.SourceDescription#003 URL string "json:\"url,omitempty\""
+field github.com/iksnerd/json-bourne/internal/config.SourceDescription#004 Index string "json:\"index,omitempty\""
+field github.com/iksnerd/json-bourne/internal/config.SourceDescription#005 CredentialEnv string "json:\"credential_env,omitempty\""
+field github.com/iksnerd/json-bourne/internal/config.SourceDescription#006 Options map[string]any "json:\"options,omitempty\""
+type github.com/iksnerd/json-bourne/internal/config.StoreDescription struct
+field github.com/iksnerd/json-bourne/internal/config.StoreDescription#000 Path string "json:\"path,omitempty\""
+field github.com/iksnerd/json-bourne/internal/config.StoreDescription#001 Default bool "json:\"default\""
+type github.com/iksnerd/json-bourne/internal/core.ActivityReport struct
+field github.com/iksnerd/json-bourne/internal/core.ActivityReport#000 Subjects []github.com/iksnerd/json-bourne/internal/core.ActivitySubject
+field github.com/iksnerd/json-bourne/internal/core.ActivityReport#001 Seen int
+field github.com/iksnerd/json-bourne/internal/core.ActivityReport#002 Unparsable int
+field github.com/iksnerd/json-bourne/internal/core.ActivityReport#003 Truncated bool
+field github.com/iksnerd/json-bourne/internal/core.ActivityReport#004 Notes []string
+type github.com/iksnerd/json-bourne/internal/core.ActivitySubject struct
+field github.com/iksnerd/json-bourne/internal/core.ActivitySubject#000 Subject string
+field github.com/iksnerd/json-bourne/internal/core.ActivitySubject#001 Kind string
+field github.com/iksnerd/json-bourne/internal/core.ActivitySubject#002 Current int
+field github.com/iksnerd/json-bourne/internal/core.ActivitySubject#003 Previous int
+field github.com/iksnerd/json-bourne/internal/core.ActivitySubject#004 Last time.Time
+field github.com/iksnerd/json-bourne/internal/core.ActivitySubject#005 LastEarlier time.Time
+field github.com/iksnerd/json-bourne/internal/core.ActivitySubject#006 Active bool
+field github.com/iksnerd/json-bourne/internal/core.ActivitySubject#007 Noise int
+field github.com/iksnerd/json-bourne/internal/core.ActivitySubject#008 Ignored int
+field github.com/iksnerd/json-bourne/internal/core.ActivitySubject#009 Note string
+type github.com/iksnerd/json-bourne/internal/core.Alert struct
+field github.com/iksnerd/json-bourne/internal/core.Alert#000 Kind string "json:\"kind\""
+field github.com/iksnerd/json-bourne/internal/core.Alert#001 Tag string "json:\"tag\""
+field github.com/iksnerd/json-bourne/internal/core.Alert#002 Severity string "json:\"severity\""
+field github.com/iksnerd/json-bourne/internal/core.Alert#003 Detector string "json:\"detector,omitempty\""
+field github.com/iksnerd/json-bourne/internal/core.Alert#004 Text string "json:\"text\""
+field github.com/iksnerd/json-bourne/internal/core.Alert#005 Run string "json:\"run,omitempty\""
+field github.com/iksnerd/json-bourne/internal/core.Alert#006 At string "json:\"at\""
+field github.com/iksnerd/json-bourne/internal/core.Alert#007 Watcher string "json:\"watcher,omitempty\""
+type github.com/iksnerd/json-bourne/internal/core.CompactResult struct
+field github.com/iksnerd/json-bourne/internal/core.CompactResult#000 Applied bool "json:\"applied\""
+field github.com/iksnerd/json-bourne/internal/core.CompactResult#001 Target string "json:\"target\""
+field github.com/iksnerd/json-bourne/internal/core.CompactResult#002 SourceBytes int64 "json:\"source_file_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.CompactResult#003 UsedBytes int64 "json:\"engine_used_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.CompactResult#004 FreeBytes int64 "json:\"engine_free_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.CompactResult#005 EstimateBytes int64 "json:\"estimated_copy_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.CompactResult#006 TargetBytes int64 "json:\"target_file_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.CompactResult#007 SchemaVersion int "json:\"schema_version\""
+field github.com/iksnerd/json-bourne/internal/core.CompactResult#008 Source []github.com/iksnerd/json-bourne/internal/core.TableCount "json:\"source_rows\""
+field github.com/iksnerd/json-bourne/internal/core.CompactResult#009 Copy []github.com/iksnerd/json-bourne/internal/core.TableCount "json:\"copy_rows\""
+type github.com/iksnerd/json-bourne/internal/core.EventPruneResult struct
+field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#000 Applied bool "json:\"applied\""
+field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#001 ByRunID bool "json:\"by_run_id\""
+field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#002 DropFindings bool "json:\"drop_findings\""
+field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#003 Before time.Time "json:\"older_than_cutoff\""
+field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#004 KeepLatest int "json:\"keep_latest\""
+field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#005 Runs []github.com/iksnerd/json-bourne/internal/core.PruneRun "json:\"runs\""
+field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#006 Plan github.com/iksnerd/json-bourne/internal/core.PruneTotals "json:\"plan\""
+field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#007 Deleted github.com/iksnerd/json-bourne/internal/core.PruneTotals "json:\"deleted\""
+field github.com/iksnerd/json-bourne/internal/core.EventPruneResult#008 Marked int64 "json:\"run_records_marked_pruned\""
+type github.com/iksnerd/json-bourne/internal/core.Finding struct
+field github.com/iksnerd/json-bourne/internal/core.Finding#000 Detector string
+field github.com/iksnerd/json-bourne/internal/core.Finding#001 Tag string
+field github.com/iksnerd/json-bourne/internal/core.Finding#002 Severity github.com/iksnerd/json-bourne/internal/core.Severity
+field github.com/iksnerd/json-bourne/internal/core.Finding#003 Window github.com/iksnerd/json-bourne/internal/core.Window
+field github.com/iksnerd/json-bourne/internal/core.Finding#004 Baseline github.com/iksnerd/json-bourne/internal/core.Window
+field github.com/iksnerd/json-bourne/internal/core.Finding#005 Summary string
+field github.com/iksnerd/json-bourne/internal/core.Finding#006 Detail map[string]any
+type github.com/iksnerd/json-bourne/internal/core.KindUsage struct
+field github.com/iksnerd/json-bourne/internal/core.KindUsage#000 Kind github.com/iksnerd/json-bourne/internal/core.RunKind "json:\"kind\""
+field github.com/iksnerd/json-bourne/internal/core.KindUsage#001 Watcher string "json:\"watcher,omitempty\""
+field github.com/iksnerd/json-bourne/internal/core.KindUsage#002 Runs int64 "json:\"runs\""
+field github.com/iksnerd/json-bourne/internal/core.KindUsage#003 PrunedRuns int64 "json:\"runs_events_pruned\""
+field github.com/iksnerd/json-bourne/internal/core.KindUsage#004 Events int64 "json:\"events\""
+field github.com/iksnerd/json-bourne/internal/core.KindUsage#005 RawBytes int64 "json:\"raw_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.KindUsage#006 FieldsBytes int64 "json:\"fields_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.KindUsage#007 Oldest time.Time "json:\"oldest,omitempty\""
+field github.com/iksnerd/json-bourne/internal/core.KindUsage#008 Newest time.Time "json:\"newest,omitempty\""
+type github.com/iksnerd/json-bourne/internal/core.LabelUsage struct
+field github.com/iksnerd/json-bourne/internal/core.LabelUsage#000 Label string "json:\"label\""
+field github.com/iksnerd/json-bourne/internal/core.LabelUsage#001 Runs int64 "json:\"runs\""
+field github.com/iksnerd/json-bourne/internal/core.LabelUsage#002 Events int64 "json:\"events\""
+field github.com/iksnerd/json-bourne/internal/core.LabelUsage#003 RawBytes int64 "json:\"raw_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.LabelUsage#004 FieldsBytes int64 "json:\"fields_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.LabelUsage#005 Oldest time.Time "json:\"oldest,omitempty\""
+field github.com/iksnerd/json-bourne/internal/core.LabelUsage#006 Newest time.Time "json:\"newest,omitempty\""
+type github.com/iksnerd/json-bourne/internal/core.PruneResult struct
+field github.com/iksnerd/json-bourne/internal/core.PruneResult#000 Runs int64
+field github.com/iksnerd/json-bourne/internal/core.PruneResult#001 Events int64
+field github.com/iksnerd/json-bourne/internal/core.PruneResult#002 Findings int64
+type github.com/iksnerd/json-bourne/internal/core.PruneRun struct
+field github.com/iksnerd/json-bourne/internal/core.PruneRun#000 ID string "json:\"id\""
+field github.com/iksnerd/json-bourne/internal/core.PruneRun#001 Kind github.com/iksnerd/json-bourne/internal/core.RunKind "json:\"kind\""
+field github.com/iksnerd/json-bourne/internal/core.PruneRun#002 Created time.Time "json:\"created_at\""
+field github.com/iksnerd/json-bourne/internal/core.PruneRun#003 Action string "json:\"action\""
+field github.com/iksnerd/json-bourne/internal/core.PruneRun#004 Events int64 "json:\"events\""
+field github.com/iksnerd/json-bourne/internal/core.PruneRun#005 RawBytes int64 "json:\"raw_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.PruneRun#006 FieldsBytes int64 "json:\"fields_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.PruneRun#007 Findings int64 "json:\"findings\""
+type github.com/iksnerd/json-bourne/internal/core.PruneTotals struct
+field github.com/iksnerd/json-bourne/internal/core.PruneTotals#000 Runs int64 "json:\"runs\""
+field github.com/iksnerd/json-bourne/internal/core.PruneTotals#001 RunRecords int64 "json:\"run_records\""
+field github.com/iksnerd/json-bourne/internal/core.PruneTotals#002 Events int64 "json:\"events\""
+field github.com/iksnerd/json-bourne/internal/core.PruneTotals#003 RawBytes int64 "json:\"raw_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.PruneTotals#004 FieldsBytes int64 "json:\"fields_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.PruneTotals#005 Findings int64 "json:\"findings\""
+type github.com/iksnerd/json-bourne/internal/core.RunKind string
+type github.com/iksnerd/json-bourne/internal/core.Severity int
+type github.com/iksnerd/json-bourne/internal/core.StoreUsage struct
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#000 Path string "json:\"path\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#001 SchemaVersion int "json:\"schema_version\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#002 Runs int64 "json:\"run_records\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#003 Events int64 "json:\"events\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#004 Findings int64 "json:\"findings\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#005 Reputation int64 "json:\"reputation\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#006 FileBytes int64 "json:\"file_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#007 UsedBytes int64 "json:\"engine_used_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#008 FreeBytes int64 "json:\"engine_free_bytes\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#009 Kinds []github.com/iksnerd/json-bourne/internal/core.KindUsage "json:\"kinds\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#010 Labels []github.com/iksnerd/json-bourne/internal/core.LabelUsage "json:\"labels\""
+type github.com/iksnerd/json-bourne/internal/core.TableCount struct
+field github.com/iksnerd/json-bourne/internal/core.TableCount#000 Table string "json:\"table\""
+field github.com/iksnerd/json-bourne/internal/core.TableCount#001 Rows int64 "json:\"rows\""
+type github.com/iksnerd/json-bourne/internal/core.UsageError struct
+field github.com/iksnerd/json-bourne/internal/core.UsageError#000 Msg string
+field github.com/iksnerd/json-bourne/internal/core.UsageError#001 Cause error
+method github.com/iksnerd/json-bourne/internal/core.UsageError pointer Error() string
+method github.com/iksnerd/json-bourne/internal/core.UsageError pointer Unwrap() error
+type github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary struct
+field github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary#000 Run string
+field github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary#001 Verdict string
+field github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary#002 Ended time.Time
+field github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary#003 Window github.com/iksnerd/json-bourne/internal/core.Window
+field github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary#004 New int
+field github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary#005 Suppressed int
+field github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary#006 Repeated int
+field github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary#007 Recovered int
+field github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary#008 Failed []string
+type github.com/iksnerd/json-bourne/internal/core.Window struct
+field github.com/iksnerd/json-bourne/internal/core.Window#000 From time.Time
+field github.com/iksnerd/json-bourne/internal/core.Window#001 To time.Time
+method github.com/iksnerd/json-bourne/internal/core.Window value Duration() time.Duration
+method github.com/iksnerd/json-bourne/internal/core.Window value Previous() github.com/iksnerd/json-bourne/internal/core.Window
+type github.com/iksnerd/json-bourne/internal/ops.CLI struct
+field github.com/iksnerd/json-bourne/internal/ops.CLI#000 Command []string "json:\"command\""
+field github.com/iksnerd/json-bourne/internal/ops.CLI#001 Positional []string "json:\"positional,omitempty\""
+field github.com/iksnerd/json-bourne/internal/ops.CLI#002 Only []string "json:\"only,omitempty\""
+type github.com/iksnerd/json-bourne/internal/ops.Items struct
+field github.com/iksnerd/json-bourne/internal/ops.Items#000 Type string "json:\"type\""
+type github.com/iksnerd/json-bourne/internal/ops.Operation struct
+field github.com/iksnerd/json-bourne/internal/ops.Operation#000 Name string "json:\"name\""
+field github.com/iksnerd/json-bourne/internal/ops.Operation#001 Title string "json:\"title,omitempty\""
+field github.com/iksnerd/json-bourne/internal/ops.Operation#002 Description string "json:\"description\""
+field github.com/iksnerd/json-bourne/internal/ops.Operation#003 InputSchema github.com/iksnerd/json-bourne/internal/ops.Schema "json:\"inputSchema\""
+field github.com/iksnerd/json-bourne/internal/ops.Operation#004 ReadOnly bool "json:\"readOnly\""
+field github.com/iksnerd/json-bourne/internal/ops.Operation#005 CLI *github.com/iksnerd/json-bourne/internal/ops.CLI "json:\"cli,omitempty\""
+field github.com/iksnerd/json-bourne/internal/ops.Operation#006 ToolFixed map[string]any "json:\"toolFixed,omitempty\""
+type github.com/iksnerd/json-bourne/internal/ops.Property struct
+field github.com/iksnerd/json-bourne/internal/ops.Property#000 Type string "json:\"type\""
+field github.com/iksnerd/json-bourne/internal/ops.Property#001 Description string "json:\"description,omitempty\""
+field github.com/iksnerd/json-bourne/internal/ops.Property#002 Default any "json:\"default,omitempty\""
+field github.com/iksnerd/json-bourne/internal/ops.Property#003 Enum []string "json:\"enum,omitempty\""
+field github.com/iksnerd/json-bourne/internal/ops.Property#004 Minimum *int64 "json:\"minimum,omitempty\""
+field github.com/iksnerd/json-bourne/internal/ops.Property#005 Maximum *int64 "json:\"maximum,omitempty\""
+field github.com/iksnerd/json-bourne/internal/ops.Property#006 Items *github.com/iksnerd/json-bourne/internal/ops.Items "json:\"items,omitempty\""
+type github.com/iksnerd/json-bourne/internal/ops.Schema struct
+field github.com/iksnerd/json-bourne/internal/ops.Schema#000 Type string "json:\"type\""
+field github.com/iksnerd/json-bourne/internal/ops.Schema#001 AdditionalProperties bool "json:\"additionalProperties\""
+field github.com/iksnerd/json-bourne/internal/ops.Schema#002 Properties map[string]github.com/iksnerd/json-bourne/internal/ops.Property "json:\"properties\""
+field github.com/iksnerd/json-bourne/internal/ops.Schema#003 Required []string "json:\"required\""
+type github.com/iksnerd/json-bourne/internal/watchrun.State string
+type github.com/iksnerd/json-bourne/internal/watchrun.StatusResult struct
+field github.com/iksnerd/json-bourne/internal/watchrun.StatusResult#000 Checked time.Time
+field github.com/iksnerd/json-bourne/internal/watchrun.StatusResult#001 Watchers []github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus
+method github.com/iksnerd/json-bourne/internal/watchrun.StatusResult value MarshalJSON() ([]byte, error)
+type github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus struct
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#000 Name string
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#001 State github.com/iksnerd/json-bourne/internal/watchrun.State
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#002 Reason string
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#003 LockHeld bool
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#004 PID int
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#005 Started time.Time
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#006 Config string
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#007 Every time.Duration
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#008 Window time.Duration
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#009 TTL time.Duration
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#010 Keep time.Duration
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#011 Repeat time.Duration
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#012 Last *github.com/iksnerd/json-bourne/internal/core.WatchCycleSummary
+field github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus#013 NextDue time.Time
+method github.com/iksnerd/json-bourne/internal/watchrun.WatcherStatus value MarshalJSON() ([]byte, error)
+type github.com/iksnerd/json-bourne/jb.ActivityOptions struct
+field github.com/iksnerd/json-bourne/jb.ActivityOptions#000 Config string
+field github.com/iksnerd/json-bourne/jb.ActivityOptions#001 Window time.Duration
+field github.com/iksnerd/json-bourne/jb.ActivityOptions#002 Until time.Time
+field github.com/iksnerd/json-bourne/jb.ActivityOptions#003 Env github.com/iksnerd/json-bourne/internal/config.Env
+field github.com/iksnerd/json-bourne/jb.ActivityOptions#004 Now func() time.Time
+field github.com/iksnerd/json-bourne/jb.ActivityOptions#005 NoStore bool
+field github.com/iksnerd/json-bourne/jb.ActivityOptions#006 Notice func(string)
+type github.com/iksnerd/json-bourne/jb.ActorMatch struct
+field github.com/iksnerd/json-bourne/jb.ActorMatch#000 Actor string "json:\"actor\""
+field github.com/iksnerd/json-bourne/jb.ActorMatch#001 Label string "json:\"label,omitempty\""
+field github.com/iksnerd/json-bourne/jb.ActorMatch#002 UserAgent string "json:\"user_agent\""
+field github.com/iksnerd/json-bourne/jb.ActorMatch#003 LastGenuine *time.Time "json:\"last_genuine,omitempty\""
+field github.com/iksnerd/json-bourne/jb.ActorMatch#004 Examined int "json:\"examined\""
+field github.com/iksnerd/json-bourne/jb.ActorMatch#005 Noise int "json:\"noise\""
+field github.com/iksnerd/json-bourne/jb.ActorMatch#006 Ignored int "json:\"ignored\""
+field github.com/iksnerd/json-bourne/jb.ActorMatch#007 Unparsable int "json:\"unparsable\""
+field github.com/iksnerd/json-bourne/jb.ActorMatch#008 Capped bool "json:\"capped,omitempty\""
+type github.com/iksnerd/json-bourne/jb.ActorStatusOptions struct
+field github.com/iksnerd/json-bourne/jb.ActorStatusOptions#000 Config string "jb:\"config\" desc:\"one of the case's configs (default: the config whose `commands:` lists this command, else the case's only config)\""
+type github.com/iksnerd/json-bourne/jb.ActorStatusResult struct
+field github.com/iksnerd/json-bourne/jb.ActorStatusResult#000 Store string "json:\"store\""
+field github.com/iksnerd/json-bourne/jb.ActorStatusResult#001 Events int64 "json:\"store_events\""
+field github.com/iksnerd/json-bourne/jb.ActorStatusResult#002 From *time.Time "json:\"store_from,omitempty\""
+field github.com/iksnerd/json-bourne/jb.ActorStatusResult#003 To *time.Time "json:\"store_to,omitempty\""
+field github.com/iksnerd/json-bourne/jb.ActorStatusResult#004 Actors []github.com/iksnerd/json-bourne/jb.ActorMatch "json:\"actors\""
+field github.com/iksnerd/json-bourne/jb.ActorStatusResult#005 Notes []string "json:\"-\""
+method github.com/iksnerd/json-bourne/jb.ActorStatusResult pointer Complete() bool
+type github.com/iksnerd/json-bourne/jb.CaseCheckResult struct
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#000 OK bool "json:\"ok\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#001 Dir string "json:\"dir\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#002 ID string "json:\"id,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#003 Title string "json:\"title,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#004 Status string "json:\"status,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#005 Opened string "json:\"opened,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#006 Error string "json:\"error,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#007 Evidence string "json:\"evidence,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#008 Guard *github.com/iksnerd/json-bourne/jb.CaseGuard "json:\"guard,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#009 Actors *github.com/iksnerd/json-bourne/jb.CaseFilesCheck "json:\"actors,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#010 Estate *github.com/iksnerd/json-bourne/jb.CaseFilesCheck "json:\"estate,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseCheckResult#011 Configs []github.com/iksnerd/json-bourne/jb.CaseConfigCheck "json:\"configs\""
+method github.com/iksnerd/json-bourne/jb.CaseCheckResult pointer Complete() bool
+method github.com/iksnerd/json-bourne/jb.CaseCheckResult pointer FirstProblem() string
+type github.com/iksnerd/json-bourne/jb.CaseConfigCheck struct
+field github.com/iksnerd/json-bourne/jb.CaseConfigCheck#000 Path string "json:\"path\""
+field github.com/iksnerd/json-bourne/jb.CaseConfigCheck#001 OK bool "json:\"ok\""
+field github.com/iksnerd/json-bourne/jb.CaseConfigCheck#002 Error string "json:\"error,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseConfigCheck#003 Notes []string "json:\"notes,omitempty\""
+type github.com/iksnerd/json-bourne/jb.CaseFilesCheck struct
+field github.com/iksnerd/json-bourne/jb.CaseFilesCheck#000 OK bool "json:\"ok\""
+field github.com/iksnerd/json-bourne/jb.CaseFilesCheck#001 IDs []string "json:\"ids\""
+field github.com/iksnerd/json-bourne/jb.CaseFilesCheck#002 Error string "json:\"error,omitempty\""
+type github.com/iksnerd/json-bourne/jb.CaseGuard struct
+field github.com/iksnerd/json-bourne/jb.CaseGuard#000 OK bool "json:\"ok\""
+field github.com/iksnerd/json-bourne/jb.CaseGuard#001 Result string "json:\"result,omitempty\""
+field github.com/iksnerd/json-bourne/jb.CaseGuard#002 Error string "json:\"error,omitempty\""
+type github.com/iksnerd/json-bourne/jb.CaseHuntOptions struct
+field github.com/iksnerd/json-bourne/jb.CaseHuntOptions#000 HuntOptions github.com/iksnerd/json-bourne/jb.HuntOptions (embedded)
+field github.com/iksnerd/json-bourne/jb.CaseHuntOptions#001 Config string
+type github.com/iksnerd/json-bourne/jb.CaseShowOptions struct
+field github.com/iksnerd/json-bourne/jb.CaseShowOptions#000 Config string "jb:\"config\" desc:\"one of the case's configs, or a file inside the case (default: the only one)\""
+type github.com/iksnerd/json-bourne/jb.Config struct
+type github.com/iksnerd/json-bourne/jb.DBCompactOptions struct
+field github.com/iksnerd/json-bourne/jb.DBCompactOptions#000 Config string "jb:\"config\" desc:\"YAML config naming the store (with --case: one of the case's configs)\""
+field github.com/iksnerd/json-bourne/jb.DBCompactOptions#001 To string "jb:\"to\" desc:\"the new file to write the compacted copy to (must not exist)\""
+field github.com/iksnerd/json-bourne/jb.DBCompactOptions#002 AllowOutsideEvidence bool "jb:\"allow_outside_evidence\" desc:\"allow --to outside the evidence directory (its directory must still pass the git-ignore guard)\""
+field github.com/iksnerd/json-bourne/jb.DBCompactOptions#003 Apply bool "jb:\"apply\" desc:\"write the copy (default: dry run)\""
+type github.com/iksnerd/json-bourne/jb.DBCompactResult struct
+field github.com/iksnerd/json-bourne/jb.DBCompactResult#000 CompactResult github.com/iksnerd/json-bourne/internal/core.CompactResult (embedded)
+field github.com/iksnerd/json-bourne/jb.DBCompactResult#001 Store string "json:\"-\""
+field github.com/iksnerd/json-bourne/jb.DBCompactResult#002 Notes []string "json:\"-\""
+type github.com/iksnerd/json-bourne/jb.DBOptions struct
+field github.com/iksnerd/json-bourne/jb.DBOptions#000 Config string "jb:\"config\" desc:\"YAML config naming the store (with --case: one of the case's configs)\""
+type github.com/iksnerd/json-bourne/jb.DBPruneOptions struct
+field github.com/iksnerd/json-bourne/jb.DBPruneOptions#000 Config string
+field github.com/iksnerd/json-bourne/jb.DBPruneOptions#001 Kinds []github.com/iksnerd/json-bourne/internal/core.RunKind
+field github.com/iksnerd/json-bourne/jb.DBPruneOptions#002 OlderThan time.Duration
+field github.com/iksnerd/json-bourne/jb.DBPruneOptions#003 KeepLatest *int
+field github.com/iksnerd/json-bourne/jb.DBPruneOptions#004 RunIDs []string
+field github.com/iksnerd/json-bourne/jb.DBPruneOptions#005 DropFindings bool
+field github.com/iksnerd/json-bourne/jb.DBPruneOptions#006 Apply bool
+field github.com/iksnerd/json-bourne/jb.DBPruneOptions#007 Now func() time.Time
+type github.com/iksnerd/json-bourne/jb.DBPruneResult struct
+field github.com/iksnerd/json-bourne/jb.DBPruneResult#000 Store string "json:\"store\""
+field github.com/iksnerd/json-bourne/jb.DBPruneResult#001 EventPruneResult github.com/iksnerd/json-bourne/internal/core.EventPruneResult (embedded)
+field github.com/iksnerd/json-bourne/jb.DBPruneResult#002 Notes []string "json:\"-\""
+type github.com/iksnerd/json-bourne/jb.DBRenameSourceOptions struct
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceOptions#000 Config string "jb:\"config\" desc:\"YAML config naming the store (with --case: one of the case's configs)\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceOptions#001 Old string "jb:\"old\" required:\"true\" desc:\"the stored source label to relabel: a valid source name, or a default kibana:<index> label\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceOptions#002 New string "jb:\"new\" required:\"true\" desc:\"the new source label: a valid source name that differs from old\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceOptions#003 Merge bool "jb:\"merge\" desc:\"when NEW already holds some of OLD's documents, drop OLD's copies and relabel the rest\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceOptions#004 Apply bool "jb:\"apply\" desc:\"do the rename (default: dry run)\""
+type github.com/iksnerd/json-bourne/jb.DBRenameSourceResult struct
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#000 Store string "json:\"store\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#001 Old string "json:\"old\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#002 New string "json:\"new\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#003 Applied bool "json:\"applied\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#004 Events int64 "json:\"events\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#005 Runs int64 "json:\"runs\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#006 NewEvents int64 "json:\"new_events\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#007 Overlap int64 "json:\"overlap\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#008 Dropped int64 "json:\"dropped\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#009 Relabelled int64 "json:\"relabelled\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#010 NoRaw int64 "json:\"no_raw\""
+field github.com/iksnerd/json-bourne/jb.DBRenameSourceResult#011 Notes []string "json:\"-\""
+type github.com/iksnerd/json-bourne/jb.DBStatusResult struct
+field github.com/iksnerd/json-bourne/jb.DBStatusResult#000 Path string "json:\"path\""
+field github.com/iksnerd/json-bourne/jb.DBStatusResult#001 Schema int "json:\"schema_version\""
+field github.com/iksnerd/json-bourne/jb.DBStatusResult#002 BuildSchema int "json:\"build_schema_version\""
+field github.com/iksnerd/json-bourne/jb.DBStatusResult#003 Runs int64 "json:\"runs\""
+field github.com/iksnerd/json-bourne/jb.DBStatusResult#004 Events int64 "json:\"events\""
+field github.com/iksnerd/json-bourne/jb.DBStatusResult#005 Findings int64 "json:\"findings\""
+field github.com/iksnerd/json-bourne/jb.DBStatusResult#006 Reputation int64 "json:\"reputation\""
+field github.com/iksnerd/json-bourne/jb.DBStatusResult#007 FirstSeen *time.Time "json:\"first_seen\""
+field github.com/iksnerd/json-bourne/jb.DBStatusResult#008 LastSeen *time.Time "json:\"last_seen\""
+field github.com/iksnerd/json-bourne/jb.DBStatusResult#009 Notes []string "json:\"-\""
+type github.com/iksnerd/json-bourne/jb.DBUsageOverlap struct
+field github.com/iksnerd/json-bourne/jb.DBUsageOverlap#000 Pairs int "json:\"label_pairs\""
+field github.com/iksnerd/json-bourne/jb.DBUsageOverlap#001 Documents int64 "json:\"documents\""
+field github.com/iksnerd/json-bourne/jb.DBUsageOverlap#002 AtLeast bool "json:\"at_least\""
+field github.com/iksnerd/json-bourne/jb.DBUsageOverlap#003 Error string "json:\"error,omitempty\""
+type github.com/iksnerd/json-bourne/jb.DBUsageResult struct
+field github.com/iksnerd/json-bourne/jb.DBUsageResult#000 StoreUsage github.com/iksnerd/json-bourne/internal/core.StoreUsage (embedded)
+field github.com/iksnerd/json-bourne/jb.DBUsageResult#001 Overlap github.com/iksnerd/json-bourne/jb.DBUsageOverlap "json:\"documents_under_two_labels\""
+field github.com/iksnerd/json-bourne/jb.DBUsageResult#002 Notes []string "json:\"-\""
+method github.com/iksnerd/json-bourne/jb.DBUsageResult pointer Complete() bool
+type github.com/iksnerd/json-bourne/jb.DashboardInfo struct
+field github.com/iksnerd/json-bourne/jb.DashboardInfo#000 Store string
+field github.com/iksnerd/json-bourne/jb.DashboardInfo#001 Evidence string
+field github.com/iksnerd/json-bourne/jb.DashboardInfo#002 Notes []string
+type github.com/iksnerd/json-bourne/jb.DashboardOptions struct
+field github.com/iksnerd/json-bourne/jb.DashboardOptions#000 Case string
+field github.com/iksnerd/json-bourne/jb.DashboardOptions#001 Config string
+field github.com/iksnerd/json-bourne/jb.DashboardOptions#002 PathField string
+field github.com/iksnerd/json-bourne/jb.DashboardOptions#003 StatusField string
+field github.com/iksnerd/json-bourne/jb.DashboardOptions#004 KeyField string
+field github.com/iksnerd/json-bourne/jb.DashboardOptions#005 AllowRemote bool
+field github.com/iksnerd/json-bourne/jb.DashboardOptions#006 AllowedHosts []string
+field github.com/iksnerd/json-bourne/jb.DashboardOptions#007 Now func() time.Time
+type github.com/iksnerd/json-bourne/jb.DoctorOptions struct
+field github.com/iksnerd/json-bourne/jb.DoctorOptions#000 Case string
+field github.com/iksnerd/json-bourne/jb.DoctorOptions#001 Config string
+field github.com/iksnerd/json-bourne/jb.DoctorOptions#002 Online bool
+field github.com/iksnerd/json-bourne/jb.DoctorOptions#003 Env github.com/iksnerd/json-bourne/internal/config.Env
+field github.com/iksnerd/json-bourne/jb.DoctorOptions#004 Now func() time.Time
+field github.com/iksnerd/json-bourne/jb.DoctorOptions#005 Version string
+field github.com/iksnerd/json-bourne/jb.DoctorOptions#006 Commit string
+field github.com/iksnerd/json-bourne/jb.DoctorOptions#007 Date string
+type github.com/iksnerd/json-bourne/jb.DoctorResult struct
+field github.com/iksnerd/json-bourne/jb.DoctorResult#000 Checks []github.com/iksnerd/json-bourne/internal/app.Check
+field github.com/iksnerd/json-bourne/jb.DoctorResult#001 Services []github.com/iksnerd/json-bourne/internal/app.ServiceReport
+method github.com/iksnerd/json-bourne/jb.DoctorResult value Complete() bool
+method github.com/iksnerd/json-bourne/jb.DoctorResult value Failed() int
+method github.com/iksnerd/json-bourne/jb.DoctorResult value MarshalJSON() ([]byte, error)
+method github.com/iksnerd/json-bourne/jb.DoctorResult value OK() bool
+method github.com/iksnerd/json-bourne/jb.DoctorResult value Skipped() int
+type github.com/iksnerd/json-bourne/jb.EstateAdded struct
+field github.com/iksnerd/json-bourne/jb.EstateAdded#000 Nodes int "json:\"nodes\""
+field github.com/iksnerd/json-bourne/jb.EstateAdded#001 Edges int "json:\"edges\""
+field github.com/iksnerd/json-bourne/jb.EstateAdded#002 Absences int "json:\"absences\""
+type github.com/iksnerd/json-bourne/jb.EstateChangeCounts struct
+field github.com/iksnerd/json-bourne/jb.EstateChangeCounts#000 Added int "json:\"added\""
+field github.com/iksnerd/json-bourne/jb.EstateChangeCounts#001 Removed int "json:\"removed\""
+field github.com/iksnerd/json-bourne/jb.EstateChangeCounts#002 Changed int "json:\"changed\""
+type github.com/iksnerd/json-bourne/jb.EstateDiffOptions struct
+field github.com/iksnerd/json-bourne/jb.EstateDiffOptions#000 EstateOptions github.com/iksnerd/json-bourne/jb.EstateOptions (embedded)
+field github.com/iksnerd/json-bourne/jb.EstateDiffOptions#001 From string
+field github.com/iksnerd/json-bourne/jb.EstateDiffOptions#002 To string
+field github.com/iksnerd/json-bourne/jb.EstateDiffOptions#003 Alert bool
+field github.com/iksnerd/json-bourne/jb.EstateDiffOptions#004 Config string
+field github.com/iksnerd/json-bourne/jb.EstateDiffOptions#005 TTL time.Duration
+field github.com/iksnerd/json-bourne/jb.EstateDiffOptions#006 Out io.Writer
+type github.com/iksnerd/json-bourne/jb.EstateDiffResult struct
+field github.com/iksnerd/json-bourne/jb.EstateDiffResult#000 Note string "json:\"note\""
+field github.com/iksnerd/json-bourne/jb.EstateDiffResult#001 EstateComparison github.com/iksnerd/json-bourne/internal/app.EstateDiff (embedded)
+field github.com/iksnerd/json-bourne/jb.EstateDiffResult#002 Counts map[string]github.com/iksnerd/json-bourne/jb.EstateChangeCounts "json:\"counts\""
+field github.com/iksnerd/json-bourne/jb.EstateDiffResult#003 Findings []github.com/iksnerd/json-bourne/jb.EstateDriftFinding "json:\"findings\""
+field github.com/iksnerd/json-bourne/jb.EstateDiffResult#004 Alerts *github.com/iksnerd/json-bourne/internal/app.DriftDelivery "json:\"alerts,omitempty\""
+method github.com/iksnerd/json-bourne/jb.EstateDiffResult value Count(string, string) int
+type github.com/iksnerd/json-bourne/jb.EstateDriftFinding struct
+field github.com/iksnerd/json-bourne/jb.EstateDriftFinding#000 Detector string "json:\"detector\""
+field github.com/iksnerd/json-bourne/jb.EstateDriftFinding#001 Tag string "json:\"tag\""
+field github.com/iksnerd/json-bourne/jb.EstateDriftFinding#002 Severity string "json:\"severity\""
+field github.com/iksnerd/json-bourne/jb.EstateDriftFinding#003 Summary string "json:\"summary\""
+field github.com/iksnerd/json-bourne/jb.EstateDriftFinding#004 Detail map[string]any "json:\"detail\""
+type github.com/iksnerd/json-bourne/jb.EstateExternalFailure struct
+field github.com/iksnerd/json-bourne/jb.EstateExternalFailure#000 Target string "json:\"target\""
+field github.com/iksnerd/json-bourne/jb.EstateExternalFailure#001 Lookup string "json:\"lookup\""
+field github.com/iksnerd/json-bourne/jb.EstateExternalFailure#002 Error string "json:\"error\""
+type github.com/iksnerd/json-bourne/jb.EstateExternalOptions struct
+field github.com/iksnerd/json-bourne/jb.EstateExternalOptions#000 EstateOptions github.com/iksnerd/json-bourne/jb.EstateOptions (embedded)
+field github.com/iksnerd/json-bourne/jb.EstateExternalOptions#001 Config string
+field github.com/iksnerd/json-bourne/jb.EstateExternalOptions#002 Timeout time.Duration
+field github.com/iksnerd/json-bourne/jb.EstateExternalOptions#003 MinInterval time.Duration
+field github.com/iksnerd/json-bourne/jb.EstateExternalOptions#004 NoMinInterval bool
+field github.com/iksnerd/json-bourne/jb.EstateExternalOptions#005 MaxTargets int
+field github.com/iksnerd/json-bourne/jb.EstateExternalOptions#006 Resolver string
+field github.com/iksnerd/json-bourne/jb.EstateExternalOptions#007 MaxNames int
+type github.com/iksnerd/json-bourne/jb.EstateExternalResult struct
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#000 Note string
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#001 Notes []string
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#002 Service string
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#003 Asked string
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#004 File string
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#005 Wrote bool
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#006 Targets []string
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#007 Added github.com/iksnerd/json-bourne/jb.EstateAdded
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#008 Unchanged int
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#009 Failures []github.com/iksnerd/json-bourne/jb.EstateExternalFailure
+field github.com/iksnerd/json-bourne/jb.EstateExternalResult#010 Conflicts []string
+method github.com/iksnerd/json-bourne/jb.EstateExternalResult value Complete() bool
+method github.com/iksnerd/json-bourne/jb.EstateExternalResult value MarshalJSON() ([]byte, error)
+type github.com/iksnerd/json-bourne/jb.EstateFactsImportOptions struct
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportOptions#000 EstateOptions github.com/iksnerd/json-bourne/jb.EstateOptions (embedded)
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportOptions#001 Apply bool
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportOptions#002 Input io.Reader
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportOptions#003 InputName string
+type github.com/iksnerd/json-bourne/jb.EstateFactsImportResult struct
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportResult#000 Note string
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportResult#001 File string
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportResult#002 Import string
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportResult#003 Source string
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportResult#004 Method string
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportResult#005 Entries int
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportResult#006 Facts int
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportResult#007 Added int
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportResult#008 Unchanged int
+field github.com/iksnerd/json-bourne/jb.EstateFactsImportResult#009 Applied bool
+method github.com/iksnerd/json-bourne/jb.EstateFactsImportResult value MarshalJSON() ([]byte, error)
+type github.com/iksnerd/json-bourne/jb.EstateIPFailure struct
+field github.com/iksnerd/json-bourne/jb.EstateIPFailure#000 IP string "json:\"ip\""
+field github.com/iksnerd/json-bourne/jb.EstateIPFailure#001 Lookup string "json:\"lookup\""
+field github.com/iksnerd/json-bourne/jb.EstateIPFailure#002 Error string "json:\"error\""
+type github.com/iksnerd/json-bourne/jb.EstateIPOptions struct
+field github.com/iksnerd/json-bourne/jb.EstateIPOptions#000 EstateOptions github.com/iksnerd/json-bourne/jb.EstateOptions (embedded)
+field github.com/iksnerd/json-bourne/jb.EstateIPOptions#001 RDAPURL string
+field github.com/iksnerd/json-bourne/jb.EstateIPOptions#002 Resolver string
+field github.com/iksnerd/json-bourne/jb.EstateIPOptions#003 Timeout time.Duration
+field github.com/iksnerd/json-bourne/jb.EstateIPOptions#004 MaxIPs int
+type github.com/iksnerd/json-bourne/jb.EstateIPResult struct
+field github.com/iksnerd/json-bourne/jb.EstateIPResult#000 Note string
+field github.com/iksnerd/json-bourne/jb.EstateIPResult#001 File string
+field github.com/iksnerd/json-bourne/jb.EstateIPResult#002 Wrote bool
+field github.com/iksnerd/json-bourne/jb.EstateIPResult#003 Addresses int
+field github.com/iksnerd/json-bourne/jb.EstateIPResult#004 Added github.com/iksnerd/json-bourne/jb.EstateAdded
+field github.com/iksnerd/json-bourne/jb.EstateIPResult#005 Unchanged int
+field github.com/iksnerd/json-bourne/jb.EstateIPResult#006 Failures []github.com/iksnerd/json-bourne/jb.EstateIPFailure
+field github.com/iksnerd/json-bourne/jb.EstateIPResult#007 Conflicts []string
+method github.com/iksnerd/json-bourne/jb.EstateIPResult value Complete() bool
+method github.com/iksnerd/json-bourne/jb.EstateIPResult value MarshalJSON() ([]byte, error)
+type github.com/iksnerd/json-bourne/jb.EstateOptions struct
+field github.com/iksnerd/json-bourne/jb.EstateOptions#000 File string
+field github.com/iksnerd/json-bourne/jb.EstateOptions#001 Env github.com/iksnerd/json-bourne/internal/config.Env
+field github.com/iksnerd/json-bourne/jb.EstateOptions#002 Now func() time.Time
+type github.com/iksnerd/json-bourne/jb.EstatePromoteResult struct
+field github.com/iksnerd/json-bourne/jb.EstatePromoteResult#000 Promoted string "json:\"promoted\""
+field github.com/iksnerd/json-bourne/jb.EstatePromoteResult#001 Baseline string "json:\"baseline\""
+field github.com/iksnerd/json-bourne/jb.EstatePromoteResult#002 Archived string "json:\"archived\""
+type github.com/iksnerd/json-bourne/jb.EstateRefreshOptions struct
+field github.com/iksnerd/json-bourne/jb.EstateRefreshOptions#000 EstateOptions github.com/iksnerd/json-bourne/jb.EstateOptions (embedded)
+field github.com/iksnerd/json-bourne/jb.EstateRefreshOptions#001 Config string
+field github.com/iksnerd/json-bourne/jb.EstateRefreshOptions#002 RDAPURL string
+field github.com/iksnerd/json-bourne/jb.EstateRefreshOptions#003 Resolver string
+field github.com/iksnerd/json-bourne/jb.EstateRefreshOptions#004 Timeout time.Duration
+field github.com/iksnerd/json-bourne/jb.EstateRefreshOptions#005 MaxTargets int
+type github.com/iksnerd/json-bourne/jb.EstateRefreshResult struct
+field github.com/iksnerd/json-bourne/jb.EstateRefreshResult#000 Note string
+field github.com/iksnerd/json-bourne/jb.EstateRefreshResult#001 Snapshot string
+field github.com/iksnerd/json-bourne/jb.EstateRefreshResult#002 File string
+field github.com/iksnerd/json-bourne/jb.EstateRefreshResult#003 BasedOn string
+field github.com/iksnerd/json-bourne/jb.EstateRefreshResult#004 Nodes int
+field github.com/iksnerd/json-bourne/jb.EstateRefreshResult#005 Edges int
+field github.com/iksnerd/json-bourne/jb.EstateRefreshResult#006 Absences int
+field github.com/iksnerd/json-bourne/jb.EstateRefreshResult#007 Services []github.com/iksnerd/json-bourne/internal/casefile.SnapshotService
+field github.com/iksnerd/json-bourne/jb.EstateRefreshResult#008 Failures []github.com/iksnerd/json-bourne/internal/casefile.SnapshotFailure
+method github.com/iksnerd/json-bourne/jb.EstateRefreshResult value Complete() bool
+method github.com/iksnerd/json-bourne/jb.EstateRefreshResult value MarshalJSON() ([]byte, error)
+type github.com/iksnerd/json-bourne/jb.HuntOptions struct
+field github.com/iksnerd/json-bourne/jb.HuntOptions#000 Window time.Duration
+field github.com/iksnerd/json-bourne/jb.HuntOptions#001 Until time.Time
+field github.com/iksnerd/json-bourne/jb.HuntOptions#002 Env github.com/iksnerd/json-bourne/internal/config.Env
+field github.com/iksnerd/json-bourne/jb.HuntOptions#003 Now func() time.Time
+field github.com/iksnerd/json-bourne/jb.HuntOptions#004 NoStore bool
+field github.com/iksnerd/json-bourne/jb.HuntOptions#005 Search []string
+field github.com/iksnerd/json-bourne/jb.HuntOptions#006 SearchField string
+field github.com/iksnerd/json-bourne/jb.HuntOptions#007 ConfigPath string
+field github.com/iksnerd/json-bourne/jb.HuntOptions#008 Notice func(string)
+type github.com/iksnerd/json-bourne/jb.IntelFailure struct
+field github.com/iksnerd/json-bourne/jb.IntelFailure#000 Indicator string "json:\"indicator\""
+field github.com/iksnerd/json-bourne/jb.IntelFailure#001 Feed string "json:\"feed\""
+field github.com/iksnerd/json-bourne/jb.IntelFailure#002 Error string "json:\"error\""
+type github.com/iksnerd/json-bourne/jb.IntelOptions struct
+field github.com/iksnerd/json-bourne/jb.IntelOptions#000 Config string
+field github.com/iksnerd/json-bourne/jb.IntelOptions#001 Env github.com/iksnerd/json-bourne/internal/config.Env
+type github.com/iksnerd/json-bourne/jb.IntelResult struct
+field github.com/iksnerd/json-bourne/jb.IntelResult#000 Note string
+field github.com/iksnerd/json-bourne/jb.IntelResult#001 Run string
+field github.com/iksnerd/json-bourne/jb.IntelResult#002 Skipped int
+field github.com/iksnerd/json-bourne/jb.IntelResult#003 Results []github.com/iksnerd/json-bourne/jb.IntelRow
+field github.com/iksnerd/json-bourne/jb.IntelResult#004 Failures []github.com/iksnerd/json-bourne/jb.IntelFailure
+field github.com/iksnerd/json-bourne/jb.IntelResult#005 Requested []string
+field github.com/iksnerd/json-bourne/jb.IntelResult#006 Notes []string
+method github.com/iksnerd/json-bourne/jb.IntelResult value Complete() bool
+method github.com/iksnerd/json-bourne/jb.IntelResult value MarshalJSON() ([]byte, error)
+type github.com/iksnerd/json-bourne/jb.IntelRow struct
+field github.com/iksnerd/json-bourne/jb.IntelRow#000 Indicator string "json:\"indicator\""
+field github.com/iksnerd/json-bourne/jb.IntelRow#001 Feed string "json:\"feed\""
+field github.com/iksnerd/json-bourne/jb.IntelRow#002 Verdict string "json:\"verdict\""
+field github.com/iksnerd/json-bourne/jb.IntelRow#003 Observed string "json:\"observed\""
+type github.com/iksnerd/json-bourne/jb.ReputationOptions struct
+field github.com/iksnerd/json-bourne/jb.ReputationOptions#000 Config string
+field github.com/iksnerd/json-bourne/jb.ReputationOptions#001 Indicators []string
+field github.com/iksnerd/json-bourne/jb.ReputationOptions#002 Source string
+field github.com/iksnerd/json-bourne/jb.ReputationOptions#003 Since time.Time
+field github.com/iksnerd/json-bourne/jb.ReputationOptions#004 Until time.Time
+field github.com/iksnerd/json-bourne/jb.ReputationOptions#005 Limit int
+field github.com/iksnerd/json-bourne/jb.ReputationOptions#006 Latest bool
+type github.com/iksnerd/json-bourne/jb.ReputationResult struct
+field github.com/iksnerd/json-bourne/jb.ReputationResult#000 Path string
+field github.com/iksnerd/json-bourne/jb.ReputationResult#001 Note string
+field github.com/iksnerd/json-bourne/jb.ReputationResult#002 Rows []github.com/iksnerd/json-bourne/jb.ReputationRow
+field github.com/iksnerd/json-bourne/jb.ReputationResult#003 Limit int
+field github.com/iksnerd/json-bourne/jb.ReputationResult#004 Truncated bool
+field github.com/iksnerd/json-bourne/jb.ReputationResult#005 Notes []string
+method github.com/iksnerd/json-bourne/jb.ReputationResult pointer Complete() bool
+method github.com/iksnerd/json-bourne/jb.ReputationResult value MarshalJSON() ([]byte, error)
+type github.com/iksnerd/json-bourne/jb.ReputationRow struct
+field github.com/iksnerd/json-bourne/jb.ReputationRow#000 Indicator string "json:\"indicator\""
+field github.com/iksnerd/json-bourne/jb.ReputationRow#001 Verdict string "json:\"verdict\""
+field github.com/iksnerd/json-bourne/jb.ReputationRow#002 Observed string "json:\"observed\""
+field github.com/iksnerd/json-bourne/jb.ReputationRow#003 Source string "json:\"source\""
+type github.com/iksnerd/json-bourne/jb.ServeInfo struct
+field github.com/iksnerd/json-bourne/jb.ServeInfo#000 Addr string
+field github.com/iksnerd/json-bourne/jb.ServeInfo#001 Remote bool
+field github.com/iksnerd/json-bourne/jb.ServeInfo#002 DashboardInfo github.com/iksnerd/json-bourne/jb.DashboardInfo (embedded)
+type github.com/iksnerd/json-bourne/jb.ServeOptions struct
+field github.com/iksnerd/json-bourne/jb.ServeOptions#000 Dashboard github.com/iksnerd/json-bourne/jb.DashboardOptions
+field github.com/iksnerd/json-bourne/jb.ServeOptions#001 Addr string
+field github.com/iksnerd/json-bourne/jb.ServeOptions#002 AllowRemote bool
+field github.com/iksnerd/json-bourne/jb.ServeOptions#003 Ready func(github.com/iksnerd/json-bourne/jb.ServeInfo)
+type github.com/iksnerd/json-bourne/jb.WatchOptions struct
+field github.com/iksnerd/json-bourne/jb.WatchOptions#000 Name string
+field github.com/iksnerd/json-bourne/jb.WatchOptions#001 Config string
+field github.com/iksnerd/json-bourne/jb.WatchOptions#002 Every time.Duration
+field github.com/iksnerd/json-bourne/jb.WatchOptions#003 Window time.Duration
+field github.com/iksnerd/json-bourne/jb.WatchOptions#004 TTL time.Duration
+field github.com/iksnerd/json-bourne/jb.WatchOptions#005 Keep time.Duration
+field github.com/iksnerd/json-bourne/jb.WatchOptions#006 Repeat time.Duration
+field github.com/iksnerd/json-bourne/jb.WatchOptions#007 Once bool
+field github.com/iksnerd/json-bourne/jb.WatchOptions#008 Out io.Writer
+field github.com/iksnerd/json-bourne/jb.WatchOptions#009 Env github.com/iksnerd/json-bourne/internal/config.Env
+field github.com/iksnerd/json-bourne/jb.WatchOptions#010 Now func() time.Time
+type github.com/iksnerd/json-bourne/jb.WatchStatusOptions struct
+field github.com/iksnerd/json-bourne/jb.WatchStatusOptions#000 Names []string
+field github.com/iksnerd/json-bourne/jb.WatchStatusOptions#001 Config string
+field github.com/iksnerd/json-bourne/jb.WatchStatusOptions#002 Now func() time.Time

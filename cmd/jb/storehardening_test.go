@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 
 	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/core"

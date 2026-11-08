@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 type opDoc struct {

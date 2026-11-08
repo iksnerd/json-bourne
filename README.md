@@ -1,6 +1,6 @@
 # json-bourne (`jb`)
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/iksnerd/json-bourne.svg)](https://pkg.go.dev/github.com/iksnerd/json-bourne) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Go Reference](https://pkg.go.dev/badge/github.com/iksnerd/json-bourne/jb.svg)](https://pkg.go.dev/github.com/iksnerd/json-bourne/jb) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 `jb` is an incident-response tool for when you are under attack. It fetches logs for a time window from your own log store, keeps them as evidence in a local DuckDB file, and runs detectors that compare that window with the one before it. Go, DuckDB, cobra.
 
@@ -69,6 +69,8 @@ Exit codes: 0 success, 1 runtime failure or an incomplete hunt, 2 usage error. E
 ```sh
 go get github.com/iksnerd/json-bourne
 ```
+
+`go get` fetches the module; the package to import is `github.com/iksnerd/json-bourne/jb`.
 
 ```go
 cfg, err := jb.LoadConfig("jb.yaml")

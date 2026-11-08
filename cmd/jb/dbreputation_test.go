@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 func seedRepCLI(t *testing.T, n int) (cfg, store string) {

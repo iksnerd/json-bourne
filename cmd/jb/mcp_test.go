@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/mcp"
 	"github.com/iksnerd/json-bourne/internal/ops"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 const mcpInit = `{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}` + "\n" +

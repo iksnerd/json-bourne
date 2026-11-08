@@ -14,20 +14,20 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/adapters/duckdb"
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // dashCase copies the example case into a temp dir.
 func dashCase(t *testing.T) string {
 	t.Helper()
 	dst := t.TempDir()
-	err := filepath.WalkDir("examples/case", func(p string, e fs.DirEntry, err error) error {
+	err := filepath.WalkDir("../examples/case", func(p string, e fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, _ := filepath.Rel("examples/case", p)
+		rel, _ := filepath.Rel("../examples/case", p)
 		if e.IsDir() {
 			return os.MkdirAll(filepath.Join(dst, rel), 0o700)
 		}

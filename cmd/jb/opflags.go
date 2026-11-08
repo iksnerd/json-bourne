@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // opFlags is the flag builder of RFC 0010. It registers one cobra flag per property of

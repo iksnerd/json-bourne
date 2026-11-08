@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/casefile"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 func newCaseCmd() *cobra.Command {

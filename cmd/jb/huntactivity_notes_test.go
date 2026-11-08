@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // The library result carries the advice the CLI prints to stderr, in the same order, and

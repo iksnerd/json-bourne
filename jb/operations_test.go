@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/ops"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 func opByName(t *testing.T, name string) jb.Operation {
@@ -94,11 +94,11 @@ func TestToolProjectionOfTheRegistry(t *testing.T) {
 }
 
 func TestCallCaseShowRunsTheTypedFunction(t *testing.T) {
-	got, err := jb.Call(context.Background(), "case_show", map[string]any{"case": "examples/case", "config": "config/hunt.yaml"}, nil)
+	got, err := jb.Call(context.Background(), "case_show", map[string]any{"case": "../examples/case", "config": "config/hunt.yaml"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, err := jb.CaseShow("examples/case", jb.CaseShowOptions{Config: "config/hunt.yaml"})
+	want, err := jb.CaseShow("../examples/case", jb.CaseShowOptions{Config: "config/hunt.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestCallCaseShowRunsTheTypedFunction(t *testing.T) {
 }
 
 func TestCallCaseCheckRunsTheTypedFunction(t *testing.T) {
-	got, err := jb.Call(context.Background(), "case_check", map[string]any{"case": "examples/case"}, nil)
+	got, err := jb.Call(context.Background(), "case_check", map[string]any{"case": "../examples/case"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestCallReportsAProblemInTheCaseAsAResultNotAnError(t *testing.T) {
 
 func TestCallAcceptsJSONDecodedArguments(t *testing.T) {
 	var args map[string]any
-	if err := json.Unmarshal([]byte(`{"case":"examples/case"}`), &args); err != nil {
+	if err := json.Unmarshal([]byte(`{"case":"../examples/case"}`), &args); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := jb.Call(context.Background(), "case_check", args, nil); err != nil {
@@ -183,13 +183,13 @@ func TestCallRefusesAnUnknownOperation(t *testing.T) {
 func TestCallDoesNotFillDefaultsOrRunOnACancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := jb.Call(ctx, "case_check", map[string]any{"case": "examples/case"}, nil); err == nil {
+	if _, err := jb.Call(ctx, "case_check", map[string]any{"case": "../examples/case"}, nil); err == nil {
 		t.Fatal("a cancelled context still ran the handler")
 	}
 }
 
 func TestCallErrorsOfTheHandlerPassThrough(t *testing.T) {
-	_, err := jb.Call(context.Background(), "case_show", map[string]any{"case": "examples/case", "config": "nope.yaml"}, nil)
+	_, err := jb.Call(context.Background(), "case_show", map[string]any{"case": "../examples/case", "config": "nope.yaml"}, nil)
 	if err == nil || jb.IsUsage(err) && !strings.Contains(err.Error(), "nope.yaml") {
 		t.Fatalf("err = %v", err)
 	}

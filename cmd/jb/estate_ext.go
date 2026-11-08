@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/adapters/crtsh"
 	"github.com/iksnerd/json-bourne/internal/config"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // extSpec is what differs between `estate asn`, `estate dns` and `estate ct`: the help

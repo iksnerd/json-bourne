@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/ops"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // ---- the builder ----

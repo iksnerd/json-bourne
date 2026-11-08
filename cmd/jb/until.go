@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 
 	"github.com/iksnerd/json-bourne/internal/config"
 )

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // RFC 0013: `hunt --output json` and `activity --output json` print the library value, so

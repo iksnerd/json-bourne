@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // RFC 0013: `watch status --output json` prints json.Marshal of jb.WatchStatus, and the

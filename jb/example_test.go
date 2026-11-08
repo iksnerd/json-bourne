@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // Hunt the last hour. A nil error is not a clean result: check Complete.

@@ -4,12 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 func TestCaseShowDescribesTheExampleCase(t *testing.T) {
 	t.Setenv("JB_KIBANA_API_KEY", "value-that-must-not-appear")
-	got, err := jb.CaseShow("examples/case", jb.CaseShowOptions{Config: "config/hunt.yaml"})
+	got, err := jb.CaseShow("../examples/case", jb.CaseShowOptions{Config: "config/hunt.yaml"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestCaseShowDescribesTheExampleCase(t *testing.T) {
 }
 
 func TestCaseShowRefusesAnUnknownConfig(t *testing.T) {
-	_, err := jb.CaseShow("examples/case", jb.CaseShowOptions{Config: "nope.yaml"})
+	_, err := jb.CaseShow("../examples/case", jb.CaseShowOptions{Config: "nope.yaml"})
 	if err == nil || !strings.Contains(err.Error(), "nope.yaml") {
 		t.Errorf("err = %v", err)
 	}

@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"testing"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/core"
 	"github.com/iksnerd/json-bourne/internal/estateseam"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // RFC 0018 pins the key paths of every `--output json` document. The library owns the

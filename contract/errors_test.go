@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 func noPrefix(t *testing.T, what string, err error) {

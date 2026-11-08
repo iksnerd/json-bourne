@@ -1,6 +1,6 @@
 # Consumer contract tests
 
-A separate Go module (`github.com/iksnerd/json-bourne/contract`) that tests the public Go API from the outside. It imports only the root package `jb` and `sdk`, never `internal/`, so an internal change that alters what a library user sees fails here.
+A separate Go module (`github.com/iksnerd/json-bourne/contract`) that tests the public Go API from the outside. It imports only the public packages `jb` (`github.com/iksnerd/json-bourne/jb`) and `sdk`, never `internal/`, so an internal change that alters what a library user sees fails here.
 
     cd contract && go test -race -count=1 ./...
 

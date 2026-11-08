@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // maxFailuresShown bounds the failure rows printed in the table; JSON lists them all.

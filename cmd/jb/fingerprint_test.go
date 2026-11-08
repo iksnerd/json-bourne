@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // The example case lists config/fingerprint.yaml after config/hunt.yaml; each declares

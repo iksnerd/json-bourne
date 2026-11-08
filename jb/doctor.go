@@ -156,7 +156,7 @@ func doctorBuild(opts DoctorOptions) app.DoctorBuild {
 	if bi, ok := debug.ReadBuildInfo(); ok {
 		mv := bi.Main.Version
 		for _, dep := range bi.Deps {
-			if dep.Path == "github.com/iksnerd/json-bourne" {
+			if dep.Path == "github.com/iksnerd/json-bourne/jb" {
 				mv = dep.Version
 			}
 		}

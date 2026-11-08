@@ -47,10 +47,10 @@ The operations (RFC 0010) are the third way in. `jb.Operations()` and `jb.Call` 
 | `internal/adapters/runlock` | The single-instance lock of `jb watch`. | The standard library only: no internal package, no network, no process, no log. |
 | `internal/watchrun` | Builds the ports of `app.Watch` and `app.Hunt` from a loaded case config (file names, lock, store open/close per operation, alert sinks). Shared by `cmd/jb` and `jb`. | `core`, `app`, `config` and adapters. |
 | `internal/ops` | An operation defined once from the option struct's `jb:` tags (RFC 0010): the input schema, the check of an arguments object, the MCP tool projection. | Standard library only. |
-| `internal/mcp` | The Model Context Protocol server: newline-delimited JSON-RPC over two streams, serving the tools of a registry it is given. Strips control characters and cuts strings in results. | The standard library and `internal/ops`. No root package, adapter, file, network or process. |
+| `internal/mcp` | The Model Context Protocol server: newline-delimited JSON-RPC over two streams, serving the tools of a registry it is given. Strips control characters and cuts strings in results. | The standard library and `internal/ops`. No `jb` package, adapter, file, network or process. |
 | `internal/severityfloor` | The one parse and apply of a detector's `min_severity` and `note` (a floor only raises a finding), shared by `behaviour` and `newkey`. | `core` and the standard library. |
 | `internal/estateseam` | Test doubles for the network adapters of the estate functions, carried on the call's context. Not public API; `jb.EstatePorts` no longer exists. | Used by tests and `cmd/jb`. |
-| `jb` (repo root) | The public Go API: one function per command (`Hunt`, `Activity`, `Watch`, `Doctor`, `DB*`, `Estate*`, `Intel`, `DashboardHandler` and the rest; README has the table). | Like `cmd/jb`: it wires config, watchrun, app and the store. |
+| `jb` (`jb/`) | The public Go API: one function per command (`Hunt`, `Activity`, `Watch`, `Doctor`, `DB*`, `Estate*`, `Intel`, `DashboardHandler` and the rest; README has the table). | Like `cmd/jb`: it wires config, watchrun, app and the store. |
 | `sdk` | The plugin side of the mapper protocol, public. | Standard library only. |
 | `cmd/jb` | The cobra CLI. Wires config, the store, the watch adapters, the web dashboard and `app.Hunt` / `app.Watch`. | Everything. |
 
@@ -208,7 +208,7 @@ A new adapter package needs its own rule in `archtest_test.go`; nothing applies 
 
 Beside the archtest rules, four layers hold the contract (the supported surfaces and their tests are listed in [RFC 0018](rfcs/0018-stability-policy.md)):
 
-- **Goldens in the root module.** `testdata/api/jb.txt` and `sdk.txt` pin the exported Go API (`TestAPISurface`, RFC 0017); `cmd/jb/testdata` pins flag sets, the MCP tool list and the hunt and activity output; further goldens pin exit codes, config keys, the plugin wire protocol and the store schema. A deliberate change edits the golden in the same commit.
+- **Goldens in the root module.** `jb/testdata/api/jb.txt` and `sdk.txt` pin the exported Go API (`TestAPISurface`, RFC 0017); `cmd/jb/testdata` pins flag sets, the MCP tool list and the hunt and activity output; further goldens pin exit codes, config keys, the plugin wire protocol and the store schema. A deliberate change edits the golden in the same commit.
 - **Invariant and fuzz tests.** Properties such as ordering, deduplication and partial findings in `internal/app`, and fuzz tests for the YAML loaders, the Kibana reply parser and the plugin host.
 - **Surface tests** in `cmd/jb`: exit codes per outcome, `docs/operations.json` agreeing with the registry, and the README and CONFIG parity tests.
 - **The `contract/` module.** A separate Go module that imports only `jb` and `sdk`, so an internal change that alters what a library user sees fails there. It pins every signature of the README command-to-function table (it parses that table), the JSON shapes of the result types, the library and the CLI agreeing byte for byte, and `Operations`, `Call` and `CallTool`. CI runs it on tags. See [contract/README.md](../contract/README.md).

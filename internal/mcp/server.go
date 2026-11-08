@@ -49,7 +49,7 @@ const (
 )
 
 // Registry is what the server serves. The command line wires the operations of the
-// root package to it.
+// jb package to it.
 type Registry interface {
 	// Tools returns the entries to list: every read-only operation, and each mutating
 	// operation named in allow.

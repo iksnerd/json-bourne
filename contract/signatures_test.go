@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // The compile-time table: every function of the command-to-function table in docs/LIBRARY.md is

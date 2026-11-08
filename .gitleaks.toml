@@ -12,7 +12,7 @@ regexes = ['''abc123SecretKey==''']
 description = "synthetic sentinel tokens in tests that prove a credential is never printed or stored"
 paths = [
   '''cmd/jb/intel_test\.go''',
-  '''intel_test\.go''',
+  '''jb/intel_test\.go''',
   '''internal/config/register_greynoise_test\.go''',
   '''internal/adapters/webhook/webhook_test\.go''',
   '''internal/casefile/actor_test\.go''',

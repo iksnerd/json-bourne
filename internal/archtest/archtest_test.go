@@ -55,7 +55,7 @@ var rules = []rule{
 	{pkg: "internal/adapters/crtsh", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "os/exec", "os"}, why: "the certificate transparency adapter depends on core and the standard library only; net/http is allowed here and in the other remote adapters only"},
 	{pkg: "internal/adapters/dnsfwd", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "os/exec", "os", "net/http"}, why: "the forward-DNS adapter depends on core and the standard library only and asks a DNS resolver through an injected net.Resolver; it has no HTTP"},
 	{pkg: "internal/ops", stdlibOnly: true, why: "an operation definition, its reflector and its argument check are pure: the standard library only, so the command line, the Go API and an MCP server can all depend on one definition without pulling in each other"},
-	{pkg: "internal/mcp", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", mod + "/internal/core", mod + "/internal/watchrun", mod + "/cmd", "github.com/spf13", "github.com/duckdb", "github.com/dominikbraun", "gopkg.in/", "net", "os"}, forbidEq: []string{mod}, why: "the MCP server speaks a protocol over streams it is given and calls a Registry it is given: the standard library and internal/ops only, no root package, no adapter, no file, network or process, so the command line decides what a tool can reach"},
+	{pkg: "internal/mcp", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", mod + "/internal/core", mod + "/internal/watchrun", mod + "/cmd", "github.com/spf13", "github.com/duckdb", "github.com/dominikbraun", "gopkg.in/", "net", "os"}, forbidEq: []string{mod + "/jb"}, why: "the MCP server speaks a protocol over streams it is given and calls a Registry it is given: the standard library and internal/ops only, no jb package, no adapter, no file, network or process, so the command line decides what a tool can reach"},
 	{pkg: "internal/safefile", stdlibOnly: true, forbid: []string{mod + "/internal", "net", "os/exec"}, why: "the bounded local-file reader is shared by the file adapters, so it depends on the standard library alone and knows nothing of the domain"},
 	{pkg: "internal/piiguard", stdlibOnly: true, why: "the shared personal-field list and key digest is imported by detectors, so it depends on the standard library alone"},
 	{pkg: "internal/severityfloor", forbid: []string{mod + "/internal/adapters", mod + "/internal/casefile", mod + "/internal/config", mod + "/internal/app", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "net/http", "os"}, why: "the shared severity floor (min_severity and note) is imported by detectors, so it depends on core and the standard library only"},
@@ -125,9 +125,9 @@ var netHTTPAllowed = map[string]bool{
 // symbols it uses.
 var netHTTPServing = map[string]bool{
 	mod + "/internal/adapters/web": true,
-	// The root package returns the dashboard as an http.Handler (dashboard.go). It
+	// The jb package returns the dashboard as an http.Handler (dashboard.go). It
 	// uses the type only; it builds no client.
-	mod: true,
+	mod + "/jb": true,
 }
 
 func TestNetHTTPIsConfinedToTheRemoteAdapters(t *testing.T) {

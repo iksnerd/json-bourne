@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // caseStorePath is the evidence database of a case, as the db commands resolve it.
@@ -24,7 +24,7 @@ func caseStorePath(dir, cfg string) (string, error) {
 
 // The CLI prints the library's value: for each db command the JSON on stdout equals the
 // JSON of the value the Go function returns for the same store and options. The key
-// sets of those values are pinned in the root package (db_test.go) against the shape the
+// sets of those values are pinned in package jb (jb/db_test.go) against the shape the
 // commands printed before they called the library.
 func TestDBCommandsPrintTheLibraryValue(t *testing.T) {
 	cfg, _ := seedMaint(t, append(standardHunts, maintHunt{"hunt-20261106T000000Z", 2, 1, "other"}))

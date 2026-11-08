@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // TestDocumentedConstants pins the numbers the doc comments and the README state.

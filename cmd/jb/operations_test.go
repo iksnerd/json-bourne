@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/ops"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 func runOps(t *testing.T, args ...string) (string, string, int) {

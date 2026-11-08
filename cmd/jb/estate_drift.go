@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/adapters/rdap"
 	"github.com/iksnerd/json-bourne/internal/app"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // estateSkipNote is the standing statement about what is not here.

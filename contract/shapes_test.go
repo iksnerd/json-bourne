@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // pinned runs a hunt over the shipped example case so that the case holds a stored run,

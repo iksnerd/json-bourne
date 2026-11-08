@@ -17,7 +17,7 @@ func gitInit(t *testing.T, dir string) {
 }
 
 func TestCaseCheckPassesTheExampleCase(t *testing.T) {
-	r, err := CaseCheck("examples/case")
+	r, err := CaseCheck("../examples/case")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestCaseCheckNotesACommandDeclaredByTwoConfigs(t *testing.T) {
 }
 
 func TestCaseCheckHasNoAmbiguityNoteForTheExampleCase(t *testing.T) {
-	r, err := CaseCheck("examples/case")
+	r, err := CaseCheck("../examples/case")
 	if err != nil {
 		t.Fatal(err)
 	}

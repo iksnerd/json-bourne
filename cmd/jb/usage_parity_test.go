@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // TestUsageClassMatchesExitCode walks one table of caller mistakes and some failures

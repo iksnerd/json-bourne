@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // promptly is how long a cancelled call may take to return. The fake server holds the

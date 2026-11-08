@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // newEstateFactsCmd is `jb estate facts`: the facts of an estate file. The one

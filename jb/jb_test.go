@@ -63,7 +63,7 @@ func TestHuntRefusesNilConfig(t *testing.T) {
 // evidence guard accepts (and notes), so no git is needed.
 func copyCase(t *testing.T) string {
 	t.Helper()
-	src := "examples/case"
+	src := "../examples/case"
 	dst := t.TempDir()
 	err := filepath.WalkDir(src, func(p string, e fs.DirEntry, err error) error {
 		if err != nil {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // cliGolden returns the stdout of a recorded `jb hunt|activity --output json` run

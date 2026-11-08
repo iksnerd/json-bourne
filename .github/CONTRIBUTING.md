@@ -39,7 +39,7 @@ See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md).
 
 ### The API surface golden
 
-`TestAPISurface` walks the exported Go API of package `jb` and of `sdk` (types, fields, tags and methods, following aliases into `internal/`) and compares it with `testdata/api/jb.txt` and `testdata/api/sdk.txt`. A change to the surface, or to an internal type that the surface reaches, fails the test. If the change is deliberate, run `go test -count=1 -run TestAPISurface -update-api .`, read the diff and commit it with the change. The same test fails on a new `/internal/` type reachable from the API and on a stale line in `testdata/api/known-leaks.txt`, which only shrinks. See [RFC 0017](../docs/rfcs/0017-public-api-owns-its-types.md).
+`TestAPISurface` walks the exported Go API of package `jb` and of `sdk` (types, fields, tags and methods, following aliases into `internal/`) and compares it with `jb/testdata/api/jb.txt` and `jb/testdata/api/sdk.txt`. A change to the surface, or to an internal type that the surface reaches, fails the test. If the change is deliberate, run `go test -count=1 ./jb -run TestAPISurface -update-api`, read the diff and commit it with the change. The same test fails on a new `/internal/` type reachable from the API and on a stale line in `jb/testdata/api/known-leaks.txt`, which only shrinks. See [RFC 0017](../docs/rfcs/0017-public-api-owns-its-types.md).
 
 ### Timing and clocks in tests
 

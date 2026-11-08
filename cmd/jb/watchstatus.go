@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	jb "github.com/iksnerd/json-bourne"
 	"github.com/iksnerd/json-bourne/internal/app"
 	"github.com/iksnerd/json-bourne/internal/watchrun"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 func newWatchStatusCmd(d deps) *cobra.Command {

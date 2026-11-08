@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	jb "github.com/iksnerd/json-bourne"
+	"github.com/iksnerd/json-bourne/jb"
 )
 
 // The keys of `case check`, `doctor` and `actor status` `--output json` as they were
