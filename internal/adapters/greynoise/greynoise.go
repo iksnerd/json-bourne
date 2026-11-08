@@ -21,7 +21,6 @@ package greynoise
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,6 +29,7 @@ import (
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/feedloop"
 )
 
 // DefaultBaseURL is the public GreyNoise API.
@@ -107,51 +107,7 @@ func (f *Feed) scrub(s string) string {
 // Lookup asks the feed about each indicator, in order. See the package comment for the
 // contract: answers in the slice, failures as joined *core.LookupError.
 func (f *Feed) Lookup(ctx context.Context, indicators []string) ([]core.Reputation, error) {
-	var (
-		out     []core.Reputation
-		errs    []error
-		asked   int
-		stopped error // set after a 429: nothing more is sent
-	)
-	fail := func(ind string, cause error, detail string) {
-		errs = append(errs, &core.LookupError{Indicator: ind, Err: fmt.Errorf("%w: %s", cause, f.scrub(detail))})
-	}
-	for _, ind := range indicators {
-		addr, perr := netip.ParseAddr(ind)
-		if perr != nil || addr.Zone() != "" {
-			fail(ind, core.ErrFeedFailed, "not an IP address, not sent")
-			continue
-		}
-		if stopped != nil {
-			fail(ind, stopped, "not asked after the feed refused a request")
-			continue
-		}
-		if asked >= f.MaxLookups {
-			fail(ind, core.ErrBudgetExceeded, fmt.Sprintf("not asked: the per-run cap is %d lookups", f.MaxLookups))
-			continue
-		}
-		if err := ctx.Err(); err != nil {
-			fail(ind, core.ErrFeedFailed, "not asked: "+err.Error())
-			continue
-		}
-		if asked > 0 && f.MinInterval > 0 {
-			if err := f.sleep(ctx, f.MinInterval); err != nil {
-				fail(ind, core.ErrFeedFailed, "not asked: "+err.Error())
-				continue
-			}
-		}
-		asked++
-		rep, err := f.one(ctx, ind, addr)
-		if err != nil {
-			if errors.Is(err, core.ErrRateLimited) {
-				stopped = core.ErrRateLimited
-			}
-			errs = append(errs, &core.LookupError{Indicator: ind, Err: err})
-			continue
-		}
-		out = append(out, rep)
-	}
-	return out, errors.Join(errs...)
+	return feedloop.Run(ctx, feedloop.Config{MaxLookups: f.MaxLookups, MinInterval: f.MinInterval, Sleep: f.sleep, Scrub: f.scrub}, indicators, f.one)
 }
 
 func (f *Feed) one(ctx context.Context, ind string, addr netip.Addr) (core.Reputation, error) {
