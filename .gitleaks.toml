@@ -13,6 +13,7 @@ description = "synthetic sentinel tokens in tests that prove a credential is nev
 paths = [
   '''cmd/jb/intel_test\.go''',
   '''jb/intel_test\.go''',
+  '''^intel_test\.go''',  # the file's path before it moved to jb/ (history is scanned)
   '''internal/config/register_greynoise_test\.go''',
   '''internal/adapters/webhook/webhook_test\.go''',
   '''internal/casefile/actor_test\.go''',

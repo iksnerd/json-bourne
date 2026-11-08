@@ -4,6 +4,10 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Breaking
+- The public Go package moved from the module root to its own directory: import `github.com/iksnerd/json-bourne/jb` (the package name is still `jb`). The module path and `go get github.com/iksnerd/json-bourne` are unchanged; only the import line changes. The repo root now holds no Go files. The API surface goldens moved to `jb/testdata/api/` (`go test ./jb -run TestAPISurface -update-api`).
+- Layout: `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md` and `SECURITY.md` moved to `.github/`; `schemas/` to `docs/schemas/`; the example plugins to `examples/plugins/` (import path `github.com/iksnerd/json-bourne/examples/plugins/<name>`); `docs/CONFIG.md` is an index and its sections are pages under `docs/config/`; the README reference moved to `docs/COMMANDS.md`, `docs/LIBRARY.md`, `docs/MCP.md` and `docs/COMPONENTS.md`.
+
 ### Fixed
 - `jb estate promote` refuses a snapshot whose baseline changed since `jb estate refresh` ("baseline changed since the snapshot; refresh again"), touching no file. Snapshots record the SHA-256 of the baseline they were taken against in a new optional field, `based_on_sha256`; promote checks it before archiving and again just before the replace. A snapshot written by an earlier version has no digest and must be refreshed again before it can be promoted. `jb estate facts import` changes the baseline, so it invalidates open snapshots: refresh again after an import. Before, an edit made between refresh and promote was silently overwritten (the existing facts test had this bug and now asserts the refusal).
 - The watcher lock file and its PID read no longer block or misread when the path is a FIFO, device or directory; they fail with a clear "not a regular file" error, a PID file over 64 bytes is ignored, and a directory at the lock path is refused (`Probe` used to report it free). The archtest rule for the lock package now allows `internal/safefile` and nothing else.
