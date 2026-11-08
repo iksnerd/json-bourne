@@ -72,6 +72,7 @@ import (
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/httpstatus"
 	"github.com/iksnerd/json-bourne/internal/piiguard"
 	"github.com/iksnerd/json-bourne/internal/severityfloor"
 )
@@ -83,13 +84,12 @@ const (
 )
 
 const (
-	defaultName          = "behaviour"
-	defaultMinRise       = 0.20
-	defaultMaxKeys       = 10000
-	maxActions           = 64
-	defaultRareMin       = 1
-	defaultCommonMin     = 20
-	minStatus, maxStatus = 100, 599
+	defaultName      = "behaviour"
+	defaultMinRise   = 0.20
+	defaultMaxKeys   = 10000
+	maxActions       = 64
+	defaultRareMin   = 1
+	defaultCommonMin = 20
 
 	// emptyBaselineMinShare applies when a common action has no preceding data:
 	// no rise can be computed and none is invented, so the action must be failing
@@ -289,7 +289,7 @@ func New(c Config) (*Detector, error) {
 func statusSet(ss []int, what string) (map[int]struct{}, error) {
 	m := make(map[int]struct{}, len(ss))
 	for _, s := range ss {
-		if s < minStatus || s > maxStatus {
+		if s < httpstatus.Min || s > httpstatus.Max {
 			return nil, fmt.Errorf("behaviour: %s %d is not an HTTP status", what, s)
 		}
 		m[s] = struct{}{}
@@ -498,7 +498,7 @@ func (d *Detector) scan(ctx context.Context, r core.EventReader, w core.Window, 
 			at := &t.acts[i]
 			status, sok := 0, true
 			if d.cfg.StatusField != "" && (m.statuses != nil || m.class == ClassCommon) {
-				status, sok = parseStatus(ev.Fields[d.cfg.StatusField])
+				status, sok = httpstatus.Parse(ev.Fields[d.cfg.StatusField])
 				if !sok {
 					at.unparsable++
 					continue
@@ -891,40 +891,4 @@ func text(v any) (string, bool) {
 		return x.String(), true
 	}
 	return "", false
-}
-
-// parseStatus accepts int, float64 (as JSON decodes numbers) and string forms.
-// Anything else, a non-integer, or a value outside 100..599 is unparsable.
-func parseStatus(v any) (int, bool) {
-	var n int
-	switch x := v.(type) {
-	case int:
-		n = x
-	case int32:
-		n = int(x)
-	case int64:
-		if x < minStatus || x > maxStatus {
-			return 0, false
-		}
-		n = int(x)
-	case float64:
-		if math.IsNaN(x) || math.IsInf(x, 0) || x != math.Trunc(x) || x < minStatus || x > maxStatus {
-			return 0, false
-		}
-		n = int(x)
-	case json.Number:
-		return parseStatus(string(x))
-	case string:
-		i, err := strconv.Atoi(strings.TrimSpace(x))
-		if err != nil {
-			return 0, false
-		}
-		n = i
-	default:
-		return 0, false
-	}
-	if n < minStatus || n > maxStatus {
-		return 0, false
-	}
-	return n, true
 }

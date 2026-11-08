@@ -46,24 +46,22 @@ package authspike
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/httpstatus"
 	"github.com/iksnerd/json-bourne/internal/piiguard"
 )
 
 const (
-	defaultName          = "authspike"
-	defaultMinEvents     = 20
-	defaultMinRise       = 0.20
-	defaultSustained     = 0.5
-	minStatus, maxStatus = 100, 599
+	defaultName      = "authspike"
+	defaultMinEvents = 20
+	defaultMinRise   = 0.20
+	defaultSustained = 0.5
 
 	// emptyBaselineMinShare applies only when there is no preceding data at all,
 	// so no rise can be computed and none is invented: the key must then be
@@ -167,7 +165,7 @@ func New(c Config) (*Detector, error) {
 		ignore: make(map[string]struct{}, len(c.IgnoreKeys)),
 	}
 	for _, s := range c.FailStatuses {
-		if s < minStatus || s > maxStatus {
+		if s < httpstatus.Min || s > httpstatus.Max {
 			return nil, fmt.Errorf("authspike: fail status %d is not an HTTP status", s)
 		}
 		d.fail[s] = struct{}{}
@@ -435,7 +433,7 @@ func (d *Detector) judge(v any) (failed, ok bool) {
 		_, failed = d.failV[s]
 		return failed, true
 	}
-	status, ok := parseStatus(v)
+	status, ok := httpstatus.Parse(v)
 	if !ok {
 		return false, false
 	}
@@ -457,40 +455,4 @@ func keyOf(v any) string {
 		return strings.TrimSpace(x.String())
 	}
 	return ""
-}
-
-// parseStatus accepts int, float64 (as JSON decodes numbers) and string forms.
-// Anything else, a non-integer, or a value outside 100..599 is unparsable.
-func parseStatus(v any) (int, bool) {
-	var n int
-	switch x := v.(type) {
-	case int:
-		n = x
-	case int32:
-		n = int(x)
-	case int64:
-		if x < minStatus || x > maxStatus {
-			return 0, false
-		}
-		n = int(x)
-	case float64:
-		if math.IsNaN(x) || math.IsInf(x, 0) || x != math.Trunc(x) || x < minStatus || x > maxStatus {
-			return 0, false
-		}
-		n = int(x)
-	case json.Number:
-		return parseStatus(string(x))
-	case string:
-		i, err := strconv.Atoi(strings.TrimSpace(x))
-		if err != nil {
-			return 0, false
-		}
-		n = i
-	default:
-		return 0, false
-	}
-	if n < minStatus || n > maxStatus {
-		return 0, false
-	}
-	return n, true
 }

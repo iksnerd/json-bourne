@@ -31,18 +31,16 @@ package fingerprint
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"net/netip"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/httpstatus"
 )
 
 // Canonical event field names. A mapper must emit exactly these.
@@ -55,9 +53,8 @@ const (
 
 	DefaultName = "fingerprint"
 
-	minStatus, maxStatus = 100, 599
-	maxList              = 1000
-	maxString            = 1024
+	maxList   = 1000
+	maxString = 1024
 )
 
 var (
@@ -293,7 +290,7 @@ func (d *Detector) scan(ctx context.Context, r core.EventReader, w core.Window) 
 		}
 		ua, _ := ev.Fields[FieldUserAgent].(string)
 		path, _ := ev.Fields[FieldPath].(string)
-		status, ok := parseStatus(ev.Fields[FieldStatus])
+		status, ok := httpstatus.Parse(ev.Fields[FieldStatus])
 		if ua == "" || path == "" || !ok || ev.Time.IsZero() {
 			s.unparsable++
 			continue
@@ -462,42 +459,6 @@ func (d *Detector) Detect(ctx context.Context, cur, prev core.EventReader, w cor
 	return out, nil
 }
 
-// parseStatus accepts int, float64 (as JSON decodes numbers) and string forms.
-// Anything else, a non-integer, or a value outside 100..599 is unparsable.
-func parseStatus(v any) (int, bool) {
-	var n int
-	switch x := v.(type) {
-	case int:
-		n = x
-	case int32:
-		n = int(x)
-	case int64:
-		if x < minStatus || x > maxStatus {
-			return 0, false
-		}
-		n = int(x)
-	case float64:
-		if math.IsNaN(x) || math.IsInf(x, 0) || x != math.Trunc(x) || x < minStatus || x > maxStatus {
-			return 0, false
-		}
-		n = int(x)
-	case json.Number:
-		return parseStatus(string(x))
-	case string:
-		i, err := strconv.Atoi(strings.TrimSpace(x))
-		if err != nil {
-			return 0, false
-		}
-		n = i
-	default:
-		return 0, false
-	}
-	if n < minStatus || n > maxStatus {
-		return 0, false
-	}
-	return n, true
-}
-
 var _ core.ActivityReporter = (*Detector)(nil)
 
 // Activity answers "was any actor active in w". An actor is active when it has at least
@@ -561,7 +522,7 @@ func (d *Detector) History(ctx context.Context, f core.FieldEventFinder) ([]core
 				}
 				h.Scanned++
 				path, _ := ev.Fields[FieldPath].(string)
-				status, ok := parseStatus(ev.Fields[FieldStatus])
+				status, ok := httpstatus.Parse(ev.Fields[FieldStatus])
 				if path == "" || !ok || ev.Time.IsZero() {
 					h.Unparsable++
 					continue

@@ -62,16 +62,15 @@ package signup
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/httpstatus"
 )
 
 const (
@@ -79,7 +78,6 @@ const (
 	defaultMinCreations  = 5
 	defaultFactor        = 3.0
 	defaultAttemptFactor = 3.0
-	minStatus, maxStatus = 100, 599
 
 	// epsilon absorbs float rounding at the threshold.
 	epsilon = 1e-9
@@ -258,7 +256,7 @@ func New(c Config) (*Detector, error) {
 		d.paths[p] = struct{}{}
 	}
 	for _, s := range c.SuccessStatuses {
-		if s < minStatus || s > maxStatus {
+		if s < httpstatus.Min || s > httpstatus.Max {
 			return nil, fmt.Errorf("signup: success status %d is not an HTTP status", s)
 		}
 		d.success[s] = struct{}{}
@@ -331,7 +329,7 @@ func (d *Detector) scan(ctx context.Context, r core.EventReader, w core.Window) 
 			t.offPath++
 			continue
 		}
-		status, ok := parseStatus(ev.Fields[d.cfg.StatusField])
+		status, ok := httpstatus.Parse(ev.Fields[d.cfg.StatusField])
 		if !ok {
 			t.unparsable++
 			continue
@@ -564,40 +562,4 @@ func domainOf(v any) string {
 		return ""
 	}
 	return strings.ToLower(strings.TrimRight(s[i+1:], ". >"))
-}
-
-// parseStatus accepts int, float64 (as JSON decodes numbers) and string forms.
-// Anything else, a non-integer, or a value outside 100..599 is unparsable.
-func parseStatus(v any) (int, bool) {
-	var n int
-	switch x := v.(type) {
-	case int:
-		n = x
-	case int32:
-		n = int(x)
-	case int64:
-		if x < minStatus || x > maxStatus {
-			return 0, false
-		}
-		n = int(x)
-	case float64:
-		if math.IsNaN(x) || math.IsInf(x, 0) || x != math.Trunc(x) || x < minStatus || x > maxStatus {
-			return 0, false
-		}
-		n = int(x)
-	case json.Number:
-		return parseStatus(string(x))
-	case string:
-		i, err := strconv.Atoi(strings.TrimSpace(x))
-		if err != nil {
-			return 0, false
-		}
-		n = i
-	default:
-		return 0, false
-	}
-	if n < minStatus || n > maxStatus {
-		return 0, false
-	}
-	return n, true
 }
