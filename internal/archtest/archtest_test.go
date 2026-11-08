@@ -53,6 +53,7 @@ var rules = []rule{
 	{pkg: "internal/estategraph", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", mod + "/internal/watchrun", "github.com/spf13/cobra", "github.com/duckdb", "github.com/a-h/templ", "gopkg.in/yaml", "net", "net/http", "net/url", "os", "os/exec", "io/ioutil", "log", "unsafe", "reflect", "html/template"}, why: "the estate graph model is a pure function of core.EstateGraph (core, the standard library and the graph library only): it reads no file, store or request and never prints, so the page that prints a label keeps the escaping"},
 	{pkg: "internal/adapters/bgp", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "os/exec", "os"}, why: "the BGP adapter depends on core and the standard library only; net/http is allowed here and in the other remote adapters only"},
 	{pkg: "internal/adapters/crtsh", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "os/exec", "os"}, why: "the certificate transparency adapter depends on core and the standard library only; net/http is allowed here and in the other remote adapters only"},
+	{pkg: "internal/guardedhttp", stdlibOnly: true, forbid: []string{"os", "os/exec"}, why: "the shared client of the passive-only collectors (rdap, bgp, crtsh) builds a guarded *http.Client and nothing else: standard library only, no file, no process, and it knows no adapter or the domain"},
 	{pkg: "internal/adapters/dnsfwd", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", "github.com/spf13/cobra", "github.com/duckdb", "gopkg.in/yaml", "os/exec", "os", "net/http"}, why: "the forward-DNS adapter depends on core and the standard library only and asks a DNS resolver through an injected net.Resolver; it has no HTTP"},
 	{pkg: "internal/ops", stdlibOnly: true, why: "an operation definition, its reflector and its argument check are pure: the standard library only, so the command line, the Go API and an MCP server can all depend on one definition without pulling in each other"},
 	{pkg: "internal/mcp", forbid: []string{mod + "/internal/app", mod + "/internal/config", mod + "/internal/casefile", mod + "/internal/adapters", mod + "/internal/core", mod + "/internal/watchrun", mod + "/cmd", "github.com/spf13", "github.com/duckdb", "github.com/dominikbraun", "gopkg.in/", "net", "os"}, forbidEq: []string{mod + "/jb"}, why: "the MCP server speaks a protocol over streams it is given and calls a Registry it is given: the standard library and internal/ops only, no jb package, no adapter, no file, network or process, so the command line decides what a tool can reach"},
@@ -110,7 +111,8 @@ func TestDependencyRules(t *testing.T) {
 
 // netHTTPAllowed are the only packages that may import net/http: the adapters that
 // call a remote API (kibana, greynoise, sansisc, rdap, bgp and crtsh, which ask a registry or a
-// public data service and never the address or domain they are asked about, and the alert webhook). Everything else (core, app, storage, detectors, config, the case
+// public data service and never the address or domain they are asked about, and the alert webhook),
+// and guardedhttp, the one client builder that rdap, bgp and crtsh share. Everything else (core, app, storage, detectors, config, the case
 // format) has no network.
 var netHTTPAllowed = map[string]bool{
 	mod + "/internal/adapters/kibana":    true,
@@ -120,6 +122,7 @@ var netHTTPAllowed = map[string]bool{
 	mod + "/internal/adapters/rdap":      true,
 	mod + "/internal/adapters/bgp":       true,
 	mod + "/internal/adapters/crtsh":     true,
+	mod + "/internal/guardedhttp":        true,
 }
 
 // netHTTPServing may import net/http to answer requests, never to make them. The web

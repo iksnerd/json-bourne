@@ -25,16 +25,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
 	"strings"
-	"syscall"
 	"time"
 	"unicode/utf8"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/guardedhttp"
 )
 
 const (
@@ -46,10 +45,9 @@ const (
 	// DefaultMaxBody bounds the bytes read from one response.
 	DefaultMaxBody int64 = 1 << 20
 
-	maxRedirects = 3
-	maxEntities  = 20
-	maxField     = 255
-	userAgent    = "json-bourne-estate"
+	maxEntities = 20
+	maxField    = 255
+	userAgent   = "json-bourne-estate"
 )
 
 var _ core.RDAPRegistry = (*Client)(nil)
@@ -74,49 +72,8 @@ func New(base string) (*Client, error) {
 	return &Client{BaseURL: strings.TrimRight(base, "/"), Timeout: DefaultTimeout, MaxBody: DefaultMaxBody}, nil
 }
 
-// refuse returns a dialer Control function that blocks any connection to target. The
-// address it sees is the resolved one, after DNS.
-func refuse(target netip.Addr) func(network, address string, c syscall.RawConn) error {
-	return func(_, address string, _ syscall.RawConn) error {
-		ap, err := netip.ParseAddrPort(address)
-		if err == nil && ap.Addr().Unmap() == target.Unmap() {
-			return errors.New("refused: the lookup would connect to the address under investigation")
-		}
-		return nil
-	}
-}
-
 func (c *Client) httpClient(target netip.Addr, timeout time.Duration) *http.Client {
-	rt := c.Transport
-	if rt == nil {
-		d := &net.Dialer{Timeout: timeout, Control: refuse(target)}
-		rt = &http.Transport{
-			Proxy:             http.ProxyFromEnvironment,
-			DialContext:       d.DialContext,
-			DisableKeepAlives: true,
-			// A registry answers in one round trip; bound each stage too.
-			TLSHandshakeTimeout:   timeout,
-			ResponseHeaderTimeout: timeout,
-		}
-	}
-	return &http.Client{
-		Transport: rt,
-		Timeout:   timeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			switch {
-			case len(via) > maxRedirects:
-				return errors.New("too many redirects")
-			case req.URL.Scheme != "http" && req.URL.Scheme != "https":
-				return errors.New("redirect to a non-http URL")
-			case via[0].URL.Scheme == "https" && req.URL.Scheme != "https":
-				return errors.New("redirect from https to http")
-			}
-			if _, err := netip.ParseAddr(strings.Trim(req.URL.Hostname(), "[]")); err == nil {
-				return errors.New("redirect to a bare IP address")
-			}
-			return nil
-		},
-	}
+	return guardedhttp.New(c.Transport, timeout, guardedhttp.RefuseAddr(target))
 }
 
 // LookupIP implements core.RDAPRegistry.

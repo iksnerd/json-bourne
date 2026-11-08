@@ -29,9 +29,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
-	"net/netip"
 	"net/url"
 	"regexp"
 	"sort"
@@ -39,6 +37,7 @@ import (
 	"time"
 
 	"github.com/iksnerd/json-bourne/internal/core"
+	"github.com/iksnerd/json-bourne/internal/guardedhttp"
 )
 
 const (
@@ -51,8 +50,7 @@ const (
 	// DefaultMaxNames bounds the distinct names kept.
 	DefaultMaxNames = 500
 
-	maxRedirects = 3
-	userAgent    = "json-bourne-estate"
+	userAgent = "json-bourne-estate"
 )
 
 var nameRE = regexp.MustCompile(`^[a-z0-9_]([a-z0-9_.-]{0,251}[a-z0-9_])?$`)
@@ -87,46 +85,20 @@ func inDomain(host, domain string) bool {
 }
 
 func (c *Client) httpClient(domain string, timeout time.Duration) *http.Client {
-	rt := c.Transport
-	if rt == nil {
-		d := &net.Dialer{Timeout: timeout}
-		rt = &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				host, _, err := net.SplitHostPort(addr)
-				if err != nil {
-					host = addr
-				}
-				if inDomain(host, domain) {
-					return nil, errors.New("refused: the search would connect to the domain under investigation")
-				}
-				return d.DialContext(ctx, network, addr)
-			},
-			DisableKeepAlives:     true,
-			TLSHandshakeTimeout:   timeout,
-			ResponseHeaderTimeout: timeout,
-		}
-	}
-	return &http.Client{
-		Transport: rt,
-		Timeout:   timeout,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			switch {
-			case len(via) > maxRedirects:
-				return errors.New("too many redirects")
-			case req.URL.Scheme != "http" && req.URL.Scheme != "https":
-				return errors.New("redirect to a non-http URL")
-			case via[0].URL.Scheme == "https" && req.URL.Scheme != "https":
-				return errors.New("redirect from https to http")
-			case inDomain(req.URL.Hostname(), domain):
-				return errors.New("redirect to the domain under investigation")
-			}
-			if _, err := netip.ParseAddr(strings.Trim(req.URL.Hostname(), "[]")); err == nil {
-				return errors.New("redirect to a bare IP address")
+	return guardedhttp.New(c.Transport, timeout, guardedhttp.Guard{
+		Dial: func(host string) error {
+			if inDomain(host, domain) {
+				return errors.New("refused: the search would connect to the domain under investigation")
 			}
 			return nil
 		},
-	}
+		Redirect: func(host string) error {
+			if inDomain(host, domain) {
+				return errors.New("redirect to the domain under investigation")
+			}
+			return nil
+		},
+	})
 }
 
 // LookupSubdomains implements core.CTSource. domain must be a lower-case DNS name; the
