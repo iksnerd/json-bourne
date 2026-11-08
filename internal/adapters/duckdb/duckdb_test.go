@@ -27,7 +27,29 @@ func openTest(t *testing.T) *Store {
 	return s
 }
 
+// seq is the stream the tests hand to SaveEvents. The store refuses an event without a
+// document identity, as the Kibana source never produces one, so seq gives a bare event the
+// identity "test-doc/<kind>": the same document under any source label, which is what a real
+// identity is. An event that sets its own DocKey keeps it. A test of a keyless event uses
+// bareSeq; a test of a row written before schema 4 uses insertLegacy.
 func seq(evs ...core.Event) iter.Seq2[core.Event, error] {
+	stamped := make([]core.Event, len(evs))
+	for i, e := range evs {
+		stamped[i] = seqEvent(e)
+	}
+	return bareSeq(stamped...)
+}
+
+// seqEvent is seq's identity rule for one event.
+func seqEvent(e core.Event) core.Event {
+	if e.DocKey == "" {
+		e.DocKey = "test-doc/" + e.Kind
+	}
+	return e
+}
+
+// bareSeq yields the events exactly as given, identity or not.
+func bareSeq(evs ...core.Event) iter.Seq2[core.Event, error] {
 	return func(yield func(core.Event, error) bool) {
 		for _, e := range evs {
 			if !yield(e, nil) {
@@ -161,6 +183,7 @@ func TestResaveReplacesTheRun(t *testing.T) {
 	other := sample(2) // a different source, so run b's events are not duplicates of a's
 	for i := range other {
 		other[i].Source = "other.example.com"
+		other[i].DocKey = "other-doc"
 	}
 	if err := s.SaveEvents(ctx, "b", seq(other...)); err != nil {
 		t.Fatal(err)
@@ -204,7 +227,7 @@ func TestFailedResaveKeepsThePreviousRun(t *testing.T) {
 
 	boom := errors.New("upstream died")
 	failing := func(yield func(core.Event, error) bool) {
-		if !yield(sample(1)[0], nil) {
+		if !yield(seqEvent(sample(1)[0]), nil) {
 			return
 		}
 		yield(core.Event{}, boom)

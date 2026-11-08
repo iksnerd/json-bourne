@@ -91,6 +91,11 @@ func (s *Store) StoreUsage(ctx context.Context) (core.StoreUsage, error) {
 	if st.Version == 0 {
 		return u, nil
 	}
+	if st.Version < 4 { // the file predates the doc_ident column (migration 0004): no event has one
+		u.LegacyEvents = st.Events
+	} else if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM events WHERE doc_ident IS NULL`).Scan(&u.LegacyEvents); err != nil {
+		return u, fmt.Errorf("count events without a document identity: %w", err)
+	}
 	runs, err := s.loadRuns(ctx, s.db)
 	if err != nil {
 		return u, err

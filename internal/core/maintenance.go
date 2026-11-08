@@ -155,6 +155,10 @@ type StoreUsage struct {
 	FreeBytes     int64        `json:"engine_free_bytes"` // blocks DuckDB would reuse; a compacted copy drops them
 	Kinds         []KindUsage  `json:"kinds"`
 	Labels        []LabelUsage `json:"labels"`
+	// LegacyEvents counts the events with no document identity (doc_ident NULL): rows
+	// written before schema 4. The reader tells only these apart by source label. When it is 0
+	// on every store, that fallback has no row left to serve and can be deleted.
+	LegacyEvents int64 `json:"events_without_doc_ident"`
 }
 
 // StoreUsageReader measures the store with fixed queries. It reads only, and works on

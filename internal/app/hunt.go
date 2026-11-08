@@ -597,7 +597,7 @@ type pending struct {
 	name     string
 	src      core.Source
 	docs     *docSet
-	keyless  []core.Event // events with no identity: never merged, always stored
+	keyless  []core.Event // events with no identity: never merged; the sink refuses them, which fails the source
 	keyed    int64        // events with an identity that the source returned
 	fetchErr error
 }

@@ -33,6 +33,25 @@ func (e *EmptySaveError) Error() string {
 
 func (e *EmptySaveError) Unwrap() error { return ErrNoRecords }
 
+// ErrNoDocIdentity means an event reached the evidence store without a document identity.
+// Every stored event names the document it came from (Event.DocKey, the scoped digest Hunt
+// sets), because the label-dependent identity the reader falls back to can merge or split
+// documents by the name of the source. Only rows written before schema 4 lack one.
+var ErrNoDocIdentity = errors.New("no document identity")
+
+// NoDocIdentityError is what a Sink returns for an event with an empty identity. It matches
+// ErrNoDocIdentity (errors.Is) and names the event, so the source that produced it can be found.
+type NoDocIdentityError struct {
+	Run   string
+	Index int64 // zero-based position of the event in the run's stream
+}
+
+func (e *NoDocIdentityError) Error() string {
+	return fmt.Sprintf("event %d of run %q has no document identity: its source named no document scope or no document key", e.Index, e.Run)
+}
+
+func (e *NoDocIdentityError) Unwrap() error { return ErrNoDocIdentity }
+
 // ErrSourceUnavailable means the backend could not be reached or refused the query.
 var ErrSourceUnavailable = errors.New("source unavailable")
 

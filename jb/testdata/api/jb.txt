@@ -491,6 +491,7 @@ field github.com/iksnerd/json-bourne/internal/core.StoreUsage#007 UsedBytes int6
 field github.com/iksnerd/json-bourne/internal/core.StoreUsage#008 FreeBytes int64 "json:\"engine_free_bytes\""
 field github.com/iksnerd/json-bourne/internal/core.StoreUsage#009 Kinds []github.com/iksnerd/json-bourne/internal/core.KindUsage "json:\"kinds\""
 field github.com/iksnerd/json-bourne/internal/core.StoreUsage#010 Labels []github.com/iksnerd/json-bourne/internal/core.LabelUsage "json:\"labels\""
+field github.com/iksnerd/json-bourne/internal/core.StoreUsage#011 LegacyEvents int64 "json:\"events_without_doc_ident\""
 type github.com/iksnerd/json-bourne/internal/core.TableCount struct
 field github.com/iksnerd/json-bourne/internal/core.TableCount#000 Table string "json:\"table\""
 field github.com/iksnerd/json-bourne/internal/core.TableCount#001 Rows int64 "json:\"rows\""

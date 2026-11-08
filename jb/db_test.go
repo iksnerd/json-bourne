@@ -46,9 +46,15 @@ func dbEvents(source string, from, n int) []core.Event {
 	return out
 }
 
+// dbSeq is the stream the tests hand to Store.SaveEvents. The store requires a document
+// identity, so a bare event gets "test-doc/<source>/<kind>": the same line under two source
+// labels stays two documents. An event that sets its own DocKey keeps it.
 func dbSeq(evs []core.Event) func(func(core.Event, error) bool) {
 	return func(yield func(core.Event, error) bool) {
 		for _, e := range evs {
+			if e.DocKey == "" {
+				e.DocKey = "test-doc/" + e.Source + "/" + e.Kind
+			}
 			if !yield(e, nil) {
 				return
 			}
@@ -206,6 +212,7 @@ func TestDBUsageSeesDocumentsUnderTwoLabelsAndKeys(t *testing.T) {
 .engine_free_bytes
 .engine_used_bytes
 .events
+.events_without_doc_ident
 .file_bytes
 .findings
 .kinds[]

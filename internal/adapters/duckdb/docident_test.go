@@ -47,14 +47,44 @@ func TestEventsCountSharedDocumentOnceAcrossOwners(t *testing.T) {
 	if got := read(); len(got) != 2 {
 		t.Fatalf("a second document is a second event, got %d", len(got))
 	}
-	// keyless: same raw under two sources are two events
-	if err := s.SaveEvents(ctx, "r4/a", seq(identEvent("a", "", "a", at))); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.SaveEvents(ctx, "r5/b", seq(identEvent("b", "", "b", at))); err != nil {
-		t.Fatal(err)
-	}
+	// legacy rows (no doc_ident): same raw under two sources are two events
+	insertLegacy(t, s, "r4/a", identEvent("a", "", "a", at))
+	insertLegacy(t, s, "r5/b", identEvent("b", "", "b", at))
 	if got := read(); len(got) != 4 {
-		t.Fatalf("keyless copies under two sources stay separate, got %d", len(got))
+		t.Fatalf("legacy copies under two sources stay separate, got %d", len(got))
+	}
+}
+
+// Rows written before schema 4 have no doc_ident. The reader keeps its old rule for them:
+// one event per (source, kind, ts, content), the occurrence number within a run counted, the
+// latest run winning, and rows with an identity are not confused with them.
+func TestLegacyRowsAreStillReadOnceAndDeduplicatedByLabel(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+	at := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
+	win := core.Window{From: at.Add(-time.Second), To: at.Add(time.Second)}
+	// Two overlapping runs of one source carry the same document; one run carries it twice.
+	insertLegacy(t, s, "old-1/a", identEvent("a", "", "r1", at), identEvent("a", "", "r1", at))
+	insertLegacy(t, s, "old-2/a", identEvent("a", "", "r2", at), identEvent("a", "", "r2", at))
+	got := readAll(t, s, win.From, win.To)
+	if len(got) != 2 {
+		t.Fatalf("legacy rows: got %d events, want 2 (a repeated line within a run survives, a re-fetch collapses)", len(got))
+	}
+	for _, e := range got {
+		if e.Fields["mapped_by"] != "r2" || e.Source != "a" {
+			t.Fatalf("the latest run's copy must win, got %+v", e)
+		}
+	}
+	// The same raw text under another label is another event: the label is the identity.
+	insertLegacy(t, s, "old-3/b", identEvent("b", "", "r3", at))
+	if got := readAll(t, s, win.From, win.To); len(got) != 3 {
+		t.Fatalf("a second label: got %d events, want 3", len(got))
+	}
+	// A row with an identity next to them is its own document.
+	if err := s.SaveEvents(ctx, "new-1/a", seq(identEvent("a", "ident-1", "n", at))); err != nil {
+		t.Fatal(err)
+	}
+	if got := readAll(t, s, win.From, win.To); len(got) != 4 {
+		t.Fatalf("with an identified row: got %d events, want 4", len(got))
 	}
 }
