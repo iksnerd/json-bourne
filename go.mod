@@ -3,16 +3,17 @@ module github.com/iksnerd/json-bourne
 go 1.25.0
 
 require (
+	github.com/a-h/templ v0.3.1020
+	github.com/dominikbraun/graph v0.23.0
 	github.com/duckdb/duckdb-go/v2 v2.20000.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.9
 	golang.org/x/tools v0.41.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/a-h/templ v0.3.1020 // indirect
 	github.com/apache/arrow-go/v18 v18.5.1 // indirect
-	github.com/dominikbraun/graph v0.23.0 // indirect
 	github.com/duckdb/duckdb-go-bindings v0.20000.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
@@ -22,7 +23,6 @@ require (
 	github.com/klauspost/compress v1.18.3 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.25 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.duckdb.org/libduckdb/darwin-amd64 v0.20000.0 // indirect
 	go.duckdb.org/libduckdb/darwin-arm64 v0.20000.0 // indirect
