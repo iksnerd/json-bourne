@@ -6,6 +6,7 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ### Docs
 - A glossary (`docs/GLOSSARY.md`), a data-flow diagram and a "Start here" section in `docs/ARCHITECTURE.md`. The package table now lists every `internal/` package. A test (`TestArchitectureDocMatchesCode`) keeps the table, the glossary links and the operation and command counts equal to the code. The checkers also run a shared, language-neutral conformance corpus (`internal/archtest/testdata/docs-code-links-corpus/`). The README no longer says the project is private and now shows how to download and verify a release binary. The example endpoint paths in RFC 0014 and the account-abuse config page are generic.
+- RFC 0020 (draft, parked): a Loki source, reachable through a Grafana data source proxy. Nothing is built.
 
 ## [0.12.1] - 2026-11-09
 

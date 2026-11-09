@@ -8,7 +8,7 @@ An RFC is a written design that the maintainer accepts before the code is built.
 
 ## Freeze
 
-Since v0.7.0 `jb` takes no new command, port, file format or config key before 1.0 ([CONTRIBUTING.md](../../.github/CONTRIBUTING.md), "Feature freeze"); `jb serve` is the exception. A new draft RFC for a feature is parked, not built, until the maintainer lifts the freeze. RFC 0016 is parked. The stability policy for 1.0, and what 1.0 means, is [RFC 0018](0018-stability-policy.md).
+Since v0.7.0 `jb` takes no new command, port, file format or config key before 1.0 ([CONTRIBUTING.md](../../.github/CONTRIBUTING.md), "Feature freeze"); `jb serve` is the exception. A new draft RFC for a feature is parked, not built, until the maintainer lifts the freeze. RFC 0016 and RFC 0020 are parked. The stability policy for 1.0, and what 1.0 means, is [RFC 0018](0018-stability-policy.md).
 
 Accepted RFCs stay `accepted` here when only part of them is built (for example RFC 0017, steps 1 and 6); the Reference implementations section of each file says what exists.
 
@@ -88,3 +88,4 @@ An RFC is the proposal and its reasons. A spec is the normative text of a format
 | [0017](0017-public-api-owns-its-types.md) | Public API owns its types | accepted |
 | [0018](0018-stability-policy.md) | Stability policy for 1.0 | accepted |
 | [0019](0019-serve-timeline.md) | Timeline page for `jb serve` | implemented |
+| [0020](0020-loki-source.md) | A Loki source, reachable through Grafana | draft |
