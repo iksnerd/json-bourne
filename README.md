@@ -154,6 +154,7 @@ What it is not:
 
 **Understand it**
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): layers, ports and how the dependency rules are enforced.
+- [docs/GLOSSARY.md](docs/GLOSSARY.md): the terms (window, baseline, finding, run id and the rest) and where each is defined.
 - [docs/CASE-SPEC.md](docs/CASE-SPEC.md) and [docs/spec/README.md](docs/spec/README.md): the case directory and each file format and protocol.
 - [docs/rfcs/README.md](docs/rfcs/README.md): the RFC index; [docs/adr/](docs/adr/) for decisions that are not contracts.
 

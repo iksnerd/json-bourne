@@ -4,6 +4,9 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Docs
+- A glossary (`docs/GLOSSARY.md`), a data-flow diagram and a "Start here" section in `docs/ARCHITECTURE.md`. The package table now lists every `internal/` package. A test (`TestArchitectureDocMatchesCode`) keeps the table, the glossary links and the operation and command counts equal to the code.
+
 ## [0.12.1] - 2026-11-09
 
 ### Fixed

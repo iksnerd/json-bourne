@@ -4,6 +4,32 @@
 
 `jb` is a hexagonal layout: a small core of types and ports, one use case, and adapters that implement the ports. Only the composition roots know every adapter.
 
+## Start here
+
+New to the code? Read [GLOSSARY.md](GLOSSARY.md) for the terms, [COMPONENTS.md](COMPONENTS.md) for what each source, detector and sink does, the layers section below for who may import whom, and [rfcs/README.md](rfcs/README.md) for why the contracts look as they do.
+
+## Data flow
+
+An event travels from a source to a finding in one direction. Detectors read the store, never the source. Feeds are not in this path: only `jb intel` uses them.
+
+```mermaid
+flowchart LR
+    SRC["Source (Fetch)"] --> MAP["mapper (document to Event)"]
+    MAP --> EVT["Event"]
+    EVT --> SINK["Sink (SaveEvents)"]
+    SINK --> STORE[("store (DuckDB)")]
+    STORE -->|"EventReader: current window"| DET["Detector (Detect)"]
+    STORE -->|"EventReader: baseline, w.Previous()"| DET
+    DET --> FIND["Finding"]
+    FIND --> SAVE["Sink (SaveFindings)"]
+    SAVE --> STORE
+    FIND --> OUT["table / JSON / AlertSink"]
+    FEED["Feed (Lookup)"] -.-> INTEL["jb intel (app.Intel)"]
+    INTEL --> REP["Reputation (ReputationStore)"]
+```
+
+## Layers
+
 ```
 cmd/jb  ──►  internal/config ──► internal/adapters/*   (kibana, duckdb, detectors/*)
   │                  │                      │
@@ -50,9 +76,16 @@ The operations (RFC 0010) are the third way in. `jb.Operations()` and `jb.Call` 
 | `internal/mcp` | The Model Context Protocol server: newline-delimited JSON-RPC over two streams, serving the tools of a registry it is given. Strips control characters and cuts strings in results. | The standard library and `internal/ops`. No `jb` package, adapter, file, network or process. |
 | `internal/severityfloor` | The one parse and apply of a detector's `min_severity` and `note` (a floor only raises a finding), shared by `behaviour` and `newkey`. | `core` and the standard library. |
 | `internal/estateseam` | Test doubles for the network adapters of the estate functions, carried on the call's context. Not public API; `jb.EstatePorts` no longer exists. | Used by tests and `cmd/jb`. |
-| `internal/httpstatus` | The one parse of an HTTP status out of a mapped field, used by four detectors. Standard library only. |
-| `internal/feedloop` | The one per-indicator lookup loop of the `greynoise` and `sansisc` feeds. `core` and the standard library only. |
-| `internal/guardedhttp` | The one HTTP client with the passive-only guards (dial guard, redirect rules) used by `bgp`, `rdap` and `crtsh`. Standard library only. |
+| `internal/httpstatus` | The one parse of an HTTP status out of a mapped field, used by four detectors. | Standard library only. |
+| `internal/feedloop` | The one per-indicator lookup loop of the `greynoise` and `sansisc` feeds. | `core` and the standard library only. |
+| `internal/guardedhttp` | The one HTTP client with the passive-only guards (dial guard, redirect rules) used by `bgp`, `rdap` and `crtsh`. | Standard library only. |
+| `internal/casefile` | Loads and validates a case directory: `case.yaml`, actor and estate files, the git guard. | The standard library and the YAML package. |
+| `internal/estategraph` | The estate graph model (degree, components, layered layout). No I/O. | `core` and the `graph` package. |
+| `internal/logmap/*` | The built-in mappers `keycloak` and `requestdump`. | `core` and the standard library. |
+| `internal/piiguard` | The one place that knows which event fields hold personal data. | The standard library only. |
+| `internal/safefile` | Reads operator-writable local files without trusting what the path points at. | The standard library only. |
+| `internal/archtest` | The tests that enforce this table (see "The dependency rules are tests"). | Tests only. |
+| `internal/conformance` | Runs one corpus through the example plugins and the built-in mapper. | Tests only. |
 | `jb` (`jb/`) | The public Go API: one function per command (`Hunt`, `Activity`, `Watch`, `Doctor`, `DB*`, `Estate*`, `Intel`, `DashboardHandler` and the rest; README has the table). | Like `cmd/jb`: it wires config, watchrun, app and the store. |
 | `sdk` | The plugin side of the mapper protocol, public. | Standard library only. |
 | `cmd/jb` | The cobra CLI. Wires config, the store, the watch adapters, the web dashboard and `app.Hunt` / `app.Watch`. | Everything. |
