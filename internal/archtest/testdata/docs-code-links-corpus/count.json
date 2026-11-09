@@ -1,0 +1,55 @@
+{
+ "checker": "count",
+ "cases": [
+  {
+   "name": "clean",
+   "input": {
+    "patterns": [
+     "(\\d+) operations"
+    ],
+    "body": "the 22 operations",
+    "want": 22
+   },
+   "want": []
+  },
+  {
+   "name": "wrong number",
+   "input": {
+    "patterns": [
+     "(\\d+) operations"
+    ],
+    "body": "the 23 operations",
+    "want": 22
+   },
+   "want": [
+    "says 23 operations, the code has 22"
+   ]
+  },
+  {
+   "name": "claim vanished",
+   "input": {
+    "patterns": [
+     "(\\d+) operations"
+    ],
+    "body": "the operations",
+    "want": 22
+   },
+   "want": [
+    "no longer states the number"
+   ]
+  },
+  {
+   "name": "repeated claim, one wrong",
+   "input": {
+    "patterns": [
+     "(\\d+) operations"
+    ],
+    "body": "22 operations here and 21 operations there",
+    "want": 22
+   },
+   "want": [
+    "says 21 operations"
+   ]
+  }
+ ]
+}

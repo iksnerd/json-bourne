@@ -1,0 +1,116 @@
+{
+ "checker": "glossary",
+ "cases": [
+  {
+   "name": "clean",
+   "input": {
+    "files": {
+     "a.go": "type Window struct{}"
+    },
+    "rows": [
+     [
+      "window",
+      "a range",
+      "[`a.go`](a.go) `Window`"
+     ]
+    ]
+   },
+   "want": []
+  },
+  {
+   "name": "link only, no identifier",
+   "input": {
+    "files": {
+     "d.md": "x"
+    },
+    "rows": [
+     [
+      "case",
+      "c",
+      "[`d.md`](d.md)"
+     ]
+    ]
+   },
+   "want": []
+  },
+  {
+   "name": "external link is skipped",
+   "input": {
+    "files": {},
+    "rows": [
+     [
+      "x",
+      "y",
+      "[w](https://example.org/a)"
+     ]
+    ]
+   },
+   "want": []
+  },
+  {
+   "name": "dead link",
+   "input": {
+    "files": {},
+    "rows": [
+     [
+      "window",
+      "w",
+      "[`gone.go`](gone.go) `Window`"
+     ]
+    ]
+   },
+   "want": [
+    "links to gone.go"
+   ]
+  },
+  {
+   "name": "identifier only as a substring",
+   "input": {
+    "files": {
+     "a.go": "func ReadAll() {}"
+    },
+    "rows": [
+     [
+      "read",
+      "r",
+      "[`a.go`](a.go) `Read`"
+     ]
+    ]
+   },
+   "want": [
+    "names `Read`"
+   ]
+  },
+  {
+   "name": "no link in Where",
+   "input": {
+    "files": {},
+    "rows": [
+     [
+      "x",
+      "y",
+      "internal/core"
+     ]
+    ]
+   },
+   "want": [
+    "has no link"
+   ]
+  },
+  {
+   "name": "short row",
+   "input": {
+    "files": {},
+    "rows": [
+     [
+      "x",
+      "y"
+     ]
+    ]
+   },
+   "want": [
+    "has 2 cells, want 3"
+   ]
+  }
+ ]
+}

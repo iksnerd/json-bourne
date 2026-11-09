@@ -255,19 +255,7 @@ func operationFlagCommands(t *testing.T, dir string) []string {
 	return out
 }
 
-func goodArchTable() string {
-	return "## x\n\n| Package | Role | May import |\n|---|---|---|\n" +
-		"| `internal/core` | Domain. | Standard library only. |\n" +
-		"| `internal/adapters/*` | Adapters. | `core`. |\n" +
-		"| `jb` (`jb/`) | API. | Everything. |\n\ntext\n"
-}
-
 func TestDocCheckersFlagWhatTheyShould(t *testing.T) {
-	exists := func(p string) bool { return p == "internal/core" || p == "internal/adapters" }
-	dirs := []string{"adapters", "core"}
-	if bad := checkPackageTable(tableRows(goodArchTable(), "Package"), dirs, exists); len(bad) != 0 {
-		t.Fatalf("a good table was flagged: %v", bad)
-	}
 	has := func(name string, bad []string, want string) {
 		t.Helper()
 		for _, b := range bad {
@@ -277,30 +265,6 @@ func TestDocCheckersFlagWhatTheyShould(t *testing.T) {
 		}
 		t.Errorf("%s: want a problem containing %q, got %v", name, want, bad)
 	}
-	tbl := func(s string) [][]string { return tableRows(s, "Package") }
-	has("unlisted package", checkPackageTable(tbl(goodArchTable()), append(dirs, "newpkg"), exists), "internal/newpkg is a package directory")
-	has("renamed package", checkPackageTable(tbl(strings.Replace(goodArchTable(), "`internal/core`", "`internal/kore`", 1)), dirs, exists), "internal/kore` is listed but internal/kore does not exist")
-	has("renamed package leaves core unlisted", checkPackageTable(tbl(strings.Replace(goodArchTable(), "`internal/core`", "`internal/kore`", 1)), dirs, exists), "internal/core is a package directory")
-	has("two-cell row", checkPackageTable(tbl(strings.Replace(goodArchTable(), "| Domain. | Standard library only. |", "| Standard library only. |", 1)), dirs, exists), "has 2 cells, want 3")
-	has("four-cell row", checkPackageTable(tbl(strings.Replace(goodArchTable(), "| `core`. |", "| `core`. | extra |", 1)), dirs, exists), "has 4 cells, want 3")
-	has("no backticked name", checkPackageTable(tbl(strings.Replace(goodArchTable(), "`jb` (`jb/`)", "jb", 1)), dirs, exists), "no backticked package name")
-
-	good := "| Term | Meaning | Where |\n|---|---|---|\n| Hunt | Runs once. | [app/hunt.go](app/hunt.go) `Hunt` |\n| Plain | No ident. | [x](app/hunt.go) |\n"
-	resolve := func(l string) (string, bool) { return l, l == "app/hunt.go" }
-	read := func(string) string { return "func Hunt() {}\n// Huntsman" }
-	entries, bad := parseGlossary(good)
-	if bad = append(bad, checkGlossary(entries, resolve, read)...); len(bad) != 0 || len(entries) != 2 {
-		t.Fatalf("a good glossary was flagged: %v (%d entries)", bad, len(entries))
-	}
-	chk := func(body string) []string {
-		e, b := parseGlossary(body)
-		return append(b, checkGlossary(e, resolve, read)...)
-	}
-	has("dead link", chk(strings.Replace(good, "(app/hunt.go) `Hunt`", "(app/gone.go) `Hunt`", 1)), "which does not exist")
-	has("missing ident", chk(strings.Replace(good, "`Hunt`", "`Watch`", 1)), "`Watch`, which is not a word")
-	has("ident only as a substring", chk(strings.Replace(good, "`Hunt`", "`Hun`", 1)), "`Hun`, which is not a word")
-	has("no link", chk(strings.Replace(good, "[app/hunt.go](app/hunt.go) `Hunt`", "`Hunt`", 1)), "has no link")
-	has("short row", chk(strings.Replace(good, "| Runs once. ", "", 1)), "has 2 cells")
 
 	ops := "the 22 operations"
 	if bad := checkCount("d.md", "operations", opsClaimRE, "derive "+ops+" from", 22); len(bad) != 0 {
@@ -313,6 +277,105 @@ func TestDocCheckersFlagWhatTheyShould(t *testing.T) {
 	}
 	has("claim reworded away", checkCount("d.md", "operations", opsClaimRE, "there are many operations", 22), "no longer states the number")
 	has("unreadable number", checkCount("d.md", "operations", opsClaimRE, "derive the several operations", 22), "cannot read")
+}
+
+// The package-table, glossary and count checkers also run the shared corpus of the
+// docs-code-links skill (testdata/docs-code-links-corpus): the same inputs and expected
+// problems that any other implementation of these checks must pass. A want is a substring
+// that names the offender, so this file's messages may be worded differently.
+type corpusFile struct {
+	Cases []struct {
+		Name  string          `json:"name"`
+		Input json.RawMessage `json:"input"`
+		Want  []string        `json:"want"`
+	} `json:"cases"`
+}
+
+func runCorpus(t *testing.T, file string, run func(in json.RawMessage) []string) {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("testdata", "docs-code-links-corpus", file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cf corpusFile
+	if err := json.Unmarshal(b, &cf); err != nil {
+		t.Fatal(err)
+	}
+	if len(cf.Cases) == 0 {
+		t.Fatalf("%s holds no cases", file)
+	}
+	for _, c := range cf.Cases {
+		got := run(c.Input)
+		if len(c.Want) == 0 && len(got) != 0 {
+			t.Errorf("%s: want clean, got %v", c.Name, got)
+		}
+		for _, w := range c.Want {
+			found := false
+			for _, g := range got {
+				found = found || strings.Contains(g, w)
+			}
+			if !found {
+				t.Errorf("%s: want a problem containing %q, got %v", c.Name, w, got)
+			}
+		}
+		if len(c.Want) > 0 && len(got) != len(c.Want) {
+			t.Errorf("%s: want %d problems, got %d: %v", c.Name, len(c.Want), len(got), got)
+		}
+	}
+}
+
+func TestDocCheckersPassTheSharedCorpus(t *testing.T) {
+	contains := func(list []string, s string) bool {
+		for _, x := range list {
+			if x == s {
+				return true
+			}
+		}
+		return false
+	}
+	runCorpus(t, "package_table.json", func(raw json.RawMessage) []string {
+		var in struct {
+			Dirs   []string
+			Exists []string
+			Rows   [][]string
+		}
+		if err := json.Unmarshal(raw, &in); err != nil {
+			t.Fatal(err)
+		}
+		return checkPackageTable(in.Rows, in.Dirs, func(p string) bool { return contains(in.Exists, p) })
+	})
+	runCorpus(t, "glossary.json", func(raw json.RawMessage) []string {
+		var in struct {
+			Files map[string]string
+			Rows  [][]string
+		}
+		if err := json.Unmarshal(raw, &in); err != nil {
+			t.Fatal(err)
+		}
+		var body strings.Builder
+		body.WriteString("| Term | Meaning | Where |\n|---|---|---|\n")
+		for _, r := range in.Rows {
+			body.WriteString("| " + strings.Join(r, " | ") + " |\n")
+		}
+		entries, bad := parseGlossary(body.String())
+		resolve := func(l string) (string, bool) { _, ok := in.Files[l]; return l, ok }
+		return append(bad, checkGlossary(entries, resolve, func(p string) string { return in.Files[p] })...)
+	})
+	runCorpus(t, "count.json", func(raw json.RawMessage) []string {
+		var in struct {
+			Patterns []string
+			Body     string
+			Want     int
+		}
+		if err := json.Unmarshal(raw, &in); err != nil {
+			t.Fatal(err)
+		}
+		var res []*regexp.Regexp
+		for _, p := range in.Patterns {
+			res = append(res, regexp.MustCompile(p))
+		}
+		return checkCount("doc", "operations", res, in.Body, in.Want)
+	})
 }
 
 func TestArchitectureDocMatchesCode(t *testing.T) {

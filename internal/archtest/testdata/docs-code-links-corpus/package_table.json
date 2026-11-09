@@ -1,0 +1,165 @@
+{
+ "checker": "package_table",
+ "cases": [
+  {
+   "name": "clean",
+   "input": {
+    "cells": 3,
+    "dirs": [
+     "core",
+     "app"
+    ],
+    "exists": [
+     "internal/core",
+     "internal/app"
+    ],
+    "rows": [
+     [
+      "`internal/core`",
+      "types",
+      "std only"
+     ],
+     [
+      "`internal/app`",
+      "use cases",
+      "core"
+     ]
+    ]
+   },
+   "want": []
+  },
+  {
+   "name": "wildcard row covers its children",
+   "input": {
+    "cells": 3,
+    "dirs": [
+     "adapters"
+    ],
+    "exists": [
+     "internal/adapters"
+    ],
+    "rows": [
+     [
+      "`internal/adapters/*`",
+      "adapters",
+      "core"
+     ]
+    ]
+   },
+   "want": []
+  },
+  {
+   "name": "directory with no row",
+   "input": {
+    "cells": 3,
+    "dirs": [
+     "core",
+     "app"
+    ],
+    "exists": [
+     "internal/core",
+     "internal/app"
+    ],
+    "rows": [
+     [
+      "`internal/core`",
+      "types",
+      "std only"
+     ]
+    ]
+   },
+   "want": [
+    "internal/app is a package directory"
+   ]
+  },
+  {
+   "name": "listed path does not exist",
+   "input": {
+    "cells": 3,
+    "dirs": [
+     "core"
+    ],
+    "exists": [
+     "internal/core"
+    ],
+    "rows": [
+     [
+      "`internal/core`",
+      "t",
+      "s"
+     ],
+     [
+      "`internal/kore`",
+      "t",
+      "s"
+     ]
+    ]
+   },
+   "want": [
+    "`internal/kore` is listed but"
+   ]
+  },
+  {
+   "name": "two-cell row",
+   "input": {
+    "cells": 3,
+    "dirs": [
+     "core"
+    ],
+    "exists": [
+     "internal/core"
+    ],
+    "rows": [
+     [
+      "`internal/core`",
+      "types"
+     ]
+    ]
+   },
+   "want": [
+    "has 2 cells, want 3"
+   ]
+  },
+  {
+   "name": "four-cell row",
+   "input": {
+    "cells": 3,
+    "dirs": [
+     "core"
+    ],
+    "exists": [
+     "internal/core"
+    ],
+    "rows": [
+     [
+      "`internal/core`",
+      "t",
+      "s",
+      "x"
+     ]
+    ]
+   },
+   "want": [
+    "has 4 cells, want 3"
+   ]
+  },
+  {
+   "name": "first cell without a backticked name",
+   "input": {
+    "cells": 3,
+    "dirs": [],
+    "exists": [],
+    "rows": [
+     [
+      "core",
+      "t",
+      "s"
+     ]
+    ]
+   },
+   "want": [
+    "has no backticked"
+   ]
+  }
+ ]
+}
