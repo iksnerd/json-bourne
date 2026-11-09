@@ -98,13 +98,13 @@ sources:
     api_key_env: JB_KIBANA_API_KEY
     index: logs-web-*
     filter:
-      - match_phrase: {field: path, value: /verify-phone-and-code}
+      - match_phrase: {field: path, value: /account/verify}
     key_match: {field: message, mode: phrase}   # required for history; mode has no default
 detectors:
   - type: newkey
     key_field: client_ip
     path_field: path
-    sensitive_paths: ["/verify-phone-and-code", "/customers/switch-profile"]
+    sensitive_paths: ["/account/verify", "/account/switch"]
     min_hits: 3
     history: {lookback: 168h, min_events: 50, max_candidates: 50}
 ```

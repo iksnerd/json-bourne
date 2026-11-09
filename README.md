@@ -20,7 +20,14 @@ During an incident the failure mode that does the most damage is a wrong clean a
 
 ## Quick start
 
-You need Go 1.25 or later and a C compiler (the DuckDB driver uses cgo).
+Each release has a binary for `darwin-arm64` and `linux-amd64`, with a `.sha256` file. Download both from the GitHub releases page, check the hash, then unpack:
+
+```sh
+shasum -a 256 -c jb_vX.Y.Z_<os>-<arch>.tar.gz.sha256
+tar -xzf jb_vX.Y.Z_<os>-<arch>.tar.gz
+```
+
+To build from source you need Go 1.25 or later and a C compiler (the DuckDB driver uses cgo):
 
 ```sh
 go build -o bin/jb ./cmd/jb
@@ -135,7 +142,7 @@ Each component, its options and its limits: [docs/COMPONENTS.md](docs/COMPONENTS
 
 ## Status
 
-Pre-1.0 and private. The releases are listed in [CHANGELOG.md](CHANGELOG.md). Before 1.0 there is no backward compatibility: the Go API, the flags and the file formats may change between minor versions. `jb` takes no new command, port, file format or config key before 1.0, except in `jb serve` ([the feature freeze](.github/CONTRIBUTING.md#feature-freeze-the-stable-core)). 1.0 is reached by criteria, not a date ([RFC 0018](docs/rfcs/0018-stability-policy.md)).
+Pre-1.0. The releases are listed in [CHANGELOG.md](CHANGELOG.md). Before 1.0 there is no backward compatibility: the Go API, the flags and the file formats may change between minor versions. `jb` takes no new command, port, file format or config key before 1.0, except in `jb serve` ([the feature freeze](.github/CONTRIBUTING.md#feature-freeze-the-stable-core)). 1.0 is reached by criteria, not a date ([RFC 0018](docs/rfcs/0018-stability-policy.md)).
 
 What it is not:
 
