@@ -74,11 +74,13 @@ and builds `<logql>` as `{name="value",...}` followed by one `|= "text"` per `co
 
 ### Paging
 
-One request returns at most `page_size` entries. When a page holds exactly `page_size` entries, the next request sets `start` to the greatest timestamp it has seen. That entry is returned again, and the source drops it by its document key. If a whole page has the same timestamp as `start`, the cursor cannot advance. The fetch then yields an error and stops. It does not loop and it does not skip. This rule is the part that Open question 3 can still change.
+One request returns at most `page_size` entries. A page is the earliest `page_size` entries across all matching streams, grouped by stream: inside one stream the entries are in time order, but the streams follow each other in the result, so the flattened page is not in time order (measured, see Conformance). The source sorts each page by timestamp before it yields.
+
+When a page holds exactly `page_size` entries, the next request sets `start` to the greatest timestamp in the page. That entry, and any other with the same timestamp, is returned again, and the source drops it by its document key. If a whole page has the same timestamp as `start`, the cursor cannot advance. The fetch then yields an error that names the timestamp and the `page_size`, and stops. It does not loop and it does not skip. A timestamp with more entries than `page_size` therefore needs a larger `page_size`, up to the server's cap.
 
 ### Document identity
 
-Loki gives an entry no id. The source sets `Event.DocKey` to `loki:` plus the SHA-256 of the stream's labels (sorted by name), the nanosecond timestamp and the line. Two entries with the same labels, timestamp and line are one document. That is a stated limit, and it matches how identity is used in the store: it decides what counts once.
+Loki gives an entry no id. The source sets `Event.DocKey` to `loki:` plus the SHA-256 of the stream's labels (sorted by name), the nanosecond timestamp and the line. Two entries with the same labels, timestamp and line are one document. Loki also returns such entries once (measured), so the key loses nothing that Loki itself kept.
 
 ### The raw document and the event
 
@@ -101,8 +103,8 @@ In this RFC a Loki source is refused by `empty_is_quiet` and by a `newkey` `hist
 | Condition | Result |
 |---|---|
 | Connection error, timeout (120 s, as the Kibana client), 401, 403, 429, 5xx | `core.ErrSourceUnavailable`. The message has the status code and no response body. |
-| 400 | `core.ErrSourceUnavailable` with "loki refused the request; check page_size and selector". No body. |
-| 2xx with a content type that is not JSON, or a body that is not the `streams` shape | `core.ErrSourceUnavailable`. This is what an expired Grafana login returns: an HTML page with a 200 or a redirect. |
+| 400 | `core.ErrSourceUnavailable` with "loki refused the request; check page_size and selector". No body. Loki answers 400 with a plain-text reason, for example when `limit` is above the server's cap or the query does not parse. |
+| 2xx with a content type that is not JSON, or a body that is not the `streams` shape | `core.ErrSourceUnavailable`. A guard: the local run saw a JSON 401 for a missing or wrong token, not an HTML login page, but a proxy or SSO gateway in front of Grafana can return one. |
 | A redirect | Not followed. `core.ErrSourceUnavailable`. |
 | `resultType` other than `streams` | Unavailable. |
 | One entry that the mapper cannot parse | Counted in `Stats.Unparsable`, as for Kibana. |
@@ -150,7 +152,7 @@ Additive. A config without `type: loki` is unchanged. An older `jb` that reads a
 - **Passive and read-only.** One `GET` route, to the operator's own URL. This is inward-facing: it is not third-party reconnaissance, so [docs/POLICY.md](../POLICY.md) is not the rule that applies. The URL comes from the case file, so a case from an untrusted source could point `jb` at an internal host. The Kibana source has the same exposure, and the same answer: the operator reads the config.
 - **Redirects.** Not followed. An SSO redirect cannot send the token to another host.
 - **Plain HTTP.** A token over `http://` to a non-loopback host is refused at load time.
-- **The token's rights.** `jb` sends only `GET query_range`, but the token is a Grafana credential. A service account token can call routes that `jb` never uses, and the data source proxy forwards whatever the data source accepts. Grafana's page says some endpoints need specific permissions and does not say which. The operator SHOULD use a token that can only read the one data source. `jb` cannot enforce this. The minimum rights are Open question 6.
+- **The token's rights.** `jb` sends only `GET query_range`, but the token is a Grafana credential, and the data source proxy forwards what the data source accepts. In the local run (Grafana 12.1.0, Loki 3.5.0) a service account with the `Viewer` role sent `POST /loki/api/v1/push` through the proxy and got `204`: a read-only Grafana role did not make the proxy read-only. `jb` cannot enforce this. The operator SHOULD NOT treat a `Viewer` token as read-only, and SHOULD reach Loki through a gateway that allows only `GET` on the query routes. The docs should say so in the first screen of the Loki page. Per-data-source permissions were not tested (Open question 6).
 - **Log content is untrusted.** Lines go to mappers and into `Raw`. The dashboard's strict CSP and the rule against raw HTML apply as for every source. The 120 s timeout and the page limit bound a hostile server.
 - **No secrets in output.** The token is redacted in `String()` and `%+v`, absent from errors, and covered by the redaction test that the Kibana client has.
 
@@ -167,7 +169,26 @@ All of these are proposed. None exists.
 - Config tests: unknown key, bad selector name, `empty_is_quiet` and `history` refusals, `http://` to a non-loopback host.
 - The config-key golden and the docs schema are updated and read.
 
-Before acceptance, one run against a real Loki behind a real Grafana, on synthetic data, settles Open questions 1 to 4.
+### Findings from a local run, 2026-11-09
+
+Grafana 12.1.0 and Loki 3.5.0 in containers on loopback, a `Viewer` service account token, synthetic entries only (6000 in two interleaved streams, 50 with one timestamp, 4 identical). The run was torn down afterwards.
+
+| Question | Observed |
+|---|---|
+| Does `<proxy>/loki/api/v1/query_range` work? | Yes: `200`, `application/json`, `resultType` `streams`. The same query direct to Loki returned the same entries. |
+| Page size ceiling | `limit` 5000 returned 5000 entries. 5001, 6000 and 10000 returned `400`, `text/plain`: `max entries limit per query exceeded, limit > max_entries_limit_per_query (5001 > 5000)`. The cap is a server setting, so 5000 is Loki's default, not a constant. |
+| Order across streams, `direction=forward`, `limit=100` | The page was the 100 earliest entries across both streams (50 from each), returned as one list per stream. Flattened, it is not in time order. `direction=backward` gave the 100 latest the same way. |
+| Cursor by greatest timestamp | 61 pages of 100 gave 6060 entries, 6000 unique, 0 missing. The 60 extra are the repeated boundary entries. |
+| Entries with one timestamp | `limit=10` on 50 entries with one timestamp returned 10 entries with 1 distinct timestamp: a cursor on that timestamp cannot advance. `limit=100` returned all 50. |
+| Identical entries | 4 identical entries (same stream, timestamp, line) pushed in 3 requests came back as 1. |
+| Window bounds | `start` is inclusive and `end` exclusive: an entry at `t0` is found with `start=t0`, and not with `end=t0`. |
+| Missing or wrong token | `401`, `application/json`, no redirect. |
+| Bad selector | `400`, `text/plain`: a parse error with line and column. |
+| A write through the proxy | `POST /loki/api/v1/push` with the `Viewer` token returned `204`. |
+
+Not tested: other Grafana or Loki versions, multi-tenant Loki (`X-Scope-OrgID`), basic auth, Grafana Cloud, an SSO gateway, per-data-source permissions. The probe script is not in the repository.
+
+Before acceptance, repeat the run on the versions the maintainer runs.
 
 ## Reference implementations
 
@@ -181,12 +202,12 @@ Proposed:
 
 ## Open questions
 
-1. **The proxy path.** Does `<proxy>/loki/api/v1/query_range` work on a real Grafana? The docs list the proxy and do not name Loki on it. Decides: the maintainer, after a run on a local Grafana and Loki with synthetic data.
-2. **The page size ceiling.** The Loki page gives a default of 100 and no maximum. What does a server answer when `limit` is above its own cap, and is 5000 a safe bound? Decides: the maintainer, after the same run.
-3. **Order across streams.** With `direction=forward`, are entries from several streams merged in time order inside one page? If not, "the greatest timestamp seen" can skip entries, and the cursor needs the smallest of the streams' last timestamps. Decides: the maintainer, after the same run.
-4. **Identical entries.** Does Loki keep two entries with equal labels, timestamp and line? If it drops one at ingest, the document key loses nothing.
+1. **The proxy path.** Answered 2026-11-09 on Grafana 12.1.0 and Loki 3.5.0: it works (Conformance, findings). Open only for other versions.
+2. **The page size ceiling.** Answered: the cap is a server setting (`max_entries_limit_per_query`, 5000 by default), and a larger `limit` gets a `400` with a plain-text reason. The 5000 upper bound of `page_size` is Loki's default, so a server with a lower cap makes the source unavailable until `page_size` is lowered.
+3. **Order across streams.** Answered: a page is the earliest entries across streams, grouped by stream, so the cursor by greatest timestamp skips nothing. The source sorts each page.
+4. **Identical entries.** Answered: Loki returns them once, so the document key loses nothing.
 5. **In-tree source or a source protocol.** Add `loki` to `internal/adapters`, as `kibana` is, or define a source plugin protocol first and ship Loki as its first plugin. The second matches the extension argument of RFC 0002 and costs a protocol. Decides: the maintainer.
-6. **Token rights and other auth.** Which Grafana role and permission is the minimum for the proxy route? Grafana Cloud and some Loki setups use basic auth. Is `/api/ds/query` the better route for them? Decides: the maintainer.
+6. **Token rights and other auth.** A `Viewer` token can write through the proxy (measured). Do per-data-source permissions close that, and which role is the minimum for reads? Grafana Cloud and some Loki setups use basic auth. Is `/api/ds/query` the better route for them? Decides: the maintainer.
 7. **Counting.** Could `history` and `empty_is_quiet` come from `count_over_time` in a later RFC? Decides: the maintainer, after this one is built.
 8. **Mapper input.** Do the shipped mappers read exactly `@timestamp` and `message`, and does `nginx_ingress` accept a bare line there? Settled by reading `internal/adapters/kibana/mappers.go` and running the corpus, before acceptance.
 9. **The name.** `loki` or `grafana`. This RFC proposes `loki`. Decides: the maintainer.
@@ -195,3 +216,4 @@ Proposed:
 ## Changes
 
 - 2026-11-09: first draft. Not accepted.
+- 2026-11-09: Open questions 1 to 4 answered by a local run; paging, identity, error and security text changed to match. A `Viewer` token wrote through the proxy.
